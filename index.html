@@ -278,6 +278,11 @@ async function init(){
   const enc = window.AB_DATA_ENC;
   if (!enc) return showNoData();
   if (!(window.crypto && crypto.subtle)) return app.replaceChildren(h('div', {class: 'nodata', text: '이 환경에서는 암호를 풀 수 없습니다. https 주소 또는 로컬 파일로 열어야 합니다.'}));
+  const m = /(?:^#|[#&])k=([^&]+)/.exec(location.hash);          // 공유 링크: …/#k=비밀번호 → 입력 없이 바로 열림 (# 뒤는 서버로 가지 않음)
+  if (m){
+    try { const pass = decodeURIComponent(m[1]); const data = await decryptData(enc, pass); store.set('pass', pass); return boot(data, true); }
+    catch (e) { /* 링크의 비밀번호가 틀리면 입력 화면으로 */ }
+  }
   const saved = store.get('pass', null);
   if (saved){ try { return boot(await decryptData(enc, saved), true); } catch (e) { store.set('pass', null); } }
   showUnlock(enc);
@@ -286,8 +291,18 @@ async function init(){
 function boot(DATA, unlocked){
 app.replaceChildren();
 if (unlocked && !$('#lock')){
-  $('.top .right').append(h('button', {class: 'iconbtn', id: 'lock', type: 'button', text: '잠금', title: '기억한 비밀번호를 지우고 잠급니다',
-    onclick: () => { store.set('pass', null); location.reload(); }}));
+  const pass = store.get('pass', null);
+  if (pass && navigator.clipboard){
+    $('.top .right').append(h('button', {class: 'iconbtn', id: 'share', type: 'button', text: '공유 링크 복사',
+      title: '비밀번호가 포함된 링크를 복사합니다. 이 링크를 받은 사람은 입력 없이 바로 볼 수 있습니다.',
+      onclick: async ev => {
+        const url = location.origin + location.pathname + location.search + '#k=' + encodeURIComponent(pass);
+        try { await navigator.clipboard.writeText(url); ev.currentTarget.textContent = '복사됨'; setTimeout(() => { const b = $('#share'); if (b) b.textContent = '공유 링크 복사'; }, 1500); }
+        catch (e) { window.prompt('아래 링크를 복사하세요', url); }
+      }}));
+  }
+  $('.top .right').append(h('button', {class: 'iconbtn', id: 'lock', type: 'button', text: '잠금', title: '이 브라우저에 기억한 비밀번호를 지우고 잠급니다',
+    onclick: () => { store.set('pass', null); history.replaceState(null, '', location.pathname + location.search); location.reload(); }}));
 }
 
 /* ── 상태 ── */
