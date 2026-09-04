@@ -7,29 +7,29 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* ── 토큰: 다크 기본(AppsFlyer 톤) · 라이트는 [data-theme=light] ── */
+/* ── 토큰: 라이트 기본(팀장님 지정) · 다크는 [data-theme=dark] (우상단 버튼, 그 화면에서만) ── */
 :root{
-  color-scheme:dark;
-  --bg:#14161b; --card:#1c1f26; --card-2:#22262e; --line:#2c313b; --line-soft:#252932;
-  --ink:#e6e9ef; --ink-2:#aab2bf; --ink-3:#7c8594;
-  --accent:#4f8ef7; --accent-ink:#ffffff;
-  --a:#3987e5; --b:#d9761c;               /* 군 색 — validate_palette.js 통과(다크 표면 #1c1f26) */
-  --ret-rgb:57,135,229; --arpu-rgb:25,158,112; --cell-alpha:0.85;
-  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
-  --chip:#22262e; --chip-on:#2b3f5e; --chip-on-ink:#dce8ff;
-  --shadow:0 1px 0 rgba(0,0,0,.35);
-  --font:"IBM Plex Sans",-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
-  --mono:"IBM Plex Mono",Consolas,"Malgun Gothic",monospace;
-}
-:root[data-theme="light"]{
   color-scheme:light;
   --bg:#f3f4f7; --card:#ffffff; --card-2:#f6f7fa; --line:#dfe3ea; --line-soft:#eceef3;
   --ink:#171a20; --ink-2:#4a5160; --ink-3:#7b8494;
   --accent:#2a78d6; --accent-ink:#ffffff;
-  --a:#2a78d6; --b:#d97a12;               /* 라이트 표면 #ffffff 통과값 */
+  --a:#2a78d6; --b:#d97a12;               /* 군 색 — validate_palette.js 통과(라이트 표면 #ffffff) */
   --ret-rgb:42,120,214; --arpu-rgb:27,175,122; --cell-alpha:0.45;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
   --chip:#eef0f4; --chip-on:#dbe8fb; --chip-on-ink:#1b4f9c;
   --shadow:0 1px 2px rgba(20,26,40,.08);
+  --font:"IBM Plex Sans",-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --mono:"IBM Plex Mono",Consolas,"Malgun Gothic",monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#14161b; --card:#1c1f26; --card-2:#22262e; --line:#2c313b; --line-soft:#252932;
+  --ink:#e6e9ef; --ink-2:#aab2bf; --ink-3:#7c8594;
+  --accent:#4f8ef7; --accent-ink:#ffffff;
+  --a:#3987e5; --b:#d9761c;               /* 다크 표면 #1c1f26 통과값 */
+  --ret-rgb:57,135,229; --arpu-rgb:25,158,112; --cell-alpha:0.85;
+  --chip:#22262e; --chip-on:#2b3f5e; --chip-on-ink:#dce8ff;
+  --shadow:0 1px 0 rgba(0,0,0,.35);
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font)}
@@ -229,14 +229,15 @@ const store = {
 /* ── 테마 ── */
 const root = document.documentElement;
 function applyTheme(t){
-  if (t === 'light') root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
-  $('#theme').textContent = t === 'light' ? '다크' : '라이트';
-  store.set('theme', t);
+  // 기본은 항상 라이트. 다크는 이 화면에서만 유지되고 다음에 열면 다시 라이트다 (저장하지 않음).
+  if (t === 'dark') root.setAttribute('data-theme', 'dark'); else root.removeAttribute('data-theme');
+  $('#theme').textContent = t === 'dark' ? '라이트' : '다크';
 }
-const qs = new URLSearchParams(location.search);          // ?theme=light&game=sf&os=ios 로 초기 상태 지정 가능
-applyTheme(qs.get('theme') || store.get('theme', 'dark'));
+const qs = new URLSearchParams(location.search);          // ?theme=dark&game=sf&os=ios 로 초기 상태 지정 가능
+try { localStorage.removeItem('abboard:theme'); } catch (e) {}   // 예전 버전이 저장해 둔 테마는 무시
+applyTheme(qs.get('theme') === 'dark' ? 'dark' : 'light');
 let rerender = () => {};
-$('#theme').addEventListener('click', () => { applyTheme(root.getAttribute('data-theme') === 'light' ? 'dark' : 'light'); rerender(); });
+$('#theme').addEventListener('click', () => { applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); rerender(); });
 const app = $('#app');
 
 /* ── 데이터 준비: data.js(평문) → data.enc.js(암호문, 공개 URL 배포용) → 없음 ── */
