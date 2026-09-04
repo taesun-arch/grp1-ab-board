@@ -181,6 +181,35 @@ details.defs dd.red{color:var(--ink);border-left:3px solid var(--crit);padding-l
 .exp-sum b{color:var(--ink);font-weight:600}
 .exp-sum .sep{color:var(--ink-3);margin:0 2px}
 @media (prefers-reduced-motion:no-preference){.tab,.seg button,.pill{transition:background-color .12s,color .12s}}
+
+/* ── 모바일 (≤720px): 헤더 고정 해제 · 여백 축소 · 필터 칩 줄바꿈 · 타일 2열 · 표는 날짜 열만 고정 ── */
+@media (max-width:720px){
+  .top{position:static;padding:10px 12px;gap:6px 12px}
+  .brand{min-width:0}
+  .brand h1{font-size:16px}
+  .tabs{margin-left:0;width:100%;overflow-x:auto;gap:2px}
+  .tab{white-space:nowrap;padding:6px 10px 7px}
+  .top .right{margin-left:0;width:100%;justify-content:space-between}
+  .filters,.status,.banners{padding-left:12px;padding-right:12px}
+  .filters{gap:8px}
+  .chip{flex-wrap:wrap;row-gap:6px;padding:6px 8px}
+  .chip .lbl,.preset,.seg button{white-space:nowrap}
+  main{padding:6px 12px 32px;gap:22px}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .tile{padding:10px 12px 9px;gap:5px}
+  .tile .val .n{font-size:19px}
+  .tile .diff{flex-wrap:wrap;gap:4px 8px}
+  .card-h{padding:10px 12px 8px}
+  .card-h .tools{margin-left:0;width:100%}
+  .chart-host{min-height:260px;padding:6px 4px 0 0}
+  .legend{padding:6px 12px 10px;gap:8px 16px}
+  .tbl th,.tbl td{padding:0 8px;height:32px}
+  .tbl .c-date{min-width:92px}
+  .tbl .c-grp,.tbl .c-n{position:static}
+  .tbl-foot{padding:8px 12px 10px;gap:6px 12px}
+  details.defs .body{grid-template-columns:1fr}
+  .files{columns:1}
+}
 </style>
 </head>
 <body>
@@ -489,7 +518,7 @@ function lineChart(host, spec){
     grid.append(h('svg:line', {x1: m.l, x2: W - m.r, y1: y, y2: y}));
     axis.append(h('svg:text', {x: m.l - 8, y: y + 4, 'text-anchor': 'end', text: spec.yfmt(v)}));
   }
-  const step = Math.max(1, Math.ceil(n / 10));
+  const step = Math.max(1, Math.ceil(n / Math.max(4, Math.floor(pw / 44))));   // 눈금 간격 ≥ 44px (좁은 화면에서 겹침 방지)
   const labeled = new Set();
   for (let i = 0; i < n; i += step) labeled.add(i);
   if (!labeled.has(n - 1)){                                   // 마지막 눈금은 항상 표시, 너무 가까운 직전 눈금은 뺀다
@@ -525,7 +554,7 @@ function lineChart(host, spec){
   const hoverDots = h('svg:g', {class: 'ser'});
   svg.append(xhair, hoverDots);
   const tip = h('div', {class: 'tip'});
-  const rect = h('svg:rect', {class: 'hover-rect', x: m.l - 12, y: m.t, width: pw + 24, height: ph});
+  const rect = h('svg:rect', {class: 'hover-rect', x: m.l - 12, y: m.t, width: pw + 24, height: ph, style: 'touch-action:pan-y'});
   rect.addEventListener('pointermove', ev => {
     const bb = svg.getBoundingClientRect(), sx = (ev.clientX - bb.left) * (W / bb.width);
     let best = 0, bd = Infinity;
@@ -612,6 +641,7 @@ function showCellTip(ev, lines){
   cellTip.style.left = x + 'px'; cellTip.style.top = y + 'px';
 }
 const hideCellTip = () => { cellTip.style.display = 'none'; };
+document.addEventListener('pointerdown', ev => { if (!ev.target.closest('td.cell')) hideCellTip(); });   // 터치: 다른 곳을 누르면 셀 툴팁 닫기
 function renderTableCard(kind, rows, g){
   const isRet = kind === 'ret', maxK = DATA.max_day || 28;
   let ks = [];
