@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Group 1 A/B 코호트 보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* ── 토큰: 다크 기본(AppsFlyer 톤) · 라이트는 [data-theme=light] ── */
+:root{
+  color-scheme:dark;
+  --bg:#14161b; --card:#1c1f26; --card-2:#22262e; --line:#2c313b; --line-soft:#252932;
+  --ink:#e6e9ef; --ink-2:#aab2bf; --ink-3:#7c8594;
+  --accent:#4f8ef7; --accent-ink:#ffffff;
+  --a:#3987e5; --b:#d9761c;               /* 군 색 — validate_palette.js 통과(다크 표면 #1c1f26) */
+  --ret-rgb:57,135,229; --arpu-rgb:25,158,112; --cell-alpha:0.85;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --chip:#22262e; --chip-on:#2b3f5e; --chip-on-ink:#dce8ff;
+  --shadow:0 1px 0 rgba(0,0,0,.35);
+  --font:"IBM Plex Sans",-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --mono:"IBM Plex Mono",Consolas,"Malgun Gothic",monospace;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f3f4f7; --card:#ffffff; --card-2:#f6f7fa; --line:#dfe3ea; --line-soft:#eceef3;
+  --ink:#171a20; --ink-2:#4a5160; --ink-3:#7b8494;
+  --accent:#2a78d6; --accent-ink:#ffffff;
+  --a:#2a78d6; --b:#d97a12;               /* 라이트 표면 #ffffff 통과값 */
+  --ret-rgb:42,120,214; --arpu-rgb:27,175,122; --cell-alpha:0.45;
+  --chip:#eef0f4; --chip-on:#dbe8fb; --chip-on-ink:#1b4f9c;
+  --shadow:0 1px 2px rgba(20,26,40,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono)}
+.muted{color:var(--ink-3)}
+.small{font-size:12px}
+
+/* ── 상단 ── */
+.top{display:flex;align-items:center;gap:20px;padding:12px 24px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:20;flex-wrap:wrap}
+.brand{display:flex;flex-direction:column;gap:1px;min-width:180px}
+.brand h1{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.brand .sub{font-size:11.5px;color:var(--ink-3);letter-spacing:.02em}
+.tabs{display:flex;gap:4px;margin-left:8px}
+.tab{background:transparent;border:0;border-bottom:2px solid transparent;padding:8px 14px 9px;color:var(--ink-2);display:flex;flex-direction:column;align-items:flex-start;gap:1px;border-radius:6px 6px 0 0}
+.tab:hover{background:var(--card-2);color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .t-name{font-weight:600;font-size:14px}
+.tab .t-exp{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:14px;color:var(--ink-3);font-size:12px}
+.iconbtn{background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:5px 10px;color:var(--ink-2);font-size:12px}
+.iconbtn:hover{color:var(--ink);border-color:var(--ink-3)}
+
+/* ── 필터 한 줄 ── */
+.filters{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:12px 24px 4px}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px 4px 10px;box-shadow:var(--shadow)}
+.chip .lbl{font-size:12px;color:var(--ink-3)}
+.chip input[type=date]{background:var(--chip);border:1px solid transparent;border-radius:5px;padding:3px 6px;font-size:12.5px;font-family:var(--mono);color:var(--ink)}
+.chip input[type=date]:hover{border-color:var(--line)}
+.seg{display:inline-flex;background:var(--chip);border-radius:6px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;border-radius:4px;padding:3px 10px;font-size:12.5px;color:var(--ink-2)}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink);font-weight:500}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+.preset{border:0;background:transparent;color:var(--accent);font-size:12px;padding:2px 6px;border-radius:4px}
+.preset:hover{background:var(--chip)}
+
+/* ── 상태 줄 ── */
+.status{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:10px 24px 2px;font-size:12.5px;color:var(--ink-2)}
+.status .k{color:var(--ink-3);margin-right:5px}
+.status .v{color:var(--ink);font-weight:500}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:1px 9px;font-size:12px;border:1px solid var(--line);color:var(--ink-2)}
+.pill.ok{border-color:transparent;background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--ink)}
+.pill.bad{border-color:transparent;background:color-mix(in srgb,var(--crit) 24%,transparent);color:var(--ink);font-weight:600}
+.banners{display:flex;flex-direction:column;gap:6px;padding:8px 24px 0}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-radius:8px;font-size:12.5px;border:1px solid var(--line);background:var(--card)}
+.banner .ic{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;color:#111}
+.banner.warn .ic{background:var(--warn)}
+.banner.crit{border-color:var(--crit)}
+.banner.crit .ic{background:var(--crit);color:#fff}
+
+/* ── 섹션 ── */
+main{padding:6px 24px 40px;display:flex;flex-direction:column;gap:28px}
+section.metric{display:flex;flex-direction:column;gap:12px}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin-top:10px}
+.sec-h h2{margin:0;font-size:15px;font-weight:600}
+.sec-h .def{font-size:12px;color:var(--ink-3)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px 11px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px}
+.tile .t-l{font-size:12.5px;font-weight:500;color:var(--ink)}
+.tile .t-s{font-size:11px;color:var(--ink-3);margin-top:-5px}
+.tile .vals{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
+.tile .val{display:flex;flex-direction:column;gap:0}
+.tile .val .g{font-size:11px;color:var(--ink-3);display:flex;align-items:center;gap:5px}
+.tile .val .n{font-size:22px;font-weight:600;letter-spacing:-.01em;line-height:1.15}
+.tile .val .d{font-size:11px;color:var(--ink-3)}
+.tile .diff{font-size:12px;color:var(--ink-2);border-top:1px solid var(--line-soft);padding-top:6px;display:flex;gap:8px;align-items:center}
+.tile .diff b{color:var(--ink);font-weight:600}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c)}
+.key{display:inline-block;width:14px;height:0;border-top:2px solid var(--c);vertical-align:middle}
+
+.grid2{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@media (min-width:1180px){.grid2{grid-template-columns:minmax(0,5fr) minmax(0,7fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);min-width:0;display:flex;flex-direction:column}
+.card-h{display:flex;align-items:center;gap:12px;padding:12px 16px 8px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+.card-h .title{display:flex;flex-direction:column;gap:1px}
+.card-h .title b{font-size:13.5px;font-weight:600}
+.card-h .title span{font-size:11.5px;color:var(--ink-3)}
+.card-h .tools{margin-left:auto;display:flex;align-items:center;gap:8px}
+.card-h select{background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:3px 6px;font-size:12px}
+.chart-host{position:relative;padding:8px 8px 0 4px;min-height:300px}
+.chart-host svg{display:block;width:100%;height:auto}
+.chart-host .grid line{stroke:var(--line-soft);stroke-width:1;shape-rendering:crispEdges}
+.chart-host .axis text{fill:var(--ink-3);font-size:11px;font-family:var(--font)}
+.chart-host .axis .ttl{fill:var(--ink-3);font-size:11px}
+.chart-host .ser path{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart-host .ser circle{stroke:var(--card);stroke-width:2}
+.chart-host .endlbl{fill:var(--ink-2);font-size:11px;font-variant-numeric:tabular-nums;font-family:var(--font)}
+.chart-host .xhair{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:none;pointer-events:none}
+.chart-host .hover-rect{fill:transparent;cursor:crosshair}
+.tip{position:absolute;pointer-events:none;background:var(--card-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.35);min-width:150px;z-index:5;display:none}
+.tip .t{color:var(--ink-3);margin-bottom:5px;font-family:var(--mono);font-size:11.5px}
+.tip .r{display:flex;align-items:center;gap:8px;padding:2px 0}
+.tip .r .k{width:14px;border-top:2px solid var(--c)}
+.tip .r b{font-weight:600;min-width:58px;text-align:right;font-variant-numeric:tabular-nums}
+.tip .r span{color:var(--ink-2)}
+.legend{display:flex;gap:18px;padding:6px 16px 12px;font-size:12.5px;color:var(--ink-2);flex-wrap:wrap}
+.legend label{display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.legend input{accent-color:var(--accent);margin:0}
+.legend .sw{display:inline-block;width:16px;border-top:2px solid var(--c)}
+.legend label.off{color:var(--ink-3)}
+.legend label.off .sw{border-top-style:dashed;opacity:.5}
+.empty{padding:40px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+
+/* ── 표 ── */
+.tbl-wrap{overflow:auto;max-height:560px;position:relative}
+table.tbl{border-collapse:separate;border-spacing:0;min-width:100%;font-size:12.5px}
+.tbl th,.tbl td{padding:0 10px;height:34px;white-space:nowrap;text-align:right;border-bottom:1px solid var(--line-soft);font-variant-numeric:tabular-nums}
+.tbl thead th{position:sticky;top:0;background:var(--card);z-index:3;color:var(--ink-2);font-weight:500;font-size:12px;height:40px;border-bottom:1px solid var(--line)}
+.tbl thead th .sub{display:block;font-size:10.5px;color:var(--ink-3);font-weight:400;margin-top:-2px}
+.tbl .c-date,.tbl .c-grp,.tbl .c-n{position:sticky;background:var(--card);z-index:2;text-align:left}
+.tbl thead .c-date,.tbl thead .c-grp,.tbl thead .c-n{z-index:4}
+.tbl .c-date{left:0;min-width:112px;font-family:var(--mono);font-size:12px}
+.tbl .c-grp{left:112px;min-width:56px}
+.tbl .c-n{left:168px;min-width:76px;text-align:right;color:var(--ink-2);border-right:1px solid var(--line)}
+.tbl tr.total td{font-weight:600;background:var(--card-2)}
+.tbl tr.total td.c-date,.tbl tr.total td.c-grp,.tbl tr.total td.c-n{background:var(--card-2)}
+.tbl tr.diffrow td{font-weight:400;color:var(--ink-2);font-size:11.5px;background:var(--card-2);border-bottom:2px solid var(--line)}
+.tbl tr.diffrow td.c-date,.tbl tr.diffrow td.c-grp,.tbl tr.diffrow td.c-n{background:var(--card-2)}
+.tbl td.cell{cursor:default;min-width:62px}
+.tbl td.cell:hover{outline:1px solid var(--ink-3);outline-offset:-1px}
+.tbl td.im{color:var(--ink-3)}
+.tbl tr.d-first td{border-top:1px solid var(--line-soft)}
+.gbadge{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.tbl-foot{padding:8px 16px 12px;font-size:11.5px;color:var(--ink-3);display:flex;gap:16px;flex-wrap:wrap}
+
+/* ── 정의 ── */
+details.defs{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 16px}
+details.defs summary{cursor:pointer;padding:12px 0;font-weight:600;font-size:13.5px;list-style:none;display:flex;align-items:center;gap:8px}
+details.defs summary::before{content:"▸";color:var(--ink-3);font-size:12px}
+details.defs[open] summary::before{content:"▾"}
+details.defs .body{padding:0 0 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px 22px;font-size:12.5px;color:var(--ink-2)}
+details.defs dt{color:var(--ink);font-weight:600;margin-bottom:2px}
+details.defs dd{margin:0 0 6px}
+details.defs dd.red{color:var(--ink);border-left:3px solid var(--crit);padding-left:8px}
+.files{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);columns:2;column-gap:24px}
+.nodata{margin:60px auto;max-width:720px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:24px 28px;line-height:1.7}
+.nodata code{background:var(--chip);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:12.5px}
+.unlock{max-width:420px;display:flex;flex-direction:column;gap:8px}
+.unlock .row{display:flex;gap:8px;margin-top:4px}
+.unlock .pw{flex:1;background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:14px;color:var(--ink)}
+.unlock .primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:6px;padding:7px 16px;font-weight:600}
+.unlock .err{color:var(--crit)}
+.unlock label{display:flex;align-items:center;gap:6px}
+.exp-sum{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2)}
+.exp-sum b{color:var(--ink);font-weight:600}
+.exp-sum .sep{color:var(--ink-3);margin:0 2px}
+@media (prefers-reduced-motion:no-preference){.tab,.seg button,.pill{transition:background-color .12s,color .12s}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>Group 1 A/B 코호트 보드</h1>
+    <span class="sub">GameForge 실험 · AppsFlyer raw in-app events · UTC 달력일</span>
+  </div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="게임"></nav>
+  <div class="right">
+    <span id="gen" class="mono"></span>
+    <button class="iconbtn" id="theme" type="button" aria-label="테마 전환">라이트</button>
+  </div>
+</header>
+<div id="app"></div>
+
+<script src="data.js"></script>
+<script src="data.enc.js"></script>
+<script>
+(function(){
+'use strict';
+const NS = 'http://www.w3.org/2000/svg';
+const $ = (s, r) => (r || document).querySelector(s);
+function h(tag, attrs, ...kids){
+  const el = tag.indexOf('svg:') === 0 ? document.createElementNS(NS, tag.slice(4)) : document.createElement(tag);
+  if (attrs) for (const k in attrs){
+    const v = attrs[k];
+    if (v === null || v === undefined || v === false) continue;
+    if (k === 'class') el.setAttribute('class', v);
+    else if (k === 'text') el.textContent = v;
+    else if (k === 'style') el.setAttribute('style', v);
+    else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)){
+    if (c === null || c === undefined || c === false) continue;
+    el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+const store = {
+  get(k, d){ try { const v = localStorage.getItem('abboard:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v){ try { localStorage.setItem('abboard:' + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ── 테마 ── */
+const root = document.documentElement;
+function applyTheme(t){
+  if (t === 'light') root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
+  $('#theme').textContent = t === 'light' ? '다크' : '라이트';
+  store.set('theme', t);
+}
+const qs = new URLSearchParams(location.search);          // ?theme=light&game=sf&os=ios 로 초기 상태 지정 가능
+applyTheme(qs.get('theme') || store.get('theme', 'dark'));
+let rerender = () => {};
+$('#theme').addEventListener('click', () => { applyTheme(root.getAttribute('data-theme') === 'light' ? 'dark' : 'light'); rerender(); });
+const app = $('#app');
+
+/* ── 데이터 준비: data.js(평문) → data.enc.js(암호문, 공개 URL 배포용) → 없음 ── */
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function decryptData(enc, pass){
+  const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name: 'PBKDF2', salt: b64(enc.salt), iterations: enc.iter, hash: 'SHA-256'}, km,
+    {name: 'AES-GCM', length: 256}, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({name: 'AES-GCM', iv: b64(enc.iv)}, key, b64(enc.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function showNoData(){
+  app.replaceChildren(h('div', {class: 'nodata'},
+    h('b', {text: 'data.js 가 없습니다.'}), h('br'),
+    '익스포트 폴더에 CSV 를 넣은 뒤 ', h('code', {text: 'AB 대시보드 갱신.cmd'}), ' (D:\\바이브자료\\통계\\AB test) 를 실행하거나, 이 폴더의 상위에서 ',
+    h('code', {text: 'python ab_dashboard.py'}), ' 를 실행하면 web\\data.js 가 만들어집니다.'));
+}
+function showUnlock(enc, err){
+  const input = h('input', {type: 'password', class: 'pw', placeholder: '비밀번호', autocomplete: 'current-password', 'aria-label': '비밀번호'});
+  const remember = h('input', {type: 'checkbox', checked: true});
+  const btn = h('button', {type: 'submit', class: 'primary', text: '열기'});
+  const form = h('form', {class: 'nodata unlock', onsubmit: async ev => {
+    ev.preventDefault(); btn.disabled = true;
+    try {
+      const data = await decryptData(enc, input.value);
+      if (remember.checked) store.set('pass', input.value);
+      boot(data, true);
+    } catch (e) { showUnlock(enc, '비밀번호가 맞지 않습니다.'); }
+  }},
+    h('b', {text: 'Group 1 A/B 코호트 보드'}),
+    h('div', {class: 'small ' + (err ? 'err' : 'muted'), text: err || '집계 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다.'}),
+    h('div', {class: 'row'}, input, btn),
+    h('label', {class: 'small muted'}, remember, ' 이 브라우저에 기억'));
+  app.replaceChildren(form); input.focus();
+}
+async function init(){
+  const plain = window.AB_DATA;
+  if (plain && plain.games && plain.games.length) return boot(plain, false);
+  const enc = window.AB_DATA_ENC;
+  if (!enc) return showNoData();
+  if (!(window.crypto && crypto.subtle)) return app.replaceChildren(h('div', {class: 'nodata', text: '이 환경에서는 암호를 풀 수 없습니다. https 주소 또는 로컬 파일로 열어야 합니다.'}));
+  const saved = store.get('pass', null);
+  if (saved){ try { return boot(await decryptData(enc, saved), true); } catch (e) { store.set('pass', null); } }
+  showUnlock(enc);
+}
+
+function boot(DATA, unlocked){
+app.replaceChildren();
+if (unlocked && !$('#lock')){
+  $('.top .right').append(h('button', {class: 'iconbtn', id: 'lock', type: 'button', text: '잠금', title: '기억한 비밀번호를 지우고 잠급니다',
+    onclick: () => { store.set('pass', null); location.reload(); }}));
+}
+
+/* ── 상태 ── */
+const GROUPS = ['A', 'B'];
+const KEY_RET = [1, 3, 7, 14, 28], KEY_ARPU = [0, 1, 3, 7, 14, 28];
+const state = {
+  game: qs.get('game') || store.get('game', DATA.games[0].key),
+  os: qs.get('os') || store.get('os', 'all'), rev: store.get('rev', 'total'), cols: store.get('cols', 'all'),
+  range: {},
+  chart: { ret: {mode: 'curve', k: 1, hidden: {}}, arpu: {mode: 'curve', k: 1, hidden: {}} }
+};
+if (!DATA.games.some(g => g.key === state.game)) state.game = DATA.games[0].key;
+const game = () => DATA.games.find(g => g.key === state.game);
+const rangeOf = g => state.range[g.key] || (state.range[g.key] = {from: g.start, to: g.end});
+
+/* ── 날짜·수식 ── */
+const toUTC = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+const daysBetween = (a, b) => Math.round((toUTC(b) - toUTC(a)) / 86400000);
+const addDays = (s, k) => new Date(toUTC(s) + k * 86400000).toISOString().slice(0, 10);
+const mmdd = s => s.slice(5);
+function erfc(x){
+  const z = Math.abs(x), t = 1 / (1 + 0.3275911 * z);
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z);
+  return 1 - (x >= 0 ? y : -y);
+}
+function ztest(x1, n1, x2, n2){
+  if (!n1 || !n2) return null;
+  const p1 = x1 / n1, p2 = x2 / n2, p = (x1 + x2) / (n1 + n2);
+  const se = Math.sqrt(p * (1 - p) * (1 / n1 + 1 / n2));
+  if (se === 0) return 1;
+  return erfc(Math.abs((p1 - p2) / se) / Math.SQRT2);
+}
+const fmtPct = v => v === null ? '—' : (v * 100).toFixed(1) + '%';
+const fmtUsd = (v, d) => v === null ? '—' : '$' + v.toFixed(d === undefined ? 4 : d);
+const fmtInt = n => Number(n).toLocaleString('en-US');
+const fmtPP = v => (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + 'pp';
+const fmtUsdDiff = v => (v >= 0 ? '+' : '−') + '$' + Math.abs(v).toFixed(4);
+const fmtP = p => p === null ? '' : (p < 0.001 ? 'p<0.001' : 'p ' + p.toFixed(2));
+
+/* ── 집계 (ab_dashboard.aggregate_* 와 같은 규칙) ── */
+function filteredRows(g){
+  const r = rangeOf(g);
+  return g.cohorts.filter(c => (state.os === 'all' || c.os === state.os) && c.d >= r.from && c.d <= r.to);
+}
+function agg(rows, g, kind, k, grp){
+  let num = 0, den = 0;
+  for (const c of rows){
+    if (c.g !== grp) continue;
+    if (daysBetween(c.d, g.stable) < k) continue;            // 미성숙 코호트는 분모 제외
+    den += c.n;
+    num += kind === 'ret' ? c.ret[k - 1] : c.iap[k] + (state.rev === 'total' && g.iaa_available ? c.iaa[k] : 0);
+  }
+  return {num, den, v: den ? num / den : null};
+}
+const fmtVal = (kind, v, d) => kind === 'ret' ? fmtPct(v) : fmtUsd(v, d);
+
+/* ── 탭 ── */
+function renderTabs(){
+  const nav = $('#tabs'); nav.replaceChildren();
+  for (const g of DATA.games){
+    nav.append(h('button', {class: 'tab', role: 'tab', type: 'button', 'aria-selected': String(g.key === state.game),
+      onclick: () => { state.game = g.key; store.set('game', g.key); render(); }},
+      h('span', {class: 't-name', text: g.name + (g.alias ? ' (' + g.alias + ')' : '')}),
+      h('span', {class: 't-exp', text: g.experiment})));
+  }
+  const gen = DATA.generated ? DATA.generated.replace('T', ' ').slice(0, 16) : '';
+  $('#gen').textContent = gen ? '데이터 생성 ' + gen : '';
+}
+
+/* ── 필터 ── */
+function seg(options, value, onpick, disabledNote){
+  const s = h('div', {class: 'seg', role: 'group'});
+  for (const o of options){
+    s.append(h('button', {type: 'button', 'aria-pressed': String(o.v === value), disabled: !!o.disabled, title: o.disabled ? disabledNote : null,
+      onclick: () => onpick(o.v), text: o.l}));
+  }
+  return s;
+}
+function renderFilters(){
+  const g = game(), r = rangeOf(g);
+  const from = h('input', {type: 'date', value: r.from, min: g.start, max: g.end});
+  const to = h('input', {type: 'date', value: r.to, min: g.start, max: g.end});
+  const apply = () => {
+    if (from.value && to.value && from.value <= to.value){ r.from = from.value; r.to = to.value; render(); }
+  };
+  from.addEventListener('change', apply); to.addEventListener('change', apply);
+  const preset = (label, n) => h('button', {class: 'preset', type: 'button', text: label, onclick: () => {
+    r.to = g.end; r.from = n ? (daysBetween(g.start, g.end) >= n - 1 ? addDays(g.end, -(n - 1)) : g.start) : g.start; render();
+  }});
+  const revNote = '광고 수익 파일이 없어 IAP 만 집계됩니다';
+  const revOpts = [{v: 'total', l: 'IAP+IAA', disabled: !g.iaa_available}, {v: 'iap', l: 'IAP만'}];
+  const revVal = g.iaa_available ? state.rev : 'iap';
+  return h('div', {class: 'filters'},
+    h('div', {class: 'chip'}, h('span', {class: 'lbl', text: '인스톨 날짜'}), from, h('span', {class: 'muted', text: '~'}), to,
+      preset('전체', 0), preset('최근 7일', 7), preset('최근 14일', 14)),
+    h('div', {class: 'chip'}, h('span', {class: 'lbl', text: 'OS'}),
+      seg([{v: 'all', l: '전체'}, {v: 'ios', l: 'iOS'}, {v: 'aos', l: 'Android'}], state.os, v => { state.os = v; store.set('os', v); render(); })),
+    h('div', {class: 'chip'}, h('span', {class: 'lbl', text: '매출'}),
+      seg(revOpts, revVal, v => { state.rev = v; store.set('rev', v); render(); }, revNote),
+      g.iaa_available ? null : h('span', {class: 'small muted', text: '광고 파일 없음'})),
+    h('div', {class: 'chip'}, h('span', {class: 'lbl', text: '표 열'}),
+      seg([{v: 'all', l: 'D1~D28 전체'}, {v: 'key', l: '주요 Dn'}], state.cols, v => { state.cols = v; store.set('cols', v); render(); })));
+}
+
+/* ── 상태 줄 · 경고 ── */
+function renderStatus(){
+  const g = game(), H = g.hygiene || {}, S = g.sample;
+  const kv = (k, v, cls) => h('span', null, h('span', {class: 'k', text: k}), h('span', {class: 'v ' + (cls || ''), text: v}));
+  const gc = H.group_changed || 0;
+  const excludeKr = H.exclude_kr === undefined ? g.exclude_kr : H.exclude_kr;
+  const gs = g.groups || {};
+  const summary = (gs.A || gs.B) ? h('span', {class: 'exp-sum'},
+    h('span', {class: 'dot', style: '--c:var(--a)'}), h('span', null, h('b', {text: 'A '}), gs.A || '—'),
+    h('span', {class: 'sep', text: '·'}),
+    h('span', {class: 'dot', style: '--c:var(--b)'}), h('span', null, h('b', {text: 'B '}), gs.B || '—')) : null;
+  const status = h('div', {class: 'status'},
+    kv('실험', g.experiment), summary,
+    kv('데이터 기간(UTC)', g.start + ' ~ ' + g.end),
+    kv('성숙 판정일', '≤ ' + g.stable + (g.stable_lag ? ' (마지막 ' + g.stable_lag + '일 절단)' : '')),
+    g.iaa_available ? kv('광고 수익 데이터', g.ad_end ? '~ ' + g.ad_end : '없음') : null,
+    kv('코호트 A', fmtInt(S.A.users) + ' (iOS ' + fmtInt(S.A.ios) + ' · Android ' + fmtInt(S.A.aos) + ')'),
+    kv('코호트 B', fmtInt(S.B.users) + ' (iOS ' + fmtInt(S.B.ios) + ' · Android ' + fmtInt(S.B.aos) + ')'),
+    h('span', {class: 'pill ' + (gc ? 'bad' : 'ok'), text: (gc ? '⚠ 군 변경 ' : '✓ 군 변경 ') + fmtInt(gc)}),
+    h('span', {class: 'pill', text: '기존유저 라벨 ' + fmtInt(H.legacy_labeled || 0)}),
+    h('span', {class: 'pill', text: '다음날 라벨 제외 ' + fmtInt(H.late_labeled || 0)}),
+    h('span', {class: 'pill', text: '배정 누락 ' + fmtInt(H.unlabeled_new || 0)}),
+    h('span', {class: 'pill', text: excludeKr ? 'KR 제외 ' + fmtInt(H.kr_users || 0) : 'KR 포함 (관측 ' + fmtInt(H.kr_seen === undefined ? H.kr_users || 0 : H.kr_seen) + ')'}));
+  const banners = h('div', {class: 'banners'});
+  for (const w of (g.warnings || [])){
+    const crit = /군이 바뀐|병합하지 않고/.test(w);
+    banners.append(h('div', {class: 'banner ' + (crit ? 'crit' : 'warn')}, h('span', {class: 'ic', text: '!'}), h('span', {text: w})));
+  }
+  for (const e of (DATA.errors || [])) banners.append(h('div', {class: 'banner crit'}, h('span', {class: 'ic', text: '!'}), h('span', {text: e})));
+  return [status, banners];
+}
+
+/* ── 타일 ── */
+function renderTiles(kind, rows, g){
+  const ks = kind === 'ret' ? KEY_RET : KEY_ARPU;
+  const wrap = h('div', {class: 'tiles'});
+  for (const k of ks){
+    const A = agg(rows, g, kind, k, 'A'), B = agg(rows, g, kind, k, 'B');
+    const both = A.v !== null && B.v !== null;
+    let diff = null;
+    if (both){
+      if (kind === 'ret'){ const p = ztest(A.num, A.den, B.num, B.den); diff = h('div', {class: 'diff'}, h('span', {text: 'B−A'}), h('b', {text: fmtPP(B.v - A.v)}), h('span', {class: 'muted', text: fmtP(p)})); }
+      else diff = h('div', {class: 'diff'}, h('span', {text: 'B−A'}), h('b', {text: fmtUsdDiff(B.v - A.v)}));
+    } else diff = h('div', {class: 'diff muted', text: '미성숙 — 인스톨+' + k + ' ≤ ' + mmdd(g.stable) + ' 인 코호트 없음'});
+    const val = (grp, X) => h('div', {class: 'val'},
+      h('span', {class: 'g'}, h('span', {class: 'dot', style: '--c:var(--' + grp.toLowerCase() + ')'}), grp + '군'),
+      h('span', {class: 'n', text: fmtVal(kind, X.v, 3)}),
+      h('span', {class: 'd num', text: X.den ? (kind === 'ret' ? fmtInt(X.num) + ' / ' + fmtInt(X.den) : 'n ' + fmtInt(X.den)) : '분모 0'}));
+    wrap.append(h('div', {class: 'tile'},
+      h('div', {class: 't-l', text: (kind === 'ret' ? '리텐션 D' : '누적 ARPU D') + k}),
+      h('div', {class: 't-s', text: kind === 'ret' ? '인스톨 +' + k + '일 접속' : '인스톨 +0~' + k + '일 ' + (state.rev === 'total' && g.iaa_available ? 'IAP+IAA' : 'IAP')}),
+      h('div', {class: 'vals'}, val('A', A), val('B', B)), diff));
+  }
+  return wrap;
+}
+
+/* ── 라인 차트 (자체 SVG) ── */
+function niceMax(v){
+  if (!(v > 0)) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p;
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(s => f <= s) || 10;
+  return step * p;
+}
+function lineChart(host, spec){
+  host.replaceChildren();
+  const W = Math.max(320, host.clientWidth - 12), H = 300, m = {t: 18, r: 64, b: 36, l: 54};
+  const pw = W - m.l - m.r, ph = H - m.t - m.b, n = spec.xs.length;
+  const vis = spec.series.filter(s => !spec.hidden[s.key]);
+  const all = [];
+  for (const s of vis) for (const p of s.values) if (p && p.v !== null) all.push(p.v);
+  if (!n || !all.length){ host.append(h('div', {class: 'empty', text: spec.emptyText || '선택한 범위에 성숙한 코호트가 없습니다.'})); return; }
+  let yMax = niceMax(Math.max(...all) * 1.15); if (spec.pct && yMax > 1) yMax = 1;
+  const xPos = i => m.l + (n === 1 ? pw / 2 : i * pw / (n - 1));
+  const yPos = v => m.t + ph - (v / yMax) * ph;
+  const svg = h('svg:svg', {viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img', 'aria-label': spec.aria || ''});
+  const grid = h('svg:g', {class: 'grid'}), axis = h('svg:g', {class: 'axis'});
+  for (let i = 0; i <= 4; i++){
+    const v = yMax * i / 4, y = yPos(v);
+    grid.append(h('svg:line', {x1: m.l, x2: W - m.r, y1: y, y2: y}));
+    axis.append(h('svg:text', {x: m.l - 8, y: y + 4, 'text-anchor': 'end', text: spec.yfmt(v)}));
+  }
+  const step = Math.max(1, Math.ceil(n / 10));
+  const labeled = new Set();
+  for (let i = 0; i < n; i += step) labeled.add(i);
+  if (!labeled.has(n - 1)){                                   // 마지막 눈금은 항상 표시, 너무 가까운 직전 눈금은 뺀다
+    const prev = Math.floor((n - 1) / step) * step;
+    if ((n - 1) - prev < step / 2) labeled.delete(prev);
+    labeled.add(n - 1);
+  }
+  for (const i of labeled) axis.append(h('svg:text', {x: xPos(i), y: H - m.b + 18, 'text-anchor': 'middle', text: spec.xs[i].label}));
+  axis.append(h('svg:text', {class: 'ttl', x: W - m.r, y: H - 4, 'text-anchor': 'end', text: spec.xTitle || ''}));
+  svg.append(grid, axis);
+  const endLabels = [];
+  for (const s of vis){
+    const gEl = h('svg:g', {class: 'ser', style: 'color:var(--' + s.key.toLowerCase() + ')'});
+    let d = '', pen = false, last = -1;
+    s.values.forEach((p, i) => {
+      if (!p || p.v === null){ pen = false; return; }
+      d += (pen ? 'L' : 'M') + xPos(i).toFixed(1) + ' ' + yPos(p.v).toFixed(1); pen = true; last = i;
+    });
+    gEl.append(h('svg:path', {d, stroke: 'currentColor'}));
+    if (last >= 0){
+      gEl.append(h('svg:circle', {cx: xPos(last), cy: yPos(s.values[last].v), r: 4, fill: 'currentColor'}));
+      endLabels.push({y: yPos(s.values[last].v), x: xPos(last) + 9, text: spec.yfmtLbl(s.values[last].v)});
+    }
+    if (n === 1) s.values.forEach((p, i) => { if (p && p.v !== null) gEl.append(h('svg:circle', {cx: xPos(i), cy: yPos(p.v), r: 4, fill: 'currentColor'})); });
+    svg.append(gEl);
+  }
+  if (endLabels.length === 2 && Math.abs(endLabels[0].y - endLabels[1].y) < 13){
+    const up = endLabels[0].y < endLabels[1].y ? endLabels[0] : endLabels[1], dn = up === endLabels[0] ? endLabels[1] : endLabels[0];
+    const mid = (up.y + dn.y) / 2; up.y = mid - 7; dn.y = mid + 7;
+  }
+  for (const l of endLabels) svg.append(h('svg:text', {class: 'endlbl', x: l.x, y: l.y + 4, text: l.text}));
+  const xhair = h('svg:line', {class: 'xhair', y1: m.t, y2: m.t + ph, x1: 0, x2: 0, visibility: 'hidden'});
+  const hoverDots = h('svg:g', {class: 'ser'});
+  svg.append(xhair, hoverDots);
+  const tip = h('div', {class: 'tip'});
+  const rect = h('svg:rect', {class: 'hover-rect', x: m.l - 12, y: m.t, width: pw + 24, height: ph});
+  rect.addEventListener('pointermove', ev => {
+    const bb = svg.getBoundingClientRect(), sx = (ev.clientX - bb.left) * (W / bb.width);
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < n; i++){ const dd = Math.abs(xPos(i) - sx); if (dd < bd){ bd = dd; best = i; } }
+    xhair.setAttribute('x1', xPos(best)); xhair.setAttribute('x2', xPos(best)); xhair.setAttribute('visibility', 'visible');
+    hoverDots.replaceChildren(); tip.replaceChildren(h('div', {class: 't', text: spec.xs[best].full}));
+    let any = false;
+    for (const s of vis){
+      const p = s.values[best];
+      const row = h('div', {class: 'r'}, h('span', {class: 'k', style: '--c:var(--' + s.key.toLowerCase() + ')'}));
+      if (p && p.v !== null){
+        any = true;
+        hoverDots.append(h('svg:circle', {cx: xPos(best), cy: yPos(p.v), r: 4.5, fill: 'var(--' + s.key.toLowerCase() + ')'}));
+        row.append(h('b', {text: spec.yfmtLbl(p.v)}), h('span', {text: (s.short || s.label) + (p.meta ? ' · ' + p.meta : '')}));
+      } else row.append(h('b', {text: '—'}), h('span', {text: (s.short || s.label) + ' · 미성숙'}));
+      tip.append(row);
+    }
+    tip.style.display = 'block';
+    const hb = host.getBoundingClientRect();
+    let left = ev.clientX - hb.left + 14; const top = Math.max(4, ev.clientY - hb.top - 10);
+    if (left + tip.offsetWidth > host.clientWidth - 4) left = ev.clientX - hb.left - tip.offsetWidth - 14;
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    if (!any) tip.style.display = 'block';
+  });
+  rect.addEventListener('pointerleave', () => { xhair.setAttribute('visibility', 'hidden'); hoverDots.replaceChildren(); tip.style.display = 'none'; });
+  svg.append(rect);
+  host.append(svg, tip);
+}
+function legend(spec, onToggle){
+  const lg = h('div', {class: 'legend'});
+  for (const s of spec.series){
+    const off = !!spec.hidden[s.key];
+    const cb = h('input', {type: 'checkbox', checked: !off, onchange: () => onToggle(s.key)});
+    lg.append(h('label', {class: off ? 'off' : ''}, cb, h('span', {class: 'sw', style: '--c:var(--' + s.key.toLowerCase() + ')'}), h('span', {text: s.label})));
+  }
+  return lg;
+}
+const chartHosts = {};
+function renderChartCard(kind, rows, g){
+  const cs = state.chart[kind], isRet = kind === 'ret';
+  const maxK = DATA.max_day || 28, ks = isRet ? [] : [0];
+  for (let k = 1; k <= maxK; k++) ks.push(k);
+  const yfmt = isRet ? v => Math.round(v * 100) + '%' : v => '$' + (v >= 1 ? v.toFixed(2) : v.toFixed(3));
+  const yfmtLbl = isRet ? fmtPct : v => fmtUsd(v, 3);
+  const revLbl = state.rev === 'total' && g.iaa_available ? 'IAP+IAA' : 'IAP';
+  const gl = grp => grp + '군' + (g.groups && g.groups[grp] ? ' · ' + g.groups[grp] : '');
+  let spec;
+  if (cs.mode === 'curve'){
+    spec = {xs: ks.map(k => ({label: 'D' + k, full: 'D' + k + ' · 인스톨 +' + k + '일'})), xTitle: '인스톨 후 경과일', pct: isRet,
+      series: GROUPS.map(grp => ({key: grp, label: gl(grp), short: grp + '군', values: ks.map(k => { const X = agg(rows, g, kind, k, grp); return {v: X.v, meta: X.den ? (isRet ? fmtInt(X.num) + '/' + fmtInt(X.den) : 'n ' + fmtInt(X.den)) : ''}; })}))};
+  } else {
+    const k = Math.min(cs.k, maxK), dates = [...new Set(rows.map(c => c.d))].sort();
+    spec = {xs: dates.map(d => ({label: mmdd(d), full: d + ' 인스톨 코호트 · D' + k})), xTitle: '인스톨 날짜 (UTC)', pct: isRet,
+      series: GROUPS.map(grp => ({key: grp, label: gl(grp), short: grp + '군', values: dates.map(d => { const X = agg(rows.filter(c => c.d === d), g, kind, k, grp); return {v: X.v, meta: X.den ? (isRet ? fmtInt(X.num) + '/' + fmtInt(X.den) : 'n ' + fmtInt(X.den)) : ''}; })}))};
+  }
+  spec.yfmt = yfmt; spec.yfmtLbl = yfmtLbl; spec.hidden = cs.hidden;
+  spec.aria = (isRet ? '리텐션' : '누적 ARPU') + ' A/B 라인 차트';
+  const host = h('div', {class: 'chart-host'});
+  const modeSeg = seg([{v: 'curve', l: 'Dn 커브'}, {v: 'date', l: '인스톨 날짜별'}], cs.mode, v => { cs.mode = v; render(); });
+  const kSel = h('select', {'aria-label': 'Dn 선택', onchange: ev => { cs.k = +ev.target.value; render(); }});
+  for (const k of ks) kSel.append(h('option', {value: k, selected: k === cs.k, text: 'D' + k}));
+  const card = h('div', {class: 'card'},
+    h('div', {class: 'card-h'},
+      h('div', {class: 'title'}, h('b', {text: isRet ? (cs.mode === 'curve' ? '리텐션 커브' : '인스톨 날짜별 D' + cs.k + ' 리텐션') : (cs.mode === 'curve' ? '누적 ARPU 커브' : '인스톨 날짜별 D' + cs.k + ' 누적 ARPU')}),
+        h('span', {text: (isRet ? 'exp_daily_active 기준 · ' : revLbl + ' 유저당 누적 $ · ') + osLabel() + ' · 인스톨 ' + rangeOf(g).from + ' ~ ' + rangeOf(g).to
+          + (cs.mode === 'curve' ? ' · 각 Dn 은 그 날까지 성숙한 코호트만 (분모가 Dn 마다 다름 — 툴팁의 n 참고)' : ' · 미성숙 날짜는 그리지 않음')})),
+      h('div', {class: 'tools'}, modeSeg, cs.mode === 'date' ? kSel : null)),
+    host, legend(spec, key => { cs.hidden[key] = !cs.hidden[key]; render(); }));
+  chartHosts[kind] = {host, spec};
+  requestAnimationFrame(() => lineChart(host, spec));
+  return card;
+}
+const osLabel = () => state.os === 'all' ? '전체 OS' : state.os === 'ios' ? 'iOS' : 'Android';
+
+/* ── 코호트 표 ── */
+const cellTip = h('div', {class: 'tip', style: 'position:fixed'});
+document.body.append(cellTip);
+function showCellTip(ev, lines){
+  cellTip.replaceChildren(...lines.map((t, i) => h('div', {class: i ? 'r' : 't'}, i ? h('span', {text: t}) : t)));
+  cellTip.style.display = 'block';
+  let x = ev.clientX + 14, y = ev.clientY + 12;
+  if (x + cellTip.offsetWidth > window.innerWidth - 8) x = ev.clientX - cellTip.offsetWidth - 14;
+  if (y + cellTip.offsetHeight > window.innerHeight - 8) y = ev.clientY - cellTip.offsetHeight - 12;
+  cellTip.style.left = x + 'px'; cellTip.style.top = y + 'px';
+}
+const hideCellTip = () => { cellTip.style.display = 'none'; };
+function renderTableCard(kind, rows, g){
+  const isRet = kind === 'ret', maxK = DATA.max_day || 28;
+  let ks = [];
+  if (state.cols === 'key') ks = (isRet ? KEY_RET : KEY_ARPU).filter(k => k <= maxK);
+  else { if (!isRet) ks.push(0); for (let k = 1; k <= maxK; k++) ks.push(k); }
+  const rgb = isRet ? 'var(--ret-rgb)' : 'var(--arpu-rgb)';
+  const alphaMax = parseFloat(getComputedStyle(root).getPropertyValue('--cell-alpha')) || 0.8;
+  const dates = [...new Set(rows.map(c => c.d))].sort();
+  const revLbl = state.rev === 'total' && g.iaa_available ? 'IAP+IAA' : 'IAP';
+  // 셀 값 사전 계산 (음영 최대값용)
+  const cells = [];
+  const compute = (subset, grp) => ks.map(k => agg(subset, g, kind, k, grp));
+  const totals = {A: compute(rows, 'A'), B: compute(rows, 'B')};
+  const perDate = dates.map(d => { const sub = rows.filter(c => c.d === d); return {d, A: compute(sub, 'A'), B: compute(sub, 'B'), nA: sub.filter(c => c.g === 'A').reduce((s, c) => s + c.n, 0), nB: sub.filter(c => c.g === 'B').reduce((s, c) => s + c.n, 0)}; });
+  let vmax = 0;
+  for (const grp of GROUPS){ for (const X of totals[grp]) if (X.v !== null) vmax = Math.max(vmax, X.v); }
+  for (const r of perDate) for (const grp of GROUPS) for (const X of r[grp]) if (X.v !== null) vmax = Math.max(vmax, X.v);
+  const shade = v => { if (v === null || !vmax) return ''; const a = Math.max(0.04, Math.min(alphaMax, (v / vmax) * alphaMax)); return 'background:rgba(' + rgb + ',' + a.toFixed(3) + ')'; };
+  const cell = (X, k, ctx) => {
+    if (X.v === null) return h('td', {class: 'cell im', text: '—', onpointerenter: ev => showCellTip(ev, [ctx + ' · D' + k, '미성숙 — 인스톨+' + k + ' > ' + g.stable + ' (분모 0)']), onpointerleave: hideCellTip});
+    const lines = isRet ? [ctx + ' · D' + k, '잔존 ' + fmtInt(X.num) + ' / 분모 ' + fmtInt(X.den), fmtPct(X.v)]
+                        : [ctx + ' · D' + k, revLbl + ' 누적 $' + X.num.toFixed(2) + ' / 분모 ' + fmtInt(X.den), fmtUsd(X.v)];
+    return h('td', {class: 'cell', style: shade(X.v), text: fmtVal(kind, X.v), onpointerenter: ev => showCellTip(ev, lines), onpointerleave: hideCellTip});
+  };
+  const gb = grp => h('span', {class: 'gbadge'}, h('span', {class: 'dot', style: '--c:var(--' + grp.toLowerCase() + ')'}), grp);
+  const thead = h('thead', null, h('tr', null,
+    h('th', {class: 'c-date', text: '인스톨 날짜'}), h('th', {class: 'c-grp', text: '군'}),
+    h('th', {class: 'c-n'}, '유저', h('span', {class: 'sub', text: '코호트'})),
+    ...ks.map(k => h('th', null, 'D' + k, h('span', {class: 'sub', text: isRet ? '잔존율' : revLbl})))));
+  const tbody = h('tbody');
+  if (!dates.length){
+    tbody.append(h('tr', null, h('td', {colspan: 3 + ks.length, class: 'empty', text: '선택한 범위에 코호트가 없습니다.'})));
+  } else {
+    const nA = rows.filter(c => c.g === 'A').reduce((s, c) => s + c.n, 0), nB = rows.filter(c => c.g === 'B').reduce((s, c) => s + c.n, 0);
+    tbody.append(h('tr', {class: 'total'}, h('td', {class: 'c-date', text: 'Totals'}), h('td', {class: 'c-grp'}, gb('A')), h('td', {class: 'c-n', text: fmtInt(nA)}), ...ks.map((k, i) => cell(totals.A[i], k, 'Totals A'))));
+    tbody.append(h('tr', {class: 'total'}, h('td', {class: 'c-date', text: ''}), h('td', {class: 'c-grp'}, gb('B')), h('td', {class: 'c-n', text: fmtInt(nB)}), ...ks.map((k, i) => cell(totals.B[i], k, 'Totals B'))));
+    tbody.append(h('tr', {class: 'diffrow'}, h('td', {class: 'c-date', text: ''}), h('td', {class: 'c-grp', text: 'B−A'}), h('td', {class: 'c-n', text: isRet ? 'p값' : ''}),
+      ...ks.map((k, i) => {
+        const A = totals.A[i], B = totals.B[i];
+        if (A.v === null || B.v === null) return h('td', {class: 'im', text: '—'});
+        if (isRet){ const p = ztest(A.num, A.den, B.num, B.den); return h('td', {text: fmtPP(B.v - A.v) + ' · ' + fmtP(p).replace('p ', 'p=')}); }
+        return h('td', {text: fmtUsdDiff(B.v - A.v)});
+      })));
+    for (const r of perDate){
+      tbody.append(h('tr', {class: 'd-first'}, h('td', {class: 'c-date', rowspan: 2, text: r.d}), h('td', {class: 'c-grp'}, gb('A')), h('td', {class: 'c-n', text: fmtInt(r.nA)}), ...ks.map((k, i) => cell(r.A[i], k, r.d + ' A'))));
+      tbody.append(h('tr', null, h('td', {class: 'c-grp'}, gb('B')), h('td', {class: 'c-n', text: fmtInt(r.nB)}), ...ks.map((k, i) => cell(r.B[i], k, r.d + ' B'))));
+    }
+  }
+  return h('div', {class: 'card'},
+    h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: isRet ? '인스톨 날짜별 코호트 리텐션' : '인스톨 날짜별 코호트 누적 ARPU'}),
+      h('span', {text: osLabel() + ' · ' + (isRet ? 'Dn = 인스톨+n일 exp_daily_active 유저 / 코호트' : 'Dn = 인스톨+0~n일 ' + revLbl + ' 합 / 코호트')}))),
+    h('div', {class: 'tbl-wrap'}, h('table', {class: 'tbl'}, thead, tbody)),
+    h('div', {class: 'tbl-foot'}, h('span', {text: '— : 미성숙 (인스톨+n > ' + g.stable + ')'}), h('span', {text: '음영 = 값 크기 (표 안 최대값 대비)'}),
+      isRet ? h('span', {text: 'p값 = 2-비율 z 검정(풀드) 양측 · 판정 축은 D1·D7'}) : h('span', {text: '매출은 가드레일 — 판정 지표가 아님'})));
+}
+
+/* ── 정의 각주 ── */
+function renderDefs(g){
+  const excludeKr = (g.hygiene && g.hygiene.exclude_kr !== undefined) ? g.hygiene.exclude_kr : g.exclude_kr;
+  return h('details', {class: 'defs'},
+    h('summary', {text: '정의 · 주의 · 원본 파일'}),
+    h('div', {class: 'body'},
+      h('dl', null,
+        h('dt', {text: '코호트 (실험 대상자)'}),
+        h('dd', {text: 'exp_daily_active 로 군 라벨이 붙은 유저 · AppsFlyer 인스톨 ≥ ' + g.start + ' · 인스톨 당일에 라벨 · ' + (excludeKr ? 'KR 제외' : 'KR 포함') + ' · .dev. SKU 결제 제외. 라벨은 유저의 최초 group 값. 다음날 이후 라벨(업데이트 유입)은 D1이 정의상 100%라 제외한다.'}),
+        h('dt', {text: '리텐션 Dn'}),
+        h('dd', {text: '인스톨일 + n (UTC 달력일)에 exp_daily_active 가 있는 유저 / 코호트. 분모는 인스톨+n ≤ 성숙 판정일(' + g.stable + ')인 코호트만. 날짜범위·OS 필터는 잔존 수와 분모를 각각 합산한 뒤 나눈다.'}),
+        h('dt', {text: '누적 ARPU Dn'}),
+        h('dd', {text: '인스톨+0~n일의 IAP(af_purchase Event Revenue USD)' + (g.iaa_available ? ' + IAA(광고 수익 raw, AppsFlyer ID 조인)' : '') + ' 합 / 같은 분모. ' + (g.iaa_available ? '' : '이번 데이터에는 광고 수익 파일이 없어 IAA 가 빠져 있다 — 실제 ARPU 보다 낮다.')})),
+      h('dl', null,
+        h('dt', {text: '"접속"의 정의'}),
+        h('dd', {text: 'exp_daily_active = 로그인 + GameForge 첫 sync 완료 후 그날 1회 발행. 앱만 켜고 로그인 전에 끈 유저는 접속이 아니다. SDK 세션이 아니다.'}),
+        h('dt', {text: '절대값 대조 금지'}),
+        h('dd', {class: 'red', text: 'AppsFlyer 대시보드(설치 전원 · SDK 세션) · GameForge 콘솔(가입일 = 첫 sync)과 모집단·접속 정의가 모두 다르다. 이 보드는 군 간(A vs B) 비교 전용이며, 숫자를 다른 화면과 맞추려 하지 말 것.'}),
+        h('dt', {text: '판정'}),
+        h('dd', {text: '판정 축은 D1·D7 리텐션. 매출(ARPU)은 가드레일이며 판정 지표가 아니다(상대 20% 차이 탐지에 군당 2만 명대 필요). p값은 2-비율 z 검정(풀드) 양측.'})),
+      h('div', null, h('dt', {text: '원본 파일 (' + (g.files || []).length + ')'}), h('div', {class: 'files'}, ...(g.files || []).map(f => h('div', {text: f})))))
+  );
+}
+
+/* ── 전체 렌더 ── */
+function render(){
+  renderTabs();
+  const g = game(), rows = filteredRows(g);
+  const frag = document.createDocumentFragment();
+  frag.append(renderFilters(), ...renderStatus());
+  const main = h('main');
+  for (const kind of ['ret', 'arpu']){
+    main.append(h('section', {class: 'metric', id: kind},
+      h('div', {class: 'sec-h'}, h('h2', {text: kind === 'ret' ? '리텐션' : '누적 ARPU'}),
+        h('span', {class: 'def', text: kind === 'ret' ? '군별 · 인스톨 날짜별 D1~D' + (DATA.max_day || 28) : '군별 · 인스톨 날짜별 D0~D' + (DATA.max_day || 28) + ' 유저당 누적 매출'})),
+      renderTiles(kind, rows, g),
+      h('div', {class: 'grid2'}, renderChartCard(kind, rows, g), renderTableCard(kind, rows, g))));
+  }
+  main.append(renderDefs(g));
+  frag.append(main);
+  app.replaceChildren(frag);
+}
+let rto = null;
+window.addEventListener('resize', () => { clearTimeout(rto); rto = setTimeout(() => { for (const k in chartHosts){ const c = chartHosts[k]; if (c.host.isConnected) lineChart(c.host, c.spec); } }, 120); });
+rerender = render;
+render();
+}
+init();
+})();
+</script>
+</body>
+</html>
