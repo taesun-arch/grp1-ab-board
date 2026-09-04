@@ -555,7 +555,8 @@ function lineChart(host, spec){
   svg.append(xhair, hoverDots);
   const tip = h('div', {class: 'tip'});
   const rect = h('svg:rect', {class: 'hover-rect', x: m.l - 12, y: m.t, width: pw + 24, height: ph, style: 'touch-action:pan-y'});
-  rect.addEventListener('pointermove', ev => {
+  const hide = () => { xhair.setAttribute('visibility', 'hidden'); hoverDots.replaceChildren(); tip.style.display = 'none'; };
+  const update = ev => {
     const bb = svg.getBoundingClientRect(), sx = (ev.clientX - bb.left) * (W / bb.width);
     let best = 0, bd = Infinity;
     for (let i = 0; i < n; i++){ const dd = Math.abs(xPos(i) - sx); if (dd < bd){ bd = dd; best = i; } }
@@ -578,11 +579,18 @@ function lineChart(host, spec){
     if (left + tip.offsetWidth > host.clientWidth - 4) left = ev.clientX - hb.left - tip.offsetWidth - 14;
     tip.style.left = left + 'px'; tip.style.top = top + 'px';
     if (!any) tip.style.display = 'block';
-  });
-  rect.addEventListener('pointerleave', () => { xhair.setAttribute('visibility', 'hidden'); hoverDots.replaceChildren(); tip.style.display = 'none'; });
+  };
+  // 마우스: 따라다니다 벗어나면 닫힘. 터치: 탭/드래그로 띄우고 손가락을 떼도 유지, 그래프 밖을 터치하면 닫힘.
+  rect.addEventListener('pointermove', update);
+  rect.addEventListener('pointerdown', ev => { update(ev); if (ev.pointerType === 'touch') pinnedChart = {host, hide}; });
+  rect.addEventListener('pointerleave', ev => { if (ev.pointerType !== 'touch') hide(); });
   svg.append(rect);
   host.append(svg, tip);
 }
+let pinnedChart = null;                                    // 터치로 고정된 그래프 툴팁 (한 번에 하나)
+document.addEventListener('pointerdown', ev => {
+  if (pinnedChart && !pinnedChart.host.contains(ev.target)){ pinnedChart.hide(); pinnedChart = null; }
+});
 function legend(spec, onToggle){
   const lg = h('div', {class: 'legend'});
   for (const s of spec.series){
@@ -641,7 +649,9 @@ function showCellTip(ev, lines){
   cellTip.style.left = x + 'px'; cellTip.style.top = y + 'px';
 }
 const hideCellTip = () => { cellTip.style.display = 'none'; };
-document.addEventListener('pointerdown', ev => { if (!ev.target.closest('td.cell')) hideCellTip(); });   // 터치: 다른 곳을 누르면 셀 툴팁 닫기
+const leaveCellTip = ev => { if (ev.pointerType !== 'touch') hideCellTip(); };                            // 터치는 손가락을 떼도 유지
+document.addEventListener('pointerdown', ev => { if (!ev.target.closest('td.cell')) hideCellTip(); });   // 다른 곳을 누르면 닫기
+const cellEvents = lines => ({onpointerenter: ev => showCellTip(ev, lines), onpointerdown: ev => showCellTip(ev, lines), onpointerleave: leaveCellTip});
 function renderTableCard(kind, rows, g){
   const isRet = kind === 'ret', maxK = DATA.max_day || 28;
   let ks = [];
@@ -661,10 +671,10 @@ function renderTableCard(kind, rows, g){
   for (const r of perDate) for (const grp of GROUPS) for (const X of r[grp]) if (X.v !== null) vmax = Math.max(vmax, X.v);
   const shade = v => { if (v === null || !vmax) return ''; const a = Math.max(0.04, Math.min(alphaMax, (v / vmax) * alphaMax)); return 'background:rgba(' + rgb + ',' + a.toFixed(3) + ')'; };
   const cell = (X, k, ctx) => {
-    if (X.v === null) return h('td', {class: 'cell im', text: '—', onpointerenter: ev => showCellTip(ev, [ctx + ' · D' + k, '미성숙 — 인스톨+' + k + ' > ' + g.stable + ' (분모 0)']), onpointerleave: hideCellTip});
+    if (X.v === null) return h('td', {class: 'cell im', text: '—', ...cellEvents([ctx + ' · D' + k, '미성숙 — 인스톨+' + k + ' > ' + g.stable + ' (분모 0)'])});
     const lines = isRet ? [ctx + ' · D' + k, '잔존 ' + fmtInt(X.num) + ' / 분모 ' + fmtInt(X.den), fmtPct(X.v)]
                         : [ctx + ' · D' + k, revLbl + ' 누적 $' + X.num.toFixed(2) + ' / 분모 ' + fmtInt(X.den), fmtUsd(X.v)];
-    return h('td', {class: 'cell', style: shade(X.v), text: fmtVal(kind, X.v), onpointerenter: ev => showCellTip(ev, lines), onpointerleave: hideCellTip});
+    return h('td', {class: 'cell', style: shade(X.v), text: fmtVal(kind, X.v), ...cellEvents(lines)});
   };
   const gb = grp => h('span', {class: 'gbadge'}, h('span', {class: 'dot', style: '--c:var(--' + grp.toLowerCase() + ')'}), grp);
   const thead = h('thead', null, h('tr', null,
