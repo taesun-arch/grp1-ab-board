@@ -83,6 +83,8 @@ button{cursor:pointer}
 .banner.warn .ic{background:var(--warn)}
 .banner.crit{border-color:var(--crit)}
 .banner.crit .ic{background:var(--crit);color:#fff}
+.notes{padding:6px 24px 0;font-size:11.5px;color:var(--ink-3)}
+@media (max-width:720px){.notes{padding-left:12px;padding-right:12px}}
 
 /* ── 섹션 ── */
 main{padding:6px 24px 40px;display:flex;flex-direction:column;gap:28px}
@@ -466,7 +468,8 @@ function renderStatus(){
     banners.append(h('div', {class: 'banner ' + (crit ? 'crit' : 'warn')}, h('span', {class: 'ic', text: '!'}), h('span', {text: w})));
   }
   for (const e of (DATA.errors || [])) banners.append(h('div', {class: 'banner crit'}, h('span', {class: 'ic', text: '!'}), h('span', {text: e})));
-  return [status, banners];
+  const notes = (g.notes || []).length ? h('div', {class: 'notes', text: '파일 병합: ' + g.notes.join(' · ')}) : null;
+  return [status, banners, notes];
 }
 
 /* ── 타일 ── */
