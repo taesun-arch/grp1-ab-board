@@ -86,6 +86,17 @@ button{cursor:pointer}
 .notes{padding:6px 24px 0;font-size:11.5px;color:var(--ink-3)}
 @media (max-width:720px){.notes{padding-left:12px;padding-right:12px}}
 
+/* ── 지표 섹션 전환 바 ── */
+.secbar{display:flex;flex-wrap:wrap;gap:4px;padding:12px 24px 0}
+.secbar button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--ink-2)}
+.secbar button:hover{color:var(--ink);border-color:var(--ink-3)}
+.secbar button[aria-selected="true"]{background:var(--chip-on);color:var(--chip-on-ink);border-color:transparent;font-weight:500}
+.sec-ctl{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--ink-3)}
+.sec-ctl select{background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:3px 6px;font-size:12px;color:var(--ink)}
+.sec-h{flex-wrap:wrap}
+.tbl tr.failrow td.c-date{color:var(--ink)}
+@media (max-width:720px){.secbar{padding:10px 12px 0;overflow-x:auto;flex-wrap:nowrap}.secbar button{white-space:nowrap}.sec-ctl{margin-left:0;width:100%}}
+
 /* ── 섹션 ── */
 main{padding:6px 24px 40px;display:flex;flex-direction:column;gap:28px}
 section.metric{display:flex;flex-direction:column;gap:12px}
@@ -343,6 +354,8 @@ const KEY_RET = [1, 3, 7, 14, 28], KEY_ARPU = [0, 1, 3, 7, 14, 28];
 const state = {
   game: qs.get('game') || store.get('game', DATA.games[0].key),
   os: qs.get('os') || store.get('os', 'all'), rev: store.get('rev', 'total'), cols: store.get('cols', 'all'),
+  sec: qs.get('sec') || store.get('sec', 'all'),
+  win: Object.assign({funnel: 1, ads: 'all', pay: 1}, store.get('win', {})),
   range: {},
   chart: { ret: {mode: 'curve', k: 1, hidden: {}}, arpu: {mode: 'curve', k: 1, hidden: {}} }
 };
@@ -711,6 +724,267 @@ function renderTableCard(kind, rows, g){
       isRet ? h('span', {text: 'p값 = 2-비율 z 검정(풀드) 양측 · 판정 축은 D1·D7'}) : h('span', {text: '매출은 가드레일 — 판정 지표가 아님'})));
 }
 
+/* ══════════════════════ 추가 지표 (진행도 · 플레이 강도 · 광고 · 결제 · DAU) ══════════════════════ */
+const MARKS = [5, 10, 20, 30, 50, 100];
+const arrAt = (a, k) => (a && k >= 0 && k < a.length) ? a[k] : 0;
+const activeAt = (c, k) => k === 0 ? c.n : arrAt(c.ret, k - 1);                 // 인스톨 후 k일째 활성 유저 수
+const matureBy = (c, endDate, k) => !!endDate && daysBetween(c.d, endDate) >= k;
+const isFailPl = pl => /fail|restart/i.test(pl);
+const adImp = (c, k, pl) => { if (!c.adp) return 0; if (pl) return arrAt(c.adp[pl], k); let s = 0; for (const p in c.adp) s += arrAt(c.adp[p], k); return s; };
+// 하루(k일째) 값: 성숙한 행만 — num/den 합산
+function aggDay(rows, grp, k, endDate, numAt, denAt){
+  let num = 0, den = 0;
+  for (const c of rows){ if (c.g !== grp || !matureBy(c, endDate, k)) continue; num += numAt(c, k); den += denAt(c, k); }
+  return {num, den, v: den ? num / den : null};
+}
+// 창(0..K일) 값: K='all' 이면 행마다 성숙한 만큼 전부, 숫자면 K일까지 성숙한 행만 0..K 합산
+function aggWin(rows, grp, K, endDate, numAt, denAt){
+  let num = 0, den = 0;
+  for (const c of rows){
+    if (c.g !== grp || !endDate) continue;
+    const m = Math.min(daysBetween(c.d, endDate), (DATA.max_day || 28));
+    if (m < 0) continue;
+    if (K !== 'all' && m < K) continue;
+    const kmax = K === 'all' ? m : K;
+    for (let j = 0; j <= kmax; j++){ num += numAt(c, j); den += denAt(c, j); }
+  }
+  return {num, den, v: den ? num / den : null};
+}
+const fmt1 = v => v === null ? '—' : v.toFixed(1);
+const fmt2 = v => v === null ? '—' : v.toFixed(2);
+const winLabel = K => K === 'all' ? '관측 전체' : (K === 0 ? '인스톨 당일' : '인스톨 후 ' + K + '일까지');
+
+function winSelect(kind, opts, onchange){
+  const sel = h('select', {'aria-label': '집계 창', onchange: ev => { const v = ev.target.value; state.win[kind] = v === 'all' ? 'all' : +v; store.set('win', state.win); render(); }});
+  for (const o of opts) sel.append(h('option', {value: o, selected: String(o) === String(state.win[kind]), text: winLabel(o)}));
+  return sel;
+}
+function tileGeneric(label, sub, A, B, fmt, diffText, pv){
+  const val = (grp, X, extra) => h('div', {class: 'val'},
+    h('span', {class: 'g'}, h('span', {class: 'dot', style: '--c:var(--' + grp.toLowerCase() + ')'}), grp + '군'),
+    h('span', {class: 'n', text: fmt(X.v)}), h('span', {class: 'd num', text: extra}));
+  const both = A.v !== null && B.v !== null;
+  return h('div', {class: 'tile'}, h('div', {class: 't-l', text: label}), h('div', {class: 't-s', text: sub}),
+    h('div', {class: 'vals'}, val('A', A, A.den ? A.meta : '분모 0'), val('B', B, B.den ? B.meta : '분모 0')),
+    both ? h('div', {class: 'diff'}, h('span', {text: 'B−A'}), h('b', {text: diffText}), pv === undefined ? null : h('span', {class: 'muted', text: fmtP(pv)}))
+         : h('div', {class: 'diff muted', text: '미성숙 — 성숙한 코호트 없음'}));
+}
+/* 일반화된 A/B 라인 차트 카드: o.xs [{key,label,full}] · o.agg(rows, key, grp) · 모드 curve(전체 x) / date(선택 x 의 인스톨 날짜별) */
+function abChartCard(kind, rows, g, o){
+  const cs = state.chart[kind] || (state.chart[kind] = {mode: 'curve', key: o.defaultKey, hidden: {}});
+  if (cs.key === undefined) cs.key = o.defaultKey;
+  const gl = grp => grp + '군' + (g.groups && g.groups[grp] ? ' · ' + g.groups[grp] : '');
+  const meta = X => X.den ? o.meta(X) : '';
+  let spec;
+  if (cs.mode === 'curve'){
+    spec = {xs: o.xs.map(x => ({label: x.label, full: x.full})), xTitle: o.xTitle, pct: !!o.pct,
+      series: GROUPS.map(grp => ({key: grp, label: gl(grp), short: grp + '군', values: o.xs.map(x => { const X = o.agg(rows, x.key, grp); return {v: X.v, meta: meta(X)}; })}))};
+  } else {
+    const x = o.xs.find(x => String(x.key) === String(cs.key)) || o.xs[0], dates = [...new Set(rows.map(c => c.d))].sort();
+    spec = {xs: dates.map(d => ({label: mmdd(d), full: d + ' 인스톨 코호트 · ' + x.label})), xTitle: '인스톨 날짜 (UTC)', pct: !!o.pct,
+      series: GROUPS.map(grp => ({key: grp, label: gl(grp), short: grp + '군', values: dates.map(d => { const X = o.agg(rows.filter(c => c.d === d), x.key, grp); return {v: X.v, meta: meta(X)}; })}))};
+  }
+  spec.yfmt = o.yfmt; spec.yfmtLbl = o.yfmtLbl; spec.hidden = cs.hidden; spec.aria = o.title + ' A/B 라인 차트';
+  const host = h('div', {class: 'chart-host'});
+  const modeSeg = seg([{v: 'curve', l: o.curveLabel || 'Dn 커브'}, {v: 'date', l: '인스톨 날짜별'}], cs.mode, v => { cs.mode = v; render(); });
+  const kSel = h('select', {'aria-label': 'x 선택', onchange: ev => { cs.key = ev.target.value; render(); }});
+  for (const x of o.xs) kSel.append(h('option', {value: x.key, selected: String(x.key) === String(cs.key), text: x.label}));
+  const card = h('div', {class: 'card'},
+    h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: cs.mode === 'curve' ? o.title : '인스톨 날짜별 ' + (o.xs.find(x => String(x.key) === String(cs.key)) || o.xs[0]).label + ' ' + o.title}),
+      h('span', {text: o.sub + ' · ' + osLabel() + (cs.mode === 'date' ? ' · 미성숙 날짜는 그리지 않음' : '')})),
+      h('div', {class: 'tools'}, modeSeg, cs.mode === 'date' ? kSel : null)),
+    host, legend(spec, key => { cs.hidden[key] = !cs.hidden[key]; render(); }));
+  chartHosts[kind] = {host, spec};
+  requestAnimationFrame(() => lineChart(host, spec));
+  return card;
+}
+/* 일반화된 코호트 표: Totals A/B/B−A + 인스톨 날짜별 A/B 행. o.cols [{key,label,sub}] · o.agg(subRows, key, grp) · o.fmt · o.tip(X,col,ctx) · o.diff(A,B) */
+function abTableCard(o){
+  const alphaMax = parseFloat(getComputedStyle(root).getPropertyValue('--cell-alpha')) || 0.8;
+  const dates = [...new Set(o.rows.map(c => c.d))].sort();
+  const compute = (subset, grp) => o.cols.map(col => o.agg(subset, col.key, grp));
+  const totals = {A: compute(o.rows, 'A'), B: compute(o.rows, 'B')};
+  const perDate = dates.map(d => { const sub = o.rows.filter(c => c.d === d); return {d, A: compute(sub, 'A'), B: compute(sub, 'B'),
+    nA: sub.filter(c => c.g === 'A').reduce((s, c) => s + c.n, 0), nB: sub.filter(c => c.g === 'B').reduce((s, c) => s + c.n, 0)}; });
+  let vmax = 0;
+  for (const grp of GROUPS){ for (const X of totals[grp]) if (X.v !== null) vmax = Math.max(vmax, X.v); for (const r of perDate) for (const X of r[grp]) if (X.v !== null) vmax = Math.max(vmax, X.v); }
+  const shade = v => (v === null || !vmax) ? '' : 'background:rgba(' + o.rgb + ',' + Math.max(0.04, Math.min(alphaMax, (v / vmax) * alphaMax)).toFixed(3) + ')';
+  const cell = (X, col, ctx) => X.v === null
+    ? h('td', {class: 'cell im', text: '—', ...cellEvents([ctx + ' · ' + col.label, '미성숙 — 성숙한 코호트 없음'])})
+    : h('td', {class: 'cell', style: shade(X.v), text: o.fmt(X.v), ...cellEvents(o.tip(X, col, ctx))});
+  const gb = grp => h('span', {class: 'gbadge'}, h('span', {class: 'dot', style: '--c:var(--' + grp.toLowerCase() + ')'}), grp);
+  const thead = h('thead', null, h('tr', null, h('th', {class: 'c-date', text: '인스톨 날짜'}), h('th', {class: 'c-grp', text: '군'}),
+    h('th', {class: 'c-n'}, '유저', h('span', {class: 'sub', text: '코호트'})),
+    ...o.cols.map(col => h('th', null, col.label, h('span', {class: 'sub', text: col.sub || ''})))));
+  const tbody = h('tbody');
+  if (!dates.length) tbody.append(h('tr', null, h('td', {colspan: 3 + o.cols.length, class: 'empty', text: '선택한 범위에 코호트가 없습니다.'})));
+  else {
+    const nA = o.rows.filter(c => c.g === 'A').reduce((s, c) => s + c.n, 0), nB = o.rows.filter(c => c.g === 'B').reduce((s, c) => s + c.n, 0);
+    tbody.append(h('tr', {class: 'total'}, h('td', {class: 'c-date', text: 'Totals'}), h('td', {class: 'c-grp'}, gb('A')), h('td', {class: 'c-n', text: fmtInt(nA)}), ...o.cols.map((col, i) => cell(totals.A[i], col, 'Totals A'))));
+    tbody.append(h('tr', {class: 'total'}, h('td', {class: 'c-date', text: ''}), h('td', {class: 'c-grp'}, gb('B')), h('td', {class: 'c-n', text: fmtInt(nB)}), ...o.cols.map((col, i) => cell(totals.B[i], col, 'Totals B'))));
+    tbody.append(h('tr', {class: 'diffrow'}, h('td', {class: 'c-date', text: ''}), h('td', {class: 'c-grp', text: 'B−A'}), h('td', {class: 'c-n', text: ''}),
+      ...o.cols.map((col, i) => { const A = totals.A[i], B = totals.B[i]; return (A.v === null || B.v === null) ? h('td', {class: 'im', text: '—'}) : h('td', {text: o.diff(A, B)}); })));
+    for (const r of perDate){
+      tbody.append(h('tr', {class: 'd-first'}, h('td', {class: 'c-date', rowspan: 2, text: r.d}), h('td', {class: 'c-grp'}, gb('A')), h('td', {class: 'c-n', text: fmtInt(r.nA)}), ...o.cols.map((col, i) => cell(r.A[i], col, r.d + ' A'))));
+      tbody.append(h('tr', null, h('td', {class: 'c-grp'}, gb('B')), h('td', {class: 'c-n', text: fmtInt(r.nB)}), ...o.cols.map((col, i) => cell(r.B[i], col, r.d + ' B'))));
+    }
+  }
+  return h('div', {class: 'card'},
+    h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: o.title}), h('span', {text: o.sub}))),
+    h('div', {class: 'tbl-wrap'}, h('table', {class: 'tbl'}, thead, tbody)),
+    h('div', {class: 'tbl-foot'}, ...(o.foot || []).map(t => h('span', {text: t}))));
+}
+const signed = (v, d, unit) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d) + (unit || '');
+function sectionHead(title, def, controls){
+  return h('div', {class: 'sec-h'}, h('h2', {text: title}), h('span', {class: 'def', text: def}), controls ? h('span', {class: 'sec-ctl'}, ...controls) : null);
+}
+
+/* 진행도 퍼널 — k일 이내 LV≥N 도달 유저 / 코호트 */
+function renderFunnelSection(rows, g){
+  const K = state.win.funnel;
+  const agg = (sub, mark, grp) => aggDay(sub, grp, K, g.stable, c => arrAt(c.lv && c.lv[String(mark)], K), c => c.n);
+  const tiles = h('div', {class: 'tiles'});
+  for (const mark of [10, 20, 30, 50, 100]){
+    const A = agg(rows, mark, 'A'), B = agg(rows, mark, 'B');
+    A.meta = fmtInt(A.num) + ' / ' + fmtInt(A.den); B.meta = fmtInt(B.num) + ' / ' + fmtInt(B.den);
+    tiles.append(tileGeneric('LV' + mark + ' 도달', winLabel(K) + ' 클리어', A, B, fmtPct, A.v !== null && B.v !== null ? fmtPP(B.v - A.v) : '', A.den && B.den ? ztest(A.num, A.den, B.num, B.den) : null));
+  }
+  const xs = MARKS.map(m => ({key: m, label: 'LV' + m, full: 'LV' + m + ' 이상 클리어 · ' + winLabel(K)}));
+  const chart = abChartCard('funnel', rows, g, {xs, defaultKey: 30, agg, title: '진행도 퍼널', curveLabel: '레벨 커브', xTitle: '도달 레벨', pct: true,
+    sub: winLabel(K) + ' 도달률', yfmt: v => Math.round(v * 100) + '%', yfmtLbl: fmtPct, meta: X => fmtInt(X.num) + '/' + fmtInt(X.den)});
+  const table = abTableCard({title: '인스톨 날짜별 도달률', sub: winLabel(K) + ' · LV≥N 클리어 유저 / 코호트 · ' + osLabel(), rows, rgb: 'var(--ret-rgb)',
+    cols: xs.map(x => ({key: x.key, label: x.label, sub: '도달률'})), agg, fmt: fmtPct,
+    tip: (X, col, ctx) => [ctx + ' · ' + col.label, '도달 ' + fmtInt(X.num) + ' / 코호트 ' + fmtInt(X.den), fmtPct(X.v)],
+    diff: (A, B) => fmtPP(B.v - A.v) + ' · ' + fmtP(ztest(A.num, A.den, B.num, B.den)).replace('p ', 'p='),
+    foot: ['— : ' + winLabel(K) + ' 기준으로 미성숙한 코호트', '도달 = Level_Completed_N 이벤트 (N ≥ 기준) 가 창 안에 있음', '관측 창이 같은 코호트끼리만 비교할 것']});
+  return h('section', {class: 'metric', id: 'funnel'},
+    sectionHead('진행도 퍼널', '군별 · LV 도달률 (처치가 걸렸는지 가장 먼저 보이는 지표)', [h('span', {class: 'lbl', text: '창'}), winSelect('funnel', [0, 1, 2, 3, 7, 14], null)]),
+    tiles, h('div', {class: 'grid2'}, chart, table));
+}
+
+/* 플레이 강도 — k일째 활성 유저 1명당 레벨 클리어 */
+function renderPlaySection(rows, g){
+  const maxK = DATA.max_day || 28, ks = []; for (let k = 0; k <= maxK; k++) ks.push(k);
+  const agg = (sub, k, grp) => aggDay(sub, grp, k, g.stable, (c, k) => arrAt(c.clr, k), activeAt);
+  const tiles = h('div', {class: 'tiles'});
+  for (const k of [0, 1, 3, 7]){
+    const A = agg(rows, k, 'A'), B = agg(rows, k, 'B');
+    A.meta = '활성 ' + fmtInt(A.den); B.meta = '활성 ' + fmtInt(B.den);
+    tiles.append(tileGeneric('D' + k + ' 클리어/활성유저', '인스톨 후 ' + k + '일째 접속 유저 1명당', A, B, fmt1, A.v !== null && B.v !== null ? signed(B.v - A.v, 1) : ''));
+  }
+  const xs = ks.map(k => ({key: k, label: 'D' + k, full: 'D' + k + ' · 인스톨 후 ' + k + '일째'}));
+  const chart = abChartCard('play', rows, g, {xs, defaultKey: 1, agg, title: '클리어/활성유저', xTitle: '인스톨 후 경과일', sub: '그날 접속한 유저 1명당 레벨 클리어 수',
+    yfmt: v => v.toFixed(0), yfmtLbl: fmt1, meta: X => '클리어 ' + fmtInt(X.num) + ' / 활성 ' + fmtInt(X.den)});
+  const table = abTableCard({title: '인스톨 날짜별 클리어/활성유저', sub: 'Dn = 인스톨 후 n일째 · 클리어 수 / 그날 활성 유저 · ' + osLabel(), rows, rgb: 'var(--ret-rgb)',
+    cols: (state.cols === 'key' ? [0, 1, 3, 7, 14, 28] : ks).map(k => ({key: k, label: 'D' + k, sub: '클리어/유저'})), agg, fmt: fmt1,
+    tip: (X, col, ctx) => [ctx + ' · ' + col.label, '클리어 ' + fmtInt(X.num) + ' / 활성 유저 ' + fmtInt(X.den), fmt1(X.v)], diff: (A, B) => signed(B.v - A.v, 1),
+    foot: ['— : 미성숙 (인스톨+n > ' + g.stable + ')', '세션·플레이 시간 로그가 없어 클리어 수를 플레이량 대리 지표로 쓴다']});
+  return h('section', {class: 'metric', id: 'play'}, sectionHead('플레이 강도', '군별 · 활성 유저 1명당 레벨 클리어'), tiles, h('div', {class: 'grid2'}, chart, table));
+}
+
+/* 광고 — 임프레션/유저-일 · 배치별 · 실패 광고 비율 (성숙 기준 = 광고 데이터 마지막 날) */
+function renderAdsSection(rows, g){
+  const K = state.win.ads, end = g.ad_end;
+  const revLbl = '광고매출';
+  if (!g.iaa_available) return h('section', {class: 'metric', id: 'ads'}, sectionHead('광고', '광고 수익 raw 파일이 없어 표시할 수 없습니다'), h('div', {class: 'card'}, h('div', {class: 'empty', text: 'ad-revenue-raw · ad-revenue-organic-raw 파일을 폴더에 넣으면 나타납니다.'})));
+  const userDays = (c, k) => activeAt(c, k);
+  const W = (grp, numAt, denAt) => aggWin(rows, grp, K, end, numAt, denAt);
+  const imp = {A: W('A', (c, k) => adImp(c, k), userDays), B: W('B', (c, k) => adImp(c, k), userDays)};
+  const rev = {A: W('A', (c, k) => arrAt(c.iaa, k) - (k ? arrAt(c.iaa, k - 1) : 0), userDays), B: W('B', (c, k) => arrAt(c.iaa, k) - (k ? arrAt(c.iaa, k - 1) : 0), userDays)};
+  const ecpm = {A: {v: imp.A.num ? rev.A.num / imp.A.num * 1000 : null, den: imp.A.num, meta: fmtInt(imp.A.num) + ' 임프'}, B: {v: imp.B.num ? rev.B.num / imp.B.num * 1000 : null, den: imp.B.num, meta: fmtInt(imp.B.num) + ' 임프'}};
+  const fail = {A: W('A', (c, k) => { let s = 0; if (c.adp) for (const p in c.adp) if (isFailPl(p)) s += arrAt(c.adp[p], k); return s; }, (c, k) => arrAt(c.clr, k) / 100),
+                B: W('B', (c, k) => { let s = 0; if (c.adp) for (const p in c.adp) if (isFailPl(p)) s += arrAt(c.adp[p], k); return s; }, (c, k) => arrAt(c.clr, k) / 100)};
+  for (const grp of GROUPS){ imp[grp].meta = fmtInt(imp[grp].den) + ' 유저-일'; rev[grp].meta = fmtInt(rev[grp].den) + ' 유저-일'; fail[grp].meta = fmtInt(Math.round(fail[grp].den * 100)) + ' 클리어'; }
+  const tiles = h('div', {class: 'tiles'},
+    tileGeneric('임프레션/유저-일', winLabel(K), imp.A, imp.B, fmt1, imp.A.v !== null && imp.B.v !== null ? signed(imp.B.v - imp.A.v, 1) : ''),
+    tileGeneric(revLbl + '/유저-일', winLabel(K) + ' · IAA $', rev.A, rev.B, v => fmtUsd(v, 4), rev.A.v !== null && rev.B.v !== null ? fmtUsdDiff(rev.B.v - rev.A.v) : ''),
+    tileGeneric('eCPM', '광고매출 / 임프레션 × 1000', ecpm.A, ecpm.B, v => fmtUsd(v, 2), ecpm.A.v !== null && ecpm.B.v !== null ? fmtUsdDiff(ecpm.B.v - ecpm.A.v).replace(/(\d)$/, '$1') : ''),
+    tileGeneric('실패 광고 / 클리어 100판', 'fail·restart 배치 임프레션 — 실패율 대리 지표', fail.A, fail.B, fmt2, fail.A.v !== null && fail.B.v !== null ? signed(fail.B.v - fail.A.v, 2) : ''));
+  // 배치별 표
+  const pls = [...new Set(rows.flatMap(c => Object.keys(c.adp || {})))];
+  const perPl = pls.map(pl => ({pl, A: W('A', (c, k) => adImp(c, k, pl), userDays), B: W('B', (c, k) => adImp(c, k, pl), userDays)})).sort((a, b) => (b.A.num + b.B.num) - (a.A.num + a.B.num));
+  const share = (X, tot) => tot.num ? fmtPct(X.num / tot.num) : '—';
+  const plTable = h('div', {class: 'card'},
+    h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: '배치별 임프레션/유저-일'}), h('span', {text: winLabel(K) + ' · ' + osLabel() + ' · 배치 없음 = 배너(자동 갱신) 추정'}))),
+    h('div', {class: 'tbl-wrap'}, h('table', {class: 'tbl'},
+      h('thead', null, h('tr', null, h('th', {class: 'c-date', text: '배치'}), h('th', null, 'A', h('span', {class: 'sub', text: '/유저-일'})), h('th', null, 'A 비중'), h('th', null, 'B', h('span', {class: 'sub', text: '/유저-일'})), h('th', null, 'B 비중'), h('th', null, 'B−A'))),
+      h('tbody', null, ...(perPl.length ? perPl : []).map(r => h('tr', {class: isFailPl(r.pl) ? 'failrow' : ''},
+        h('td', {class: 'c-date', text: r.pl + (isFailPl(r.pl) ? ' ⚑' : '')}), h('td', {text: fmt2(r.A.v)}), h('td', {class: 'muted', text: share(r.A, imp.A)}),
+        h('td', {text: fmt2(r.B.v)}), h('td', {class: 'muted', text: share(r.B, imp.B)}), h('td', {text: r.A.v !== null && r.B.v !== null ? signed(r.B.v - r.A.v, 2) : '—'}))),
+        perPl.length ? null : h('tr', null, h('td', {colspan: 6, class: 'empty', text: '광고 데이터가 있는 성숙 코호트가 없습니다.'}))))),
+    h('div', {class: 'tbl-foot'}, h('span', {text: '⚑ = 실패·재시도 관련 배치'}), h('span', {text: '광고 데이터 ~' + (end || '없음') + ' · 그 뒤 날짜는 집계에서 제외'})));
+  const maxK = DATA.max_day || 28, ks = []; for (let k = 0; k <= maxK; k++) ks.push(k);
+  const chart = abChartCard('ads', rows, g, {xs: ks.map(k => ({key: k, label: 'D' + k, full: 'D' + k + ' · 인스톨 후 ' + k + '일째'})), defaultKey: 0,
+    agg: (sub, k, grp) => aggDay(sub, grp, k, end, (c, k) => adImp(c, k), activeAt), title: '임프레션/활성유저', xTitle: '인스톨 후 경과일', sub: '그날 접속한 유저 1명당 광고 임프레션 (전 배치)',
+    yfmt: v => v.toFixed(0), yfmtLbl: fmt1, meta: X => '임프 ' + fmtInt(X.num) + ' / 활성 ' + fmtInt(X.den)});
+  return h('section', {class: 'metric', id: 'ads'},
+    sectionHead('광고', '군별 · 임프레션/유저-일 · 배치 구성 · 실패 광고 비율 (성숙 기준 = 광고 데이터 마지막 날 ' + (end || '-') + ')', [h('span', {class: 'lbl', text: '창'}), winSelect('ads', ['all', 0, 1, 3, 7, 14], null)]),
+    tiles, h('div', {class: 'grid2'}, chart, plTable));
+}
+
+/* 결제 분해 — k일 이내 첫 결제 전환율 · ARPPU · SKU 카테고리 */
+function renderPaySection(rows, g){
+  const K = state.win.pay, st = g.stable;
+  const conv = grp => aggDay(rows, grp, K, st, c => arrAt(c.pay, K), c => c.n);
+  const arppu = grp => aggDay(rows, grp, K, st, c => arrAt(c.iap, K), c => arrAt(c.pay, K));
+  const perUser = grp => aggDay(rows, grp, K, st, c => arrAt(c.iap, K), c => c.n);
+  const C = {A: conv('A'), B: conv('B')}, P = {A: arppu('A'), B: arppu('B')}, U = {A: perUser('A'), B: perUser('B')};
+  const top = {}; for (const grp of GROUPS){ let mx = 0, tot = 0; for (const c of rows){ if (c.g !== grp) continue; const m = Math.min(daysBetween(c.d, st), DATA.max_day || 28); if (m < 0) continue; mx = Math.max(mx, c.top_iap || 0); tot += arrAt(c.iap, m); } top[grp] = {v: tot ? mx / tot : null, den: tot, meta: '최대 ' + fmtUsd(mx, 2)}; }
+  for (const grp of GROUPS){ C[grp].meta = fmtInt(C[grp].num) + ' / ' + fmtInt(C[grp].den); P[grp].meta = '결제자 ' + fmtInt(P[grp].den); U[grp].meta = 'n ' + fmtInt(U[grp].den); }
+  const tiles = h('div', {class: 'tiles'},
+    tileGeneric('결제 전환율', winLabel(K) + ' 첫 결제 유저 / 코호트', C.A, C.B, v => v === null ? '—' : (v * 100).toFixed(2) + '%', C.A.v !== null && C.B.v !== null ? signed((C.B.v - C.A.v) * 100, 2, 'pp') : '', C.A.den && C.B.den ? ztest(C.A.num, C.A.den, C.B.num, C.B.den) : null),
+    tileGeneric('ARPPU', winLabel(K) + ' IAP / 결제자', P.A, P.B, v => fmtUsd(v, 2), P.A.v !== null && P.B.v !== null ? fmtUsdDiff(P.B.v - P.A.v) : ''),
+    tileGeneric('IAP/유저', winLabel(K) + ' IAP / 코호트', U.A, U.B, v => fmtUsd(v, 4), U.A.v !== null && U.B.v !== null ? fmtUsdDiff(U.B.v - U.A.v) : ''),
+    tileGeneric('상위 1인 비중', '관측 전체 IAP 중 최다 결제자 1명 — 크면 ARPU 는 한 명이 만든 숫자', top.A, top.B, fmtPct, top.A.v !== null && top.B.v !== null ? fmtPP(top.B.v - top.A.v) : ''));
+  // SKU 카테고리 (관측 전체)
+  const cats = {}; for (const c of rows) for (const cat in (c.skus || {})){ const s = cats[cat] || (cats[cat] = {A: [0, 0], B: [0, 0]}); s[c.g][0] += c.skus[cat][0]; s[c.g][1] += c.skus[cat][1]; }
+  const catRows = Object.entries(cats).sort((a, b) => (b[1].A[1] + b[1].B[1]) - (a[1].A[1] + a[1].B[1]));
+  const skuTable = h('div', {class: 'card'},
+    h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: 'SKU 카테고리별 IAP'}), h('span', {text: '관측 전체 · dev SKU 제외 · ' + osLabel()}))),
+    h('div', {class: 'tbl-wrap'}, h('table', {class: 'tbl'},
+      h('thead', null, h('tr', null, h('th', {class: 'c-date', text: '카테고리'}), h('th', null, 'A 건'), h('th', null, 'A $'), h('th', null, 'B 건'), h('th', null, 'B $'), h('th', null, 'B−A $'))),
+      h('tbody', null, ...catRows.map(([cat, s]) => h('tr', null, h('td', {class: 'c-date', text: cat}), h('td', {text: fmtInt(s.A[0])}), h('td', {text: '$' + s.A[1].toFixed(2)}), h('td', {text: fmtInt(s.B[0])}), h('td', {text: '$' + s.B[1].toFixed(2)}), h('td', {text: fmtUsdDiff(s.B[1] - s.A[1]).replace(/(\.\d\d)\d\d$/, '$1')}))),
+        catRows.length ? null : h('tr', null, h('td', {colspan: 6, class: 'empty', text: '결제 없음'}))))),
+    h('div', {class: 'tbl-foot'}, h('span', {text: '매출은 가드레일 — 판정 지표가 아님 (결제자 수가 작아 한 명이 숫자를 뒤집는다)'})));
+  const maxK = DATA.max_day || 28, ks = []; for (let k = 0; k <= maxK; k++) ks.push(k);
+  const chart = abChartCard('pay', rows, g, {xs: ks.map(k => ({key: k, label: 'D' + k, full: 'D' + k + ' · 인스톨 후 ' + k + '일 이내'})), defaultKey: 1, pct: true,
+    agg: (sub, k, grp) => aggDay(sub, grp, k, st, c => arrAt(c.pay, k), c => c.n), title: '누적 결제 전환율', xTitle: '인스톨 후 경과일', sub: 'k일 이내 첫 결제 유저 / 코호트',
+    yfmt: v => (v * 100).toFixed(1) + '%', yfmtLbl: v => v === null ? '—' : (v * 100).toFixed(2) + '%', meta: X => fmtInt(X.num) + '/' + fmtInt(X.den)});
+  return h('section', {class: 'metric', id: 'pay'},
+    sectionHead('결제 분해', '군별 · 결제 전환율 · ARPPU · SKU 구성 (가드레일)', [h('span', {class: 'lbl', text: '창'}), winSelect('pay', [0, 1, 3, 7, 14, 28], null)]),
+    tiles, h('div', {class: 'grid2'}, chart, skuTable));
+}
+
+/* DAU — 달력 날짜별 접속 유저 (코호트 유저의 exp_daily_active) */
+function renderDauSection(rows, g){
+  const dates = []; for (let d = g.start; d <= g.end; d = addDays(d, 1)) dates.push(d);
+  const dau = (d, grp) => { let s = 0; for (const c of rows){ if (c.g !== grp) continue; const k = daysBetween(c.d, d); if (k < 0) continue; s += activeAt(c, k); } return s; };
+  const spec = {xs: dates.map(d => ({label: mmdd(d), full: d + ' (UTC)'})), xTitle: '날짜 (UTC)', yfmt: v => fmtInt(Math.round(v)), yfmtLbl: v => fmtInt(Math.round(v)),
+    series: GROUPS.map(grp => ({key: grp, label: grp + '군' + (g.groups && g.groups[grp] ? ' · ' + g.groups[grp] : ''), short: grp + '군', values: dates.map(d => ({v: dau(d, grp), meta: ''}))})),
+    hidden: (state.chart.dau || (state.chart.dau = {hidden: {}})).hidden, aria: 'DAU A/B 라인 차트'};
+  const host = h('div', {class: 'chart-host'});
+  const chart = h('div', {class: 'card'}, h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: 'DAU'}), h('span', {text: '선택한 인스톨 범위 코호트의 날짜별 접속 유저 · ' + osLabel()}))),
+    host, legend(spec, key => { state.chart.dau.hidden[key] = !state.chart.dau.hidden[key]; render(); }));
+  chartHosts.dau = {host, spec}; requestAnimationFrame(() => lineChart(host, spec));
+  let udA = 0, udB = 0;
+  const table = h('div', {class: 'card'}, h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: '날짜별 DAU'}), h('span', {text: '유저-일 합계 = 매출/유저-일의 분모'}))),
+    h('div', {class: 'tbl-wrap'}, h('table', {class: 'tbl'},
+      h('thead', null, h('tr', null, h('th', {class: 'c-date', text: '날짜 (UTC)'}), h('th', null, 'A'), h('th', null, 'B'), h('th', null, 'B−A'), h('th', null, '합계'))),
+      h('tbody', null, ...dates.map(d => { const a = dau(d, 'A'), b = dau(d, 'B'); udA += a; udB += b; return h('tr', null, h('td', {class: 'c-date', text: d}), h('td', {text: fmtInt(a)}), h('td', {text: fmtInt(b)}), h('td', {class: 'muted', text: (b - a >= 0 ? '+' : '−') + fmtInt(Math.abs(b - a))}), h('td', {text: fmtInt(a + b)})); }),
+        h('tr', {class: 'total'}, h('td', {class: 'c-date', text: '유저-일 합'}), h('td', {text: fmtInt(udA)}), h('td', {text: fmtInt(udB)}), h('td', {class: 'muted', text: (udB - udA >= 0 ? '+' : '−') + fmtInt(Math.abs(udB - udA))}), h('td', {text: fmtInt(udA + udB)}))))),
+    h('div', {class: 'tbl-foot'}, h('span', {text: '접속 = exp_daily_active (로그인 + GameForge 첫 sync 후 그날 1회) · SDK 세션이 아님'})));
+  return h('section', {class: 'metric', id: 'dau'}, sectionHead('DAU · 유저-일', '군별 · 날짜별 접속 유저'), h('div', {class: 'grid2'}, chart, table));
+}
+
+const SECTIONS = [['ret', '리텐션'], ['arpu', '누적 ARPU'], ['funnel', '진행도'], ['play', '플레이 강도'], ['ads', '광고'], ['pay', '결제'], ['dau', 'DAU']];
+function renderSecBar(){
+  const bar = h('div', {class: 'secbar', role: 'tablist', 'aria-label': '지표'});
+  for (const [key, label] of [['all', '전체'], ...SECTIONS]){
+    bar.append(h('button', {type: 'button', role: 'tab', 'aria-selected': String(state.sec === key), text: label, onclick: () => { state.sec = key; store.set('sec', key); render(); if (key !== 'all') window.scrollTo({top: 0}); }}));
+  }
+  return bar;
+}
+
 /* ── 정의 각주 ── */
 function renderDefs(g){
   const excludeKr = (g.hygiene && g.hygiene.exclude_kr !== undefined) ? g.hygiene.exclude_kr : g.exclude_kr;
@@ -741,14 +1015,22 @@ function render(){
   const g = game(), rows = filteredRows(g);
   const frag = document.createDocumentFragment();
   frag.append(renderFilters(), ...renderStatus());
+  frag.append(renderSecBar());
   const main = h('main');
+  const show = key => state.sec === 'all' || state.sec === key;
   for (const kind of ['ret', 'arpu']){
+    if (!show(kind)) continue;
     main.append(h('section', {class: 'metric', id: kind},
       h('div', {class: 'sec-h'}, h('h2', {text: kind === 'ret' ? '리텐션' : '누적 ARPU'}),
         h('span', {class: 'def', text: kind === 'ret' ? '군별 · 인스톨 날짜별 D1~D' + (DATA.max_day || 28) : '군별 · 인스톨 날짜별 D0~D' + (DATA.max_day || 28) + ' 유저당 누적 매출'})),
       renderTiles(kind, rows, g),
       h('div', {class: 'grid2'}, renderChartCard(kind, rows, g), renderTableCard(kind, rows, g))));
   }
+  if (show('funnel')) main.append(renderFunnelSection(rows, g));
+  if (show('play')) main.append(renderPlaySection(rows, g));
+  if (show('ads')) main.append(renderAdsSection(rows, g));
+  if (show('pay')) main.append(renderPaySection(rows, g));
+  if (show('dau')) main.append(renderDauSection(rows, g));
   main.append(renderDefs(g));
   frag.append(main);
   app.replaceChildren(frag);
