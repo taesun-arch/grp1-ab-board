@@ -52,6 +52,16 @@ button{cursor:pointer}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .tab .t-name{font-weight:600;font-size:14px}
 .tab .t-exp{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+.tab .t-badge{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:600;vertical-align:1px}
+.tab .t-badge.live{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--ink)}
+.tab .t-badge.done{background:color-mix(in srgb,var(--ink) 10%,transparent);color:var(--ink-2)}
+.tab .t-badge.pend{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--ink)}
+.pending{margin:24px;max-width:760px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:22px 26px;line-height:1.7}
+.pending h2{margin:0 0 6px;font-size:16px}
+.pending .reason{color:var(--ink-2)}
+.pending dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:14px 0 0;font-size:13px}
+.pending dt{color:var(--ink-3)}
+.pending code{background:var(--chip);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12.5px}
 .top .right{margin-left:auto;display:flex;align-items:center;gap:14px;color:var(--ink-3);font-size:12px}
 .iconbtn{background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:5px 10px;color:var(--ink-2);font-size:12px}
 .iconbtn:hover{color:var(--ink);border-color:var(--ink-3)}
@@ -360,7 +370,7 @@ const state = {
   range: {},
   chart: { ret: {mode: 'curve', k: 1, hidden: {}}, arpu: {mode: 'curve', k: 1, hidden: {}} }
 };
-if (!DATA.games.some(g => g.key === state.game)) state.game = DATA.games[0].key;
+if (!DATA.games.some(g => g.key === state.game)) state.game = (DATA.games.find(g => !g.pending) || DATA.games[0]).key;   // 기본 탭 = 데이터 있는 첫 실험
 const game = () => DATA.games.find(g => g.key === state.game);
 const rangeOf = g => state.range[g.key] || (state.range[g.key] = {from: g.start, to: g.end});
 
@@ -409,9 +419,10 @@ const fmtVal = (kind, v, d) => kind === 'ret' ? fmtPct(v) : fmtUsd(v, d);
 function renderTabs(){
   const nav = $('#tabs'); nav.replaceChildren();
   for (const g of DATA.games){
+    const badge = g.pending ? h('span', {class: 't-badge pend', text: '라이브 전'}) : (g.ended ? h('span', {class: 't-badge done', text: '종료'}) : h('span', {class: 't-badge live', text: '진행 중'}));
     nav.append(h('button', {class: 'tab', role: 'tab', type: 'button', 'aria-selected': String(g.key === state.game),
       onclick: () => { state.game = g.key; store.set('game', g.key); render(); }},
-      h('span', {class: 't-name', text: g.name + (g.alias ? ' (' + g.alias + ')' : '')}),
+      h('span', {class: 't-name'}, g.name + (g.label ? ' · ' + g.label : (g.alias ? ' (' + g.alias + ')' : '')), badge),
       h('span', {class: 't-exp', text: g.experiment})));
   }
   const gen = DATA.generated ? DATA.generated.replace('T', ' ').slice(0, 16) : '';
@@ -1014,9 +1025,25 @@ function renderDefs(g){
 }
 
 /* ── 전체 렌더 ── */
+function renderPending(g){
+  const gs = g.groups || {}, o = g.observed;
+  const box = h('div', {class: 'pending'},
+    h('h2', {text: g.name + (g.label ? ' · ' + g.label : '') + ' — 라이브 전'}),
+    h('div', {class: 'reason', text: g.reason || ''}),
+    h('dl', null,
+      h('dt', {text: '실험 ID'}), h('dd', null, h('code', {text: g.experiment})),
+      h('dt', {text: 'A군'}), h('dd', {text: gs.A || '—'}),
+      h('dt', {text: 'B군'}), h('dd', {text: gs.B || '—'}),
+      h('dt', {text: '시작일'}), h('dd', {text: g.start || '미정 — 라이브 콘솔 실험 생성일로 설정'}),
+      h('dt', {text: 'AppsFlyer 관측'}), h('dd', {text: o ? fmtInt(o.rows) + '행 · 유저 ' + fmtInt(o.users) + ' · ' + o.first + ' ~ ' + o.last + ' · 군 ' + Object.entries(o.groups || {}).map(([k, v]) => k + ' ' + fmtInt(v)).join(' / ') + ' (dev 테스트 포함 — 시작일 전 라벨은 코호트에서 자동 제외)' : '0행 — 아직 exp_daily_active 가 들어오지 않았다'})),
+    h('p', {class: 'small muted', text: '시작일이 들어가면 다음 갱신부터 기존 실험과 같은 지표(리텐션·누적 ARPU·진행도·플레이 강도·광고·결제·DAU)가 이 탭에 채워진다. 파일은 Bash Fiesta 폴더를 그대로 공유한다.'}));
+  return box;
+}
 function render(){
   renderTabs();
-  const g = game(), rows = filteredRows(g);
+  const g = game();
+  if (g.pending){ app.replaceChildren(renderPending(g)); return; }
+  const rows = filteredRows(g);
   const frag = document.createDocumentFragment();
   frag.append(renderFilters(), ...renderStatus());
   frag.append(renderSecBar());
