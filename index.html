@@ -994,14 +994,18 @@ function renderDauSection(rows, g){
 
 /* 레벨별 클리어율 — 일반 지표 보드와 같은 정의: 신버전 클리어(af_level_achieved) ÷ (신버전 클리어 + level_fail), 시도 20+ 레벨만.
    실패는 신버전만 보내므로 구버전 Level_Completed 를 섞지 않는다. 공 개수 실험처럼 난이도를 바꾸는 처치에서 가장 먼저 갈리는 축이다. */
-const LV_PRESETS = [['all', '전체', 1, null], ['100', '≤100', 1, 100], ['300', '≤300', 1, 300], ['500', '≤500', 1, 500], ['850', '저작 ≤850', 1, 850], ['loop', '루프 851+', 851, null]];
+const LV_PRESETS = [['all', '전체', 1, null], ['adj', '조정 레벨', 1, null], ['100', '≤100', 1, 100], ['300', '≤300', 1, 300], ['500', '≤500', 1, 500], ['850', '저작 ≤850', 1, 850], ['loop', '루프 851+', 851, null]];
 const MIN_ATTEMPTS = 20;
-function clearRates(rows, g, lo, hi){
+const lvCfg = g => (g.levelcfg && g.levelcfg.levels) || null;                       // {레벨: [A 공, B 공]} · B 0 = 미설정 · A −1 = 보너스(무한)
+const adjSet = g => (g.levelcfg && g.levelcfg.adjusted) ? new Set(g.levelcfg.adjusted) : null;   // B 값이 실제로 들어간 레벨
+const lvDelta = (g, lv) => { const c = lvCfg(g); const v = c && c[lv]; return (v && v[1] > 0 && v[0] > 0) ? v[1] - v[0] : null; };
+function clearRates(rows, g, lo, hi, only){
   const acc = {A: {}, B: {}};
   for (const c of rows){
     const m = acc[c.g]; if (!m || !c.lvwf) continue;
     for (const lv in c.lvwf){
       const n = +lv; if (n < lo || (hi && n > hi)) continue;
+      if (only && !only.has(n)) continue;
       const s = m[n] || (m[n] = [0, 0]); s[0] += c.lvwf[lv][0]; s[1] += c.lvwf[lv][1];
     }
   }
@@ -1012,13 +1016,47 @@ function clearRates(rows, g, lo, hi){
     return {lv, a: an ? a[0] / an : null, b: bn ? b[0] / bn : null, an, bn, aw: a[0], bw: b[0]};
   }).filter(r => r.an >= MIN_ATTEMPTS && r.bn >= MIN_ATTEMPTS);
 }
+/* 공 개수 증감(±N)별 클리어율 — 이 실험의 핵심 판독. "공 1개 줄이면 클리어율이 얼마나 떨어지나".
+   레벨 구간 선택과 무관하게 **조정 레벨 전체**를 쓴다(조정 레벨이 특정 구간에 몰려 있어 구간을 걸면 표본이 쪼개진다). */
+function renderDeltaCard(rows, g){
+  const adj = adjSet(g); if (!adj) return null;
+  const data = clearRates(rows, g, 1, null, adj);
+  const by = new Map();
+  for (const r of data){
+    const d = lvDelta(g, r.lv); if (d === null) continue;
+    const s = by.get(d) || {n: 0, aw: 0, an: 0, bw: 0, bn: 0}; by.set(d, s);
+    s.n++; s.aw += r.aw; s.an += r.an; s.bw += r.bw; s.bn += r.bn;
+  }
+  const deltas = [...by.keys()].sort((a, b) => a - b);
+  const body = deltas.length ? h('table', {class: 'tbl'},
+    h('thead', null, h('tr', null, h('th', {class: 'c-date', text: '공 증감'}), h('th', null, '레벨'), h('th', null, 'A', h('span', {class: 'sub', text: '클리어율'})),
+      h('th', null, 'B', h('span', {class: 'sub', text: '클리어율'})), h('th', null, 'B−A'), h('th', null, '시도'), h('th', null, 'p'))),
+    h('tbody', null, ...deltas.map(d => {
+      const s = by.get(d), a = s.aw / s.an, b = s.bw / s.bn, p = ztest(s.aw, s.an, s.bw, s.bn);
+      return h('tr', {class: (p !== null && p < 0.05) ? 'failrow' : ''},
+        h('td', {class: 'c-date', style: 'font-weight:600', text: (d > 0 ? '+' : '') + d + '개'}), h('td', {class: 'muted', text: fmtInt(s.n)}),
+        h('td', {text: fmtPct(a)}), h('td', {text: fmtPct(b)}),
+        h('td', {style: 'font-weight:600', text: fmtPP(b - a)}), h('td', {class: 'muted', text: fmtInt(s.an + s.bn)}),
+        h('td', {class: 'muted', text: fmtP(p).replace('p ', '')}));
+    }))) : h('div', {class: 'empty', text: '조정 레벨 중 양군 시도 ' + MIN_ATTEMPTS + '+ 인 레벨이 아직 없습니다.'});
+  return h('div', {class: 'card'},
+    h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: '공 증감별 클리어율'}),
+      h('span', {text: '조정 레벨 전체 (구간 선택과 무관) · ' + osLabel() + ' · B 공 − A 공 기준'}))),
+    h('div', {class: 'tbl-wrap'}, body),
+    h('div', {class: 'tbl-foot'}, h('span', {text: '음수 = 공을 줄인 레벨 (어려워짐) · 양수 = 늘린 레벨'}),
+      h('span', {text: '처치가 의도대로 걸렸다면 음수 행은 B−A 가 −, 양수 행은 +'})));
+}
 function renderClearSection(rows, g){
   const st = state.lvr, sel = LV_PRESETS.find(p => p[0] === st.key) || LV_PRESETS[0];
-  const data = clearRates(rows, g, sel[2], sel[3]);
-  const lvLabel = sel[1];
+  const adj = adjSet(g), useAdj = st.key === 'adj' && adj;
+  const data = clearRates(rows, g, sel[2], sel[3], useAdj ? adj : null);
+  const lvLabel = useAdj ? '조정 레벨 ' + fmtInt(adj.size) + '개' : sel[1];
   const seg = h('div', {class: 'seg'});
-  for (const [k, name] of LV_PRESETS) seg.append(h('button', {type: 'button', 'aria-pressed': String(k === st.key), text: name,
-    onclick: () => { state.lvr = {key: k}; store.set('lvr', state.lvr); render(); }}));
+  for (const [k, name] of LV_PRESETS){
+    if (k === 'adj' && !adj) continue;                       // 레벨 설정 파일이 있는 실험에만 보인다
+    seg.append(h('button', {type: 'button', 'aria-pressed': String(k === st.key), text: name,
+      onclick: () => { state.lvr = {key: k}; store.set('lvr', state.lvr); render(); }}));
+  }
   const head = sectionHead('레벨별 클리어율', '군별 · 신버전 클리어 ÷ (클리어 + 실패) · 시도 ' + MIN_ATTEMPTS + '+ 레벨만 (일반 지표 보드와 같은 정의)',
     [h('span', {class: 'lbl', text: '레벨 구간'}), seg]);
   // 실패 이벤트가 아예 없으면 분모 = 클리어라 클리어율이 100% 로 나온다 — 계산하지 않고 이유를 적는다.
@@ -1049,6 +1087,7 @@ function renderClearSection(rows, g){
         h('span', {class: 'd num', text: gap[0] ? 'A ' + fmtPct(gap[0].a) + ' · B ' + fmtPct(gap[0].b) : ''}))),
       h('div', {class: 'diff muted', text: '표에서 격차 순으로 정렬해 확인'})));
   // 차트
+  const cfg = lvCfg(g);
   const gl = grp => grp + '군' + (g.groups && g.groups[grp] ? ' · ' + g.groups[grp] : '');
   const spec = {xs: data.map(r => ({label: 'LV' + r.lv, full: 'LV ' + r.lv})), xTitle: '레벨', pct: true,
     yfmt: v => Math.round(v * 100) + '%', yfmtLbl: fmtPct, hidden: (state.chart.clear || (state.chart.clear = {hidden: {}})).hidden,
@@ -1070,19 +1109,27 @@ function renderClearSection(rows, g){
     h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: '레벨별 표'}), h('span', {text: lvLabel + (state.clearSort === 'gap' ? ' · |B−A| 상위 30' : ' · 레벨 순') + ' · 시도 = 클리어 + 실패'})),
       h('div', {class: 'tools'}, tSeg)),
     h('div', {class: 'tbl-wrap'}, h('table', {class: 'tbl'},
-      h('thead', null, h('tr', null, h('th', {class: 'c-date', text: '레벨'}), h('th', null, 'A', h('span', {class: 'sub', text: '클리어율'})), h('th', null, 'A 시도'),
+      h('thead', null, h('tr', null, h('th', {class: 'c-date', text: '레벨'}), cfg ? h('th', null, '공', h('span', {class: 'sub', text: 'A → B'})) : null,
+        h('th', null, 'A', h('span', {class: 'sub', text: '클리어율'})), h('th', null, 'A 시도'),
         h('th', null, 'B', h('span', {class: 'sub', text: '클리어율'})), h('th', null, 'B 시도'), h('th', null, 'B−A'), h('th', null, 'p'))),
       h('tbody', null, ...rowsOut.map(r => {
-        const p = ztest(r.aw, r.an, r.bw, r.bn), d = r.b - r.a;
+        const p = ztest(r.aw, r.an, r.bw, r.bn), d = r.b - r.a, dl = lvDelta(g, r.lv), lc = cfg && cfg[r.lv];
         return h('tr', {class: (p !== null && p < 0.05) ? 'failrow' : ''},
-          h('td', {class: 'c-date', text: 'LV ' + r.lv}), h('td', {text: fmtPct(r.a)}), h('td', {class: 'muted', text: fmtInt(r.an)}),
+          h('td', {class: 'c-date', text: 'LV ' + r.lv}),
+          cfg ? h('td', {class: dl === null ? 'muted' : '', style: dl === null ? '' : 'font-weight:600',
+            text: !lc ? '—' : lc[0] === -1 ? '∞' : (dl === null ? String(lc[0]) : lc[0] + '→' + lc[1] + ' (' + (dl > 0 ? '+' : '') + dl + ')')}) : null,
+          h('td', {text: fmtPct(r.a)}), h('td', {class: 'muted', text: fmtInt(r.an)}),
           h('td', {text: fmtPct(r.b)}), h('td', {class: 'muted', text: fmtInt(r.bn)}),
           h('td', {style: Math.abs(d) >= 0.03 ? 'font-weight:600' : '', text: fmtPP(d)}), h('td', {class: 'muted', text: fmtP(p).replace('p ', '')}));
       })))),
     h('div', {class: 'tbl-foot'}, h('span', {text: '분자 = af_level_achieved(신버전 클리어) · 분모 = 그 클리어 + level_fail'}),
       h('span', {text: '두 이벤트는 1.5.2(2026-09-11)부터 — 그 전 코호트는 비어 있다'}),
       h('span', {text: 'p < 0.05 인 행 강조 · 레벨이 많아 다중비교에 주의 (단일 레벨 유의는 우연일 수 있음)'})));
-  return h('section', {class: 'metric', id: 'clear'}, head, tiles, h('div', {class: 'grid2'}, chart, table));
+  const delta = renderDeltaCard(rows, g);
+  // 증감 카드가 있으면 차트와 나란히 놓고 표는 아래 전체 폭(레벨이 많아 열이 넓다). 없으면 기존대로 차트+표.
+  return delta
+    ? h('section', {class: 'metric', id: 'clear'}, head, tiles, h('div', {class: 'grid2'}, chart, delta), table)
+    : h('section', {class: 'metric', id: 'clear'}, head, tiles, h('div', {class: 'grid2'}, chart, table));
 }
 
 const SECTIONS = [['ret', '리텐션'], ['arpu', '누적 ARPU'], ['clear', '레벨 클리어율'], ['funnel', '진행도'], ['play', '플레이 강도'], ['ads', '광고'], ['pay', '결제'], ['dau', 'DAU']];
