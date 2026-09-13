@@ -1021,9 +1021,14 @@ function renderClearSection(rows, g){
     onclick: () => { state.lvr = {key: k}; store.set('lvr', state.lvr); render(); }}));
   const head = sectionHead('레벨별 클리어율', '군별 · 신버전 클리어 ÷ (클리어 + 실패) · 시도 ' + MIN_ATTEMPTS + '+ 레벨만 (일반 지표 보드와 같은 정의)',
     [h('span', {class: 'lbl', text: '레벨 구간'}), seg]);
-  if (!data.length){
+  // 실패 이벤트가 아예 없으면 분모 = 클리어라 클리어율이 100% 로 나온다 — 계산하지 않고 이유를 적는다.
+  // (Bakery Rush 는 af_level_achieved 만 보내고 level_fail 은 보내지 않는다. 2026-09-13 실측: 클리어 110,386 · 실패 0)
+  const fails = data.reduce((s, r) => s + (r.an - r.aw) + (r.bn - r.bw), 0);
+  if (!data.length || !fails){
     return h('section', {class: 'metric', id: 'clear'}, head,
-      h('div', {class: 'card'}, h('div', {class: 'empty', text: 'af_level_achieved · level_fail 이 없거나 시도 ' + MIN_ATTEMPTS + ' 이상인 레벨이 없습니다. 두 이벤트는 SmashFest 1.5.2(2026-09-11 배포)부터 나갑니다.'})));
+      h('div', {class: 'card'}, h('div', {class: 'empty', text: data.length
+        ? 'level_fail(실패) 이벤트가 없어 클리어율을 계산할 수 없습니다. 이 게임은 클리어(af_level_achieved)만 보냅니다 — 실패 계측이 붙으면 자동으로 채워집니다.'
+        : 'af_level_achieved · level_fail 이 없거나 시도 ' + MIN_ATTEMPTS + ' 이상인 레벨이 없습니다. 두 이벤트는 SmashFest 1.5.2(2026-09-11 배포)부터 나갑니다.'})));
   }
   // 타일 — 구간 합계
   const sum = k => data.reduce((s, r) => s + r[k], 0);
