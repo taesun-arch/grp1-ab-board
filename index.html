@@ -366,6 +366,7 @@ const state = {
   game: qs.get('game') || store.get('game', DATA.games[0].key),
   os: qs.get('os') || store.get('os', 'all'), rev: store.get('rev', 'total'), cols: store.get('cols', 'all'),
   sec: qs.get('sec') || store.get('sec', 'all'),
+  lvr: store.get('lvr', {key: 'all'}), clearSort: store.get('clearSort', 'lv'),
   win: Object.assign({funnel: 1, ads: 'all', pay: 1}, store.get('win', {})),
   range: {},
   chart: { ret: {mode: 'curve', k: 1, hidden: {}}, arpu: {mode: 'curve', k: 1, hidden: {}} }
@@ -991,7 +992,95 @@ function renderDauSection(rows, g){
   return h('section', {class: 'metric', id: 'dau'}, sectionHead('DAU · 유저-일', '군별 · 날짜별 접속 유저'), h('div', {class: 'grid2'}, chart, table));
 }
 
-const SECTIONS = [['ret', '리텐션'], ['arpu', '누적 ARPU'], ['funnel', '진행도'], ['play', '플레이 강도'], ['ads', '광고'], ['pay', '결제'], ['dau', 'DAU']];
+/* 레벨별 클리어율 — 일반 지표 보드와 같은 정의: 신버전 클리어(af_level_achieved) ÷ (신버전 클리어 + level_fail), 시도 20+ 레벨만.
+   실패는 신버전만 보내므로 구버전 Level_Completed 를 섞지 않는다. 공 개수 실험처럼 난이도를 바꾸는 처치에서 가장 먼저 갈리는 축이다. */
+const LV_PRESETS = [['all', '전체', 1, null], ['100', '≤100', 1, 100], ['300', '≤300', 1, 300], ['500', '≤500', 1, 500], ['850', '저작 ≤850', 1, 850], ['loop', '루프 851+', 851, null]];
+const MIN_ATTEMPTS = 20;
+function clearRates(rows, g, lo, hi){
+  const acc = {A: {}, B: {}};
+  for (const c of rows){
+    const m = acc[c.g]; if (!m || !c.lvwf) continue;
+    for (const lv in c.lvwf){
+      const n = +lv; if (n < lo || (hi && n > hi)) continue;
+      const s = m[n] || (m[n] = [0, 0]); s[0] += c.lvwf[lv][0]; s[1] += c.lvwf[lv][1];
+    }
+  }
+  const levels = [...new Set([...Object.keys(acc.A), ...Object.keys(acc.B)])].map(Number).sort((a, b) => a - b);
+  return levels.map(lv => {
+    const a = acc.A[lv] || [0, 0], b = acc.B[lv] || [0, 0];
+    const an = a[0] + a[1], bn = b[0] + b[1];
+    return {lv, a: an ? a[0] / an : null, b: bn ? b[0] / bn : null, an, bn, aw: a[0], bw: b[0]};
+  }).filter(r => r.an >= MIN_ATTEMPTS && r.bn >= MIN_ATTEMPTS);
+}
+function renderClearSection(rows, g){
+  const st = state.lvr, sel = LV_PRESETS.find(p => p[0] === st.key) || LV_PRESETS[0];
+  const data = clearRates(rows, g, sel[2], sel[3]);
+  const lvLabel = sel[1];
+  const seg = h('div', {class: 'seg'});
+  for (const [k, name] of LV_PRESETS) seg.append(h('button', {type: 'button', 'aria-pressed': String(k === st.key), text: name,
+    onclick: () => { state.lvr = {key: k}; store.set('lvr', state.lvr); render(); }}));
+  const head = sectionHead('레벨별 클리어율', '군별 · 신버전 클리어 ÷ (클리어 + 실패) · 시도 ' + MIN_ATTEMPTS + '+ 레벨만 (일반 지표 보드와 같은 정의)',
+    [h('span', {class: 'lbl', text: '레벨 구간'}), seg]);
+  if (!data.length){
+    return h('section', {class: 'metric', id: 'clear'}, head,
+      h('div', {class: 'card'}, h('div', {class: 'empty', text: 'af_level_achieved · level_fail 이 없거나 시도 ' + MIN_ATTEMPTS + ' 이상인 레벨이 없습니다. 두 이벤트는 SmashFest 1.5.2(2026-09-11 배포)부터 나갑니다.'})));
+  }
+  // 타일 — 구간 합계
+  const sum = k => data.reduce((s, r) => s + r[k], 0);
+  const A = {v: sum('aw') / sum('an'), den: sum('an'), meta: fmtInt(sum('aw')) + ' / ' + fmtInt(sum('an'))};
+  const B = {v: sum('bw') / sum('bn'), den: sum('bn'), meta: fmtInt(sum('bw')) + ' / ' + fmtInt(sum('bn'))};
+  const attA = {v: sum('an') / sum('aw'), den: sum('aw'), meta: '클리어 ' + fmtInt(sum('aw'))};
+  const attB = {v: sum('bn') / sum('bw'), den: sum('bw'), meta: '클리어 ' + fmtInt(sum('bw'))};
+  const gap = data.map(r => ({...r, d: r.b - r.a})).sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
+  const harder = data.filter(r => r.b < r.a).length;
+  const tiles = h('div', {class: 'tiles'},
+    tileGeneric('클리어율', lvLabel + ' 합계', A, B, fmtPct, fmtPP(B.v - A.v), ztest(sum('aw'), sum('an'), sum('bw'), sum('bn'))),
+    tileGeneric('평균 시도/클리어', '(클리어+실패) ÷ 클리어', attA, attB, fmt2, signed(attB.v - attA.v, 2)),
+    h('div', {class: 'tile'}, h('div', {class: 't-l', text: 'B가 더 어려운 레벨'}), h('div', {class: 't-s', text: lvLabel + ' · 비교 가능 ' + fmtInt(data.length) + '개 중'}),
+      h('div', {class: 'vals'}, h('div', {class: 'val'}, h('span', {class: 'g', text: '개수'}), h('span', {class: 'n', text: fmtInt(harder)}), h('span', {class: 'd num', text: fmtPct(harder / data.length)}))),
+      h('div', {class: 'diff muted', text: 'B 클리어율 < A 인 레벨 수 — 절반 근처면 차이 없음'})),
+    h('div', {class: 'tile'}, h('div', {class: 't-l', text: '최대 격차 레벨'}), h('div', {class: 't-s', text: '|B−A| 가 가장 큰 곳'}),
+      h('div', {class: 'vals'}, h('div', {class: 'val'}, h('span', {class: 'g', text: 'LV ' + (gap[0] ? gap[0].lv : '-')}), h('span', {class: 'n', text: gap[0] ? fmtPP(gap[0].d) : '—'}),
+        h('span', {class: 'd num', text: gap[0] ? 'A ' + fmtPct(gap[0].a) + ' · B ' + fmtPct(gap[0].b) : ''}))),
+      h('div', {class: 'diff muted', text: '표에서 격차 순으로 정렬해 확인'})));
+  // 차트
+  const gl = grp => grp + '군' + (g.groups && g.groups[grp] ? ' · ' + g.groups[grp] : '');
+  const spec = {xs: data.map(r => ({label: 'LV' + r.lv, full: 'LV ' + r.lv})), xTitle: '레벨', pct: true,
+    yfmt: v => Math.round(v * 100) + '%', yfmtLbl: fmtPct, hidden: (state.chart.clear || (state.chart.clear = {hidden: {}})).hidden,
+    aria: '레벨별 클리어율 A/B 라인 차트',
+    series: GROUPS.map(grp => ({key: grp, label: gl(grp), short: grp + '군',
+      values: data.map(r => ({v: grp === 'A' ? r.a : r.b, meta: grp === 'A' ? fmtInt(r.aw) + '/' + fmtInt(r.an) : fmtInt(r.bw) + '/' + fmtInt(r.bn)}))}))};
+  const host = h('div', {class: 'chart-host'});
+  const chart = h('div', {class: 'card'},
+    h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: '레벨별 클리어율'}), h('span', {text: lvLabel + ' · ' + osLabel() + ' · 시도 ' + MIN_ATTEMPTS + '+ · ' + fmtInt(data.length) + '개 레벨'}))),
+    host, legend(spec, key => { state.chart.clear.hidden[key] = !state.chart.clear.hidden[key]; render(); }));
+  chartHosts.clear = {host, spec}; requestAnimationFrame(() => lineChart(host, spec));
+  // 표 — 정렬 토글
+  const sorted = state.clearSort === 'gap' ? gap : data;
+  const tSeg = h('div', {class: 'seg'});
+  for (const [k, name] of [['lv', '레벨 순'], ['gap', '격차 큰 순']]) tSeg.append(h('button', {type: 'button', 'aria-pressed': String(k === state.clearSort), text: name,
+    onclick: () => { state.clearSort = k; store.set('clearSort', k); render(); }}));
+  const rowsOut = sorted.slice(0, state.clearSort === 'gap' ? 30 : sorted.length);
+  const table = h('div', {class: 'card'},
+    h('div', {class: 'card-h'}, h('div', {class: 'title'}, h('b', {text: '레벨별 표'}), h('span', {text: lvLabel + (state.clearSort === 'gap' ? ' · |B−A| 상위 30' : ' · 레벨 순') + ' · 시도 = 클리어 + 실패'})),
+      h('div', {class: 'tools'}, tSeg)),
+    h('div', {class: 'tbl-wrap'}, h('table', {class: 'tbl'},
+      h('thead', null, h('tr', null, h('th', {class: 'c-date', text: '레벨'}), h('th', null, 'A', h('span', {class: 'sub', text: '클리어율'})), h('th', null, 'A 시도'),
+        h('th', null, 'B', h('span', {class: 'sub', text: '클리어율'})), h('th', null, 'B 시도'), h('th', null, 'B−A'), h('th', null, 'p'))),
+      h('tbody', null, ...rowsOut.map(r => {
+        const p = ztest(r.aw, r.an, r.bw, r.bn), d = r.b - r.a;
+        return h('tr', {class: (p !== null && p < 0.05) ? 'failrow' : ''},
+          h('td', {class: 'c-date', text: 'LV ' + r.lv}), h('td', {text: fmtPct(r.a)}), h('td', {class: 'muted', text: fmtInt(r.an)}),
+          h('td', {text: fmtPct(r.b)}), h('td', {class: 'muted', text: fmtInt(r.bn)}),
+          h('td', {style: Math.abs(d) >= 0.03 ? 'font-weight:600' : '', text: fmtPP(d)}), h('td', {class: 'muted', text: fmtP(p).replace('p ', '')}));
+      })))),
+    h('div', {class: 'tbl-foot'}, h('span', {text: '분자 = af_level_achieved(신버전 클리어) · 분모 = 그 클리어 + level_fail'}),
+      h('span', {text: '두 이벤트는 1.5.2(2026-09-11)부터 — 그 전 코호트는 비어 있다'}),
+      h('span', {text: 'p < 0.05 인 행 강조 · 레벨이 많아 다중비교에 주의 (단일 레벨 유의는 우연일 수 있음)'})));
+  return h('section', {class: 'metric', id: 'clear'}, head, tiles, h('div', {class: 'grid2'}, chart, table));
+}
+
+const SECTIONS = [['ret', '리텐션'], ['arpu', '누적 ARPU'], ['clear', '레벨 클리어율'], ['funnel', '진행도'], ['play', '플레이 강도'], ['ads', '광고'], ['pay', '결제'], ['dau', 'DAU']];
 function renderSecBar(){
   const bar = h('div', {class: 'secbar', role: 'tablist', 'aria-label': '지표'});
   for (const [key, label] of [['all', '전체'], ...SECTIONS]){
@@ -1057,6 +1146,7 @@ function render(){
       renderTiles(kind, rows, g),
       h('div', {class: 'grid2'}, renderChartCard(kind, rows, g), renderTableCard(kind, rows, g))));
   }
+  if (show('clear')) main.append(renderClearSection(rows, g));
   if (show('funnel')) main.append(renderFunnelSection(rows, g));
   if (show('play')) main.append(renderPlaySection(rows, g));
   if (show('ads')) main.append(renderAdsSection(rows, g));
