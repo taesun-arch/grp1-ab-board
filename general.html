@@ -444,7 +444,10 @@ function renderMoney(J){
     tile('재구매자'+(rangeOn()?' ◌':''), fmt.n(Object.entries(M.purchase_count_hist||{}).filter(([k])=>k!=='1').reduce((a,[,v])=>a+v,0)), '결제 2회+'),
   ].join('');
   const out=[]; const ord=(o)=>Object.entries(o).sort((a,b)=>(a[0]==='unknown'?1e9:Number(a[0]))-(b[0]==='unknown'?1e9:Number(b[0])));
-  const lb = ord(M.first_purchase_level_bucket||{}); out.push(card('첫 결제 시점의 최고 레벨 <span class="muted">결제 당일 af_login 스냅샷</span>'+ALL(), lb.length?barChart(lb.map(([k,v])=>({label:k==='unknown'?'?':'LV'+k+'+',value:v})),{}):empty('첫 결제 없음')));
+  const FPB=[0,1,5,10,20,30,50,75,100,150,200,300,500,851];
+  const fpl=(k)=>{ if(k==='unknown') return '?'; const i=FPB.indexOf(+k); return i<0?'LV'+k:(i<FPB.length-1?`${k}–${FPB[i+1]-1}`:`${k}+`); };
+  const lb = ord(M.first_purchase_level_bucket||{}); const unp = M.first_purchase_unplaceable||0;
+  out.push(card(`첫 결제 시점까지 최고 클리어 레벨 <span class="muted">결제 시각 이전 max(af_login 스냅샷, 클리어) · 0 = 클리어 전 결제 · ${fmt.n(lb.reduce((a,[,v])=>a+v,0))}명${unp?` · 계측 전 결제(구버전에서 결제 후 업데이트) ${fmt.n(unp)}명 제외`:''}</span>`+ALL(), lb.length?barChart(lb.map(([k,v])=>({label:fpl(k),value:v,title:`LV ${fpl(k)}: ${fmt.n(v)}명`})),{}):empty('레벨을 매길 수 있는 첫 결제 없음')));
   const db = ord(M.first_purchase_day_bucket||{}); out.push(card('첫 결제 며칠차 <span class="muted">Install Time 기준</span>'+ALL(), db.length?barChart(db.map(([k,v])=>({label:k==='unknown'?'?':'D'+k+'+',value:v})),{}):empty('첫 결제 없음')));
   const pc = Object.entries(M.purchase_count_hist||{}).sort((a,b)=>(parseInt(a[0])||99)-(parseInt(b[0])||99)); out.push(card('유저당 결제 횟수'+ALL(), pc.length?barChart(pc.map(([k,v])=>({label:k+'회',value:v})),{}):empty('–')));
   const sku = Object.entries(M.sku||{}).sort((a,b)=>b[1].usd-a[1].usd); const smax = sku.length?sku[0][1].usd:0;
