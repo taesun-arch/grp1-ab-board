@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Group 1 일반 지표 보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* A/B 보드(index.html)와 같은 팔레트 — 시각만 통일, 코드·데이터는 독립. 라이트 기본, 다크는 토글(저장 안 함) */
+:root{
+  color-scheme:light;
+  --bg:#f3f4f7; --card:#ffffff; --card-2:#f6f7fa; --line:#dfe3ea; --line-soft:#eceef3;
+  --ink:#171a20; --ink-2:#4a5160; --ink-3:#7b8494;
+  --accent:#2a78d6; --accent-ink:#ffffff;
+  --c1:#2a78d6; --c2:#1bae7a; --c3:#d97a12; --c4:#8a5cd6; --c5:#d03b3b; --c6:#6b7a90;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --chip:#eef0f4; --chip-on:#dbe8fb; --chip-on-ink:#1b4f9c;
+  --heat-rgb:42,120,214;
+  --shadow:0 1px 2px rgba(20,26,40,.08);
+  --font:"IBM Plex Sans",-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --mono:"IBM Plex Mono",Consolas,"Malgun Gothic",monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#14161b; --card:#1c1f26; --card-2:#22262e; --line:#2c313b; --line-soft:#252932;
+  --ink:#e6e9ef; --ink-2:#aab2bf; --ink-3:#7c8594;
+  --accent:#4f8ef7; --c1:#3987e5; --c2:#19a070; --c3:#d9761c; --c4:#9b73e0; --c5:#e05252; --c6:#8a98ad;
+  --chip:#22262e; --chip-on:#2b3f5e; --chip-on-ink:#dce8ff; --heat-rgb:57,135,229;
+  --shadow:0 1px 0 rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font)}
+button,select{font:inherit;color:inherit} button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums} .mono{font-family:var(--mono)} .muted{color:var(--ink-3)} .small{font-size:12px}
+.top{display:flex;align-items:center;gap:20px;padding:12px 24px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:20;flex-wrap:wrap}
+.brand h1{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em} .brand .sub{font-size:11.5px;color:var(--ink-3)}
+.tabs{display:flex;gap:4px;margin-left:8px}
+.tab{background:transparent;border:0;border-bottom:2px solid transparent;padding:8px 14px 9px;color:var(--ink-2);border-radius:6px 6px 0 0;font-weight:600}
+.tab:hover{background:var(--card-2);color:var(--ink)} .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:14px;color:var(--ink-3);font-size:12px}
+.iconbtn{background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:5px 10px;color:var(--ink-2);font-size:12px}
+.iconbtn:hover{color:var(--ink);border-color:var(--ink-3)}
+.wrap{padding:14px 24px 40px;max-width:1500px;margin:0 auto}
+.defs{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px;box-shadow:var(--shadow)}
+.defs summary{cursor:pointer;font-weight:600;color:var(--ink-2)} .defs ul{margin:8px 0 0;padding-left:18px;color:var(--ink-2);font-size:12.5px} .defs li{margin:3px 0}
+.defs .ban{display:inline-block;margin-top:8px;background:#fdecec;color:#8a1c1c;border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600}
+:root[data-theme="dark"] .defs .ban{background:#3a1c1c;color:#ffb3b3}
+.secnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.secnav button{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--ink-2)}
+.secnav button[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink);border-color:transparent;font-weight:500}
+section{margin-bottom:22px} section[hidden]{display:none}
+h2{font-size:15px;margin:0 0 10px;display:flex;align-items:baseline;gap:10px} h2 .muted{font-weight:400;font-size:12px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))} .grid.wide{grid-template-columns:repeat(auto-fill,minmax(460px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);min-width:0}
+.card.span2{grid-column:span 2} @media (max-width:980px){.card.span2{grid-column:span 1}}
+.card h3{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--ink-2)} .card h3 .muted{font-weight:400}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:12px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow)}
+.tile .k{font-size:11.5px;color:var(--ink-3)} .tile .v{font-size:20px;font-weight:600;margin-top:2px} .tile .s{font-size:11.5px;color:var(--ink-3)}
+table{width:100%;border-collapse:collapse;font-size:12.5px} th,td{padding:5px 8px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+th{color:var(--ink-3);font-weight:500;border-bottom:1px solid var(--line)} th:first-child,td:first-child{text-align:left}
+.tscroll{overflow:auto;max-height:420px}
+.bar{height:8px;border-radius:4px;background:rgba(var(--heat-rgb),.25);display:inline-block;vertical-align:middle}
+.bar i{display:block;height:100%;border-radius:4px;background:var(--c1)}
+svg{display:block;width:100%;height:auto} svg text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
+svg .axis{stroke:var(--line);stroke-width:1} svg .grid{stroke:var(--line-soft);stroke-width:1}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);margin-top:6px} .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.empty{padding:22px;text-align:center;color:var(--ink-3);border:1px dashed var(--line);border-radius:10px;font-size:13px}
+.heat{display:grid;gap:2px} .heat div{height:22px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-family:var(--mono)}
+.heat .h{background:transparent;color:var(--ink-3)}
+.seg{display:inline-flex;background:var(--chip);border-radius:6px;padding:2px;gap:2px;margin-left:8px}
+.seg button{border:0;background:transparent;border-radius:4px;padding:3px 10px;font-size:12.5px;color:var(--ink-2)} .seg button[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink);font-weight:500}
+.filters{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px 4px 10px;box-shadow:var(--shadow)}
+.chip .lbl{font-size:12px;color:var(--ink-3)}
+.chip input[type=date]{background:var(--chip);border:1px solid transparent;border-radius:5px;padding:3px 6px;font-size:12.5px;font-family:var(--mono);color:var(--ink)}
+.preset{border:0;background:transparent;color:var(--accent);font-size:12px;padding:2px 6px;border-radius:4px} .preset:hover{background:var(--chip)}
+.all{color:var(--ink-3);font-weight:400;font-size:11px;border:1px dashed var(--line);border-radius:4px;padding:0 5px;margin-left:6px}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="iconbtn" id="home" href="index.html" title="보드 선택으로">← 보드</a>
+  <div class="brand"><h1>Group 1 일반 지표 보드</h1><div class="sub">AppsFlyer raw · 계측 유저 · A/B 무관</div></div>
+  <nav class="tabs" id="tabs" aria-label="게임"></nav>
+  <div class="right"><span id="gen" class="mono"></span><button class="iconbtn" id="theme" type="button">다크</button></div>
+</header>
+<main class="wrap">
+  <details class="defs" id="defs" open>
+    <summary>정의 — 이 화면의 모든 수치가 따르는 규칙</summary>
+    <ul id="deflist"></ul>
+    <span class="ban">A/B 코호트 보드·AppsFlyer 대시보드·GameForge 콘솔과 절대값을 대조하지 말 것 — 모집단·접속 정의가 다르다</span>
+  </details>
+  <div class="secnav" id="secnav"></div>
+  <div class="filters" id="filters" style="padding:0 0 10px"></div>
+  <div id="empty" class="empty" hidden></div>
+  <div id="rollout" class="defs" style="border-color:var(--warn);color:var(--ink-2);font-size:12.5px" hidden></div>
+  <section id="sec-access"><h2>접속·잔존 <span class="muted">af_login 기준 · 코호트 = Install Time</span></h2><div class="tiles" id="tiles"></div><div class="grid wide" id="access"></div></section>
+  <section id="sec-progress"><h2>진행·난이도 <span class="muted">클리어 = af_level_achieved · 실패 = level_fail</span><span class="seg" id="lvseg"></span><span class="chip" id="lvcustom" style="margin-left:6px;padding:2px 6px"><span class="lbl">직접</span><input type="number" id="lvmin" min="1" placeholder="from" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"> <span class="lbl">~</span> <input type="number" id="lvmax" min="1" placeholder="to" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"></span></h2><div class="grid wide" id="progress"></div></section>
+  <section id="sec-integrity"><h2>정합 <span class="muted">attempt_count 갭 = 유실 시도(하한)</span></h2><div class="tiles" id="itiles"></div><div class="grid wide" id="integrity"></div></section>
+  <section id="sec-money"><h2>수익화 <span class="muted">af_purchase · .dev. 제외</span></h2><div class="tiles" id="mtiles"></div><div class="grid wide" id="money"></div></section>
+  <section id="sec-ads"><h2>광고 <span class="muted">광고 수익 리포트 · Placement</span></h2><div class="grid wide" id="ads"></div></section>
+  <section id="sec-slices"><h2>슬라이스 <span class="muted">핵심 지표를 차원별로</span><span class="seg" id="sliceseg"></span></h2><div class="grid wide" id="slices"></div></section>
+</main>
+<script>
+// 데이터 소스: 기본 general-data.js(실데이터). general.html?data=synth 는 합성 데이터(general-data.synth.js) — 배포 전 보드 점검용.
+(function(){ var k = new URLSearchParams(location.search).get('data'); var f = k && /^[a-z0-9_-]{1,20}$/.test(k) && k!=='real' ? 'general-data.'+k+'.js' : 'general-data.js';
+  document.write('<script src="'+f+'"><\/script>'); window.__DATA_FILE = f; })();
+</script>
+<script src="general-data.enc.js"></script>
+<script>
+(function(){
+'use strict';
+let D = {games:{}};        // 평문(general-data.js) 또는 복호한 암호문(general-data.enc.js)
+let games = [];
+const $ = (id)=>document.getElementById(id);
+const fmt = {
+  n:(v)=>v==null?'–':Number(v).toLocaleString('en-US'),
+  p:(v,d=1)=>v==null||isNaN(v)?'–':(v*100).toFixed(d)+'%',
+  usd:(v)=>v==null?'–':'$'+Number(v).toFixed(v<10?2:0),
+  f:(v,d=1)=>v==null?'–':Number(v).toFixed(d),
+};
+const esc = (s)=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let game = null, sliceDim = 'media_source';
+const SECS = [['sec-access','접속·잔존'],['sec-progress','진행·난이도'],['sec-integrity','정합'],['sec-money','수익화'],['sec-ads','광고'],['sec-slices','슬라이스']];
+let activeSec = 'all';
+// ── 레벨 구간 선택 (벽 TOP 10 · 레벨별 클리어율) ──
+const LV_PRESETS = [['all','전체',1,null],['100','≤100',1,100],['300','≤300',1,300],['500','≤500',1,500],['850','저작 ≤850',1,850],['loop','루프 851+',851,null]];
+let lvr = {key:'all', min:1, max:null};
+function renderLevelSeg(J){
+  $('lvseg').innerHTML = LV_PRESETS.map(([k,n])=>`<button type="button" data-k="${k}" aria-pressed="${k===lvr.key}">${n}</button>`).join('');
+  $('lvseg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ const p=LV_PRESETS.find(x=>x[0]===b.dataset.k); lvr={key:p[0],min:p[2],max:p[3]}; $('lvmin').value=''; $('lvmax').value=''; render(); });
+  const custom = ()=>{ const a=parseInt($('lvmin').value,10), b=parseInt($('lvmax').value,10); if(!a&&!b) return; lvr={key:'custom', min:a||1, max:b||null}; render(); };
+  $('lvmin').onchange = custom; $('lvmax').onchange = custom;
+  if(lvr.key==='custom'){ $('lvmin').value = lvr.min; $('lvmax').value = lvr.max||''; }
+}
+const inLv = (l)=>l>=lvr.min && (lvr.max==null || l<=lvr.max);
+const lvLabel = ()=>lvr.key==='all'?'전 레벨':(lvr.max==null?`LV ${lvr.min}+`:`LV ${lvr.min}~${lvr.max}`);
+// ── 레벨 축 재분할 — 선택 구간의 약 1/10 폭, 단 **10의 배수**(팀장님 지시). 데이터는 10레벨 고정 폭으로 와서 병합만 한다.
+//    예: 전체(절단 ~281) → 30 · ≤100 → 10 · ≤300 → 30 · ≤500 → 50. 구간이 100 미만이면 최소 폭 10.
+const LV_TAIL = 2001;                       // 데이터의 마지막 칸(이 이상은 한 덩이). 칸 경계는 1 기준(1~10, 11~20 …)
+const binWidth = (span)=>Math.max(10, Math.round(span/100)*10);   // 구간의 1/10, 10의 배수
+// 묶음 기준점 — 1 기준 격자에 맞춘다(1, 11, 21 …). 그래야 30 단위 묶음이 1~30 · 31~60 으로 떨어진다.
+const lvAnchor = (min)=>1 + Math.floor((Math.max(1,min)-1)/10)*10;
+function rebinLevels(obj, W, anchor, fold){ // {10레벨 칸: n} → {묶음 시작: n}
+  const out = {};
+  Object.entries(obj).forEach(([k,n])=>{ const v=+k;
+    const g = v===0 ? 0 : (v>=fold ? fold : anchor + Math.floor((v-anchor)/W)*W);
+    out[g]=(out[g]||0)+n; });
+  return out;
+}
+// 라벨 상한은 **칸이 실제로 담는 범위**로 적는다. 원자료가 10레벨 단위라 선택 구간의 경계는 10 에 맞춰 스냅된다.
+function binLabel(g, W, fold){
+  if(g===0) return '0';
+  if(g===fold) return `${g}+`;
+  return `${g}–${Math.min(g+W-1, fold-1)}`;
+}
+// ── 기간 선택 (A/B 보드와 같은 칩). 일별로 쪼개진 카드만 따르고, 전체 기간 카드는 ◌ 표시 ──
+let rng = {from:null, to:null};
+const allDays = (J)=>Object.keys(J.daily).sort();
+const daysIn = (J)=>allDays(J).filter(d=>(!rng.from||d>=rng.from)&&(!rng.to||d<=rng.to));
+const rangeOn = ()=>!!(rng.from||rng.to);
+const ALL = ()=>rangeOn()?'<span class="all">◌ 전체 기간</span>':'';
+function renderFilters(J){
+  const days = allDays(J); const lo = days[0]||'', hi = days[days.length-1]||'';
+  $('filters').innerHTML = `<span class="chip"><span class="lbl">기간</span><input type="date" id="dfrom" min="${lo}" max="${hi}" value="${rng.from||lo}"> <span class="lbl">~</span> <input type="date" id="dto" min="${lo}" max="${hi}" value="${rng.to||hi}"></span>
+    <button class="preset" data-p="all" type="button">전체</button><button class="preset" data-p="7" type="button">최근 7일</button><button class="preset" data-p="14" type="button">최근 14일</button>
+    <span class="muted small">${rangeOn()?`${rng.from||lo} ~ ${rng.to||hi} · ${daysIn(J).length}일 · ◌ 표시 카드는 전체 기간`:'전체 기간 · 날짜를 고르면 일별 카드가 따라간다'}</span>`;
+  const apply = ()=>{ const f=$('dfrom').value, t=$('dto').value; rng = {from: f&&f!==lo?f:null, to: t&&t!==hi?t:null}; render(); };
+  $('dfrom').onchange = apply; $('dto').onchange = apply;
+  $('filters').querySelectorAll('.preset').forEach(b=>b.onclick=()=>{ const p=b.dataset.p; if(p==='all') rng={from:null,to:null}; else { const n=parseInt(p,10); rng={from: days[Math.max(0,days.length-n)], to:null}; } render(); });
+}
+
+// ── 차트 헬퍼 (인라인 SVG) ──
+function lineChart(series, opts){
+  // series: [{name,color,points:[[x,y],...]}] x 는 라벨 문자열(동일 축), y 숫자
+  const W=560,H=200,L=44,R=12,T=12,B=28; const labels = opts.labels;
+  let ymax = opts.ymax ?? Math.max(1e-9, ...series.flatMap(s=>s.points.map(p=>p[1]||0)))*1.1;
+  const xs=(i)=>L+(labels.length<=1?0:(W-L-R)*i/(labels.length-1)); const ys=(v)=>T+(H-T-B)*(1-(v||0)/ymax);
+  let g=''; for(let k=0;k<=4;k++){const y=T+(H-T-B)*k/4; g+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${y}" y2="${y}"/><text x="${L-6}" y="${y+3}" text-anchor="end">${opts.yfmt?opts.yfmt(ymax*(1-k/4)):fmt.n(Math.round(ymax*(1-k/4)))}</text>`;}
+  const step=Math.max(1,Math.ceil(labels.length/8)); let xl='';
+  labels.forEach((lb,i)=>{ if(i%step===0||i===labels.length-1) xl+=`<text x="${xs(i)}" y="${H-8}" text-anchor="middle">${esc(lb)}</text>`; });
+  const paths = series.map(s=>{ const d=s.points.map((p,i)=>(i?'L':'M')+xs(i).toFixed(1)+' '+ys(p[1]).toFixed(1)).join(' ');
+    const dots=s.points.map((p,i)=>`<circle cx="${xs(i).toFixed(1)}" cy="${ys(p[1]).toFixed(1)}" r="2.2" fill="${s.color}"><title>${esc(labels[i])} · ${s.name}: ${opts.yfmt?opts.yfmt(p[1]):fmt.n(p[1])}</title></circle>`).join('');
+    return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>${dots}`; }).join('');
+  const legend = series.length>1?`<div class="legend">${series.map(s=>`<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>`:'';
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'')}">${g}<line class="axis" x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}"/>${xl}${paths}</svg>${legend}`;
+}
+function barChart(items, opts){
+  // items: [{label, value, color?, title?}] 세로 막대
+  const W=560,H=200,L=44,R=12,T=12,B=30; const n=items.length||1;
+  const ymax = opts.ymax ?? Math.max(1e-9, ...items.map(i=>i.value||0))*1.1; const bw=(W-L-R)/n;
+  let g=''; for(let k=0;k<=4;k++){const y=T+(H-T-B)*k/4; g+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${y}" y2="${y}"/><text x="${L-6}" y="${y+3}" text-anchor="end">${opts.yfmt?opts.yfmt(ymax*(1-k/4)):fmt.n(Math.round(ymax*(1-k/4)))}</text>`;}
+  const step=Math.max(1,Math.ceil(n/12));
+  const bars=items.map((it,i)=>{const h=(H-T-B)*(it.value||0)/ymax; const x=L+bw*i+bw*0.15; const lbl=(i%step===0||i===n-1)?`<text x="${L+bw*i+bw/2}" y="${H-10}" text-anchor="middle">${esc(it.label)}</text>`:'';
+    return `<rect x="${x.toFixed(1)}" y="${(H-B-h).toFixed(1)}" width="${(bw*0.7).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${it.color||'var(--c1)'}"><title>${esc(it.title||it.label+': '+(opts.yfmt?opts.yfmt(it.value):fmt.n(it.value)))}</title></rect>${lbl}`;}).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'')}">${g}<line class="axis" x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}"/>${bars}</svg>`;
+}
+function hbar(v, max){ const w = max>0?Math.max(0,Math.min(100,v/max*100)):0; return `<span class="bar" style="width:80px"><i style="width:${w.toFixed(0)}%"></i></span>`; }
+function table(cols, rows, opts={}){
+  const th = cols.map(c=>`<th>${esc(c)}</th>`).join('');
+  const tr = rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${i?'num':''}">${c}</td>`).join('')}</tr>`).join('');
+  return `<div class="tscroll" style="${opts.h?'max-height:'+opts.h+'px':''}"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+}
+const card = (title, body, cls='') => `<div class="card ${cls}"><h3>${title}</h3>${body}</div>`;
+const tile = (k, v, s='') => `<div class="tile"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`;
+const empty = (msg) => `<div class="empty">${esc(msg)}</div>`;
+const ratio = (a,b)=> b>0 ? a/b : null;
+
+// 산출은 0·빈 값을 빼고 온다(파일 크기). 읽기 전에 한 번만 기본값을 채운다.
+const LV_DEFAULTS = {reach:0, reach_new:0, wins:0, wins_ach:0, fails:0, attempts_sum:0, stuck3_sampled:0};
+function fillLevelDefaults(J){
+  if(J.__filled) return; J.__filled = true;
+  const L = J.levels||{};
+  for(const k in L){ const v = L[k];
+    for(const f in LV_DEFAULTS) if(v[f]===undefined) v[f] = LV_DEFAULTS[f];
+    if(!v.fail_reasons) v.fail_reasons = {}; }
+}
+
+// ── 렌더 ──
+function render(){
+  const J = D.games[game]; if(!J){ $('empty').hidden=false; $('empty').textContent='데이터 없음 — general/build.py 를 먼저 실행'; return; }
+  fillLevelDefaults(J);
+  $('empty').hidden=true;
+  const synth = /synth/.test(window.__DATA_FILE||'');
+  $('gen').textContent = `${synth?'⚠ 합성 데이터 · ':''}산출 ${D.generated_at||''} · ${J.meta.game||game} · ${J.meta.date_from||''}~${J.meta.date_to||''} · 파일 ${fmt.n(J.meta.files)} · 행 ${fmt.n(J.meta.rows)}`;
+  document.title = (synth?'[합성] ':'') + 'Group 1 일반 지표 보드';
+  $('deflist').innerHTML = (J.meta.definitions||[]).map(d=>`<li>${esc(d)}</li>`).join('')
+    + '<li>레벨 축(현재 레벨 분포·히트맵)은 고른 구간의 약 1/10 폭(10의 배수)으로 묶는다. 원자료가 10레벨 단위라 구간 경계는 10 에 맞춰 스냅되고, 폭 × 10 지점부터는 한 칸(“N+”)으로 접는다.</li>' + `<li>유저 ${fmt.n(J.meta.users)} · KR 제외 ${fmt.n(J.meta.excluded_kr_users)}${J.meta.instrumented_only?` · 비계측(구버전) 제외 ${fmt.n(J.meta.excluded_not_instrumented_users)}`:''} · 유실 판정 표본 1/${J.meta.sample_mod} · 시작일 ${esc(J.meta.start||'-')}</li>`;
+  const ec = J.meta.event_counts||{}; const has = (n)=>(ec[n]||0)>0;
+  renderFilters(J); renderLevelSeg(J);
+  // 롤아웃 커버리지: 선택 기간 마지막 날 af_login 유저 ÷ 그날 인앱 이벤트가 있는 유저. 계측 유저 한정 빌드에서는 정의상 100% 에 가깝다.
+  const days = daysIn(J); const last = J.daily[days[days.length-1]]||{};
+  const cov = last.active_any ? last.dau/last.active_any : null;
+  const ban = $('rollout');
+  if(J.meta.instrumented_only){ ban.hidden=false; ban.textContent=`모집단 = 계측 유저(af_login 1회 이상)만. 구버전 유저 ${fmt.n(J.meta.excluded_not_instrumented_users)}명은 전 지표에서 제외. 롤아웃이 끝나면 전원과 같아진다.`; }
+  else if(cov!=null && cov<0.8 && has('af_login')){ ban.hidden=false; ban.textContent=`계측 롤아웃 중 — 마지막 날 af_login 커버리지 ${fmt.p(cov,0)} (${fmt.n(last.dau)}/${fmt.n(last.active_any)}). 접속·리텐션·클리어율은 신버전 유저만 반영한다.`; }
+  else ban.hidden=true;
+  renderAccess(J, has, cov); renderProgress(J, has); renderIntegrity(J, has); renderMoney(J); renderAds(J); renderSlices(J);
+  document.querySelector('#sec-integrity h2 .muted').innerHTML = 'attempt_count 갭 = 유실 시도(하한)' + ALL();
+  document.querySelector('#sec-slices h2 .muted').innerHTML = '핵심 지표를 차원별로' + ALL();
+}
+
+function renderAccess(J, has, cov){
+  const days = daysIn(J); const last = days[days.length-1]; const d = J.daily;
+  const sum = (k)=>days.reduce((a,x)=>a+(d[x][k]||0),0);
+  $('tiles').innerHTML = [
+    tile('기간 유저'+(rangeOn()?' ◌':''), fmt.n(J.meta.users), rangeOn()?'전체 기간 기준':`${days.length}일`),
+    tile('마지막 날 DAU', has('af_login')?fmt.n(d[last]?.dau):'–', has('af_login')?`${last} · 활동 ${fmt.n(d[last]?.active_any)}`:'af_login 미수신'),
+    tile('af_login 커버리지', cov!=null?fmt.p(cov,0):'–', J.meta.instrumented_only?'계측 유저 한정':(cov!=null&&cov<0.8?'롤아웃 중':'af_login 유저 ÷ 활동 유저')),
+    tile('설치(기간 합)', fmt.n(sum('installs')), 'Install Time 기준'),
+    tile('결제자'+(rangeOn()?' ◌':''), fmt.n(J.monetization.payers), `전환 ${fmt.p(ratio(J.monetization.payers, J.meta.users),2)}`),
+    tile('매출(기간 합)', fmt.usd(sum('revenue_usd')), rangeOn()?`결제 ${fmt.n(sum('purchases'))}건`:`ARPU ${fmt.usd(ratio(sum('revenue_usd'), J.meta.users)||0)}`),
+    tile('광고 노출(기간 합)', fmt.n(sum('ad_imps')), `수익 ${fmt.usd(sum('ad_rev_usd'))}`),
+  ].join('');
+  const out = [];
+  if(has('af_login')){
+    out.push(card('DAU · 활동 유저 · 설치 <span class="muted">DAU = af_login, 활동 = 인앱 이벤트 有</span>', lineChart([{name:'DAU(af_login)',color:'var(--c1)',points:days.map(x=>[x,d[x].dau])},{name:'활동 유저',color:'var(--c6)',points:days.map(x=>[x,d[x].active_any])},{name:'설치',color:'var(--c3)',points:days.map(x=>[x,d[x].installs])}],{labels:days.map(x=>x.slice(5))})));
+    // 리텐션 코호트 표 + 가중 곡선 — 설치일이 선택 기간 안인 코호트만
+    const R = J.retention; const keys = Object.keys(R).sort().filter(k=>(!rng.from||k>=rng.from)&&(!rng.to||k<=rng.to)); const H=[1,3,7,14,30];
+    const agg = {}; H.forEach(h=>agg[h]=[0,0]);
+    keys.forEach(k=>H.forEach(h=>{agg[h][0]+=R[k]['d'+h][0]; agg[h][1]+=R[k]['d'+h][1];}));
+    const curve = H.filter(h=>agg[h][1]>0).map(h=>({label:'D'+h, value:ratio(agg[h][0],agg[h][1]), title:`D${h}: ${fmt.p(ratio(agg[h][0],agg[h][1]))} (n=${fmt.n(agg[h][1])})`}));
+    out.push(card('리텐션 곡선 <span class="muted">전 코호트 가중 · 분모 = 성숙 유저</span>', curve.length?barChart(curve,{ymax:Math.max(0.05,...curve.map(c=>c.value))*1.15,yfmt:(v)=>fmt.p(v,0)}):empty('성숙한 코호트 없음')));
+    out.push(card('설치 코호트별 리텐션', table(['설치일','n','D1','D3','D7','D14','D30'], keys.map(k=>{const r=R[k]; return [esc(k), fmt.n(r.n), ...H.map(h=>r['d'+h][1]?`${fmt.p(ratio(r['d'+h][0],r['d'+h][1]))} <span class="muted small">${r['d'+h][1]}</span>`:'<span class="muted">–</span>')];}),{h:360}),'span2'));
+  } else {
+    out.push(card('접속·리텐션', empty('af_login 이벤트가 아직 없음 — 계측 빌드 배포 다음날부터 채워진다')));
+  }
+  $('access').innerHTML = out.join('');
+}
+
+function renderProgress(J, has){
+  const L = J.levels; const lv = Object.keys(L).map(Number).sort((a,b)=>a-b); const out=[];
+  if(!lv.length){ $('progress').innerHTML = card('진행', empty('클리어·실패 이벤트 없음')); return; }
+  const users = J.meta.users||1;
+  // 도달 퍼널 = 신규 설치 코호트(시작일 이후 설치·설치 당일 af_login)만 — 기존 유저를 넣으면 '현재 위치 분포' 가 돼 퍼널이 아니다.
+  const NC = J.progression.new_cohort_users||0; const hasNew = NC>0 && lv.some(l=>L[l].reach_new>0);
+  const cutAll = lv.find(l=>ratio(L[l].reach,users)<0.005) || lv[lv.length-1];
+  // 레벨 축 묶음 폭 — 구간의 1/10(10 배수). 전체일 때 span 은 **신규 코호트 도달 0.5% 절단**(퍼널이 끊는 지점)으로 본다.
+  // 관측 최대(루프 6000대)를 쓰면 폭이 수백이 되어 못 읽는다. 폭 × 10 지점부터는 한 칸으로 접어 항상 ~11칸을 유지한다.
+  const topObs = lv[lv.length-1] || 1;
+  const cutNew = hasNew ? (lv.find(l=>ratio(L[l].reach_new,NC)<0.005) || topObs) : cutAll;
+  const lvHi = lvr.key==='all' ? cutNew : (lvr.max!=null ? lvr.max : Math.min(LV_TAIL, topObs));
+  const LVW = binWidth(lvHi - lvr.min + 1);
+  const LVANCHOR = lvAnchor(lvr.min);
+  const LVFOLD = Math.min(LV_TAIL, LVANCHOR + 10*LVW);
+  if(hasNew){
+    const cutN = lv.find(l=>ratio(L[l].reach_new,NC)<0.005) || lv[lv.length-1];
+    // 레벨 구간을 고르면 그 구간만, 전체면 0.5% 절단까지. 구간이 좁으면 매 레벨, 넓으면 10단위로 찍는다.
+    const inRange = lv.filter(l=>inLv(l) && (lvr.key!=='all' || l<=cutN));
+    const step = Math.max(1, Math.ceil(inRange.length/90));      // 점이 90개를 넘으면 솎아낸다(루프 구간은 수천 레벨)
+    const pts = step===1 ? inRange : inRange.filter((l,i)=>i%step===0 || i===inRange.length-1);
+    const y = pts.length ? Math.min(1, Math.max(...pts.map(l=>ratio(L[l].reach_new,NC)))*1.15) : 1;
+    out.push(card(`도달 퍼널 <span class="muted">${lvLabel()} · 신규 설치 코호트 ${fmt.n(NC)}명(시작일 이후 설치·설치 당일 af_login)의 최고 클리어 ≥ N 비율${lvr.key==='all'?` · LV${cutN} 이후 0.5% 미만 생략`:''}</span>${ALL()}`,
+      pts.length?lineChart([{name:'도달',color:'var(--c1)',points:pts.map(l=>[l,ratio(L[l].reach_new,NC)])}],{labels:pts.map(String),ymax:y,yfmt:(v)=>fmt.p(v,0)}):empty('이 구간에 도달 데이터 없음')));
+  } else {
+    out.push(card('도달 퍼널', empty('신규 설치 코호트가 아직 없음 — 시작일 이후 설치·당일 로그인 유저가 쌓이면 표시')));
+  }
+  // 활성 유저 현재 레벨 분포 — 선택 기간에 **마지막으로 접속한** 유저만(마지막 af_login 일자 기준). 전체 기간이면 전원.
+  // 예: 9/11 설치·LV99·이후 미접속 유저는 마지막 접속일 9/11 로 묶여, "최근 7일" 이 9/11 을 벗어나면 빠진다.
+  const byLast = J.progression.current_level_by_last_login||{}; const ch = {};
+  const lastDays = Object.keys(byLast).filter(d=>(!rng.from||d>=rng.from)&&(!rng.to||d<=rng.to));
+  lastDays.forEach(d=>Object.entries(byLast[d]).forEach(([b,n])=>ch[b]=(ch[b]||0)+n));
+  const totAll = Object.values(ch).reduce((a,n)=>a+n,0);
+  // 레벨 구간 선택 적용 — 칸 하한이 구간 안이면 포함. 전체일 때만 0 칸(클리어 없음)을 넣는다.
+  const inCh = {}; Object.entries(ch).forEach(([k,n])=>{ if(lvr.key==='all' || inLv(+k)) inCh[k]=n; });
+  const grouped = rebinLevels(inCh, LVW, LVANCHOR, LVFOLD);
+  const ck = Object.keys(grouped).map(Number).sort((a,b)=>a-b);
+  if(ck.length){
+    const tot = ck.reduce((a,k)=>a+grouped[k],0);
+    const bl = (k)=>binLabel(k, LVW, LVFOLD);
+    out.push(card(`활성 유저 현재 레벨 분포 <span class="muted">${lvLabel()} · ${LVW}레벨 단위 · ${rangeOn()?'선택 기간에 마지막으로 접속한':'기간 내 접속한'} 유저 ${fmt.n(tot)}명${lvr.key!=='all'?` / 전체 ${fmt.n(totAll)}`:''} · 현재 레벨 = max(마지막 af_login 스냅샷, 최고 클리어) · 0 = 클리어 없음</span>`,
+      barChart(ck.map(k=>({label: bl(k), value: grouped[k], title:`LV ${bl(k)}: ${fmt.n(grouped[k])}명 (구간 내 ${fmt.p(grouped[k]/tot)} · 전체 ${fmt.p(grouped[k]/totAll)})`})),{})));
+  } else if(Object.keys(byLast).length){
+    out.push(card('활성 유저 현재 레벨 분포', empty(lvr.key==='all'?'선택 기간에 마지막으로 접속한 유저 없음':'이 레벨 구간에 유저 없음')));
+  }
+  const cut = cutAll;
+  // 클리어율 분자 = 신버전 클리어(wins_ach). 기간이 선택되면 levels_daily 를 그 날짜들로 합산한다.
+  let WA = {}, FA = {};
+  if(rangeOn() && J.levels_daily){ daysIn(J).forEach(dd=>Object.entries(J.levels_daily[dd]||{}).forEach(([l,[w,f]])=>{WA[l]=(WA[l]||0)+w; FA[l]=(FA[l]||0)+f;})); }
+  const wa = (l)=>rangeOn()?(WA[l]||0):(L[l].wins_ach||0), fa = (l)=>rangeOn()?(FA[l]||0):L[l].fails;
+  const att = (l)=>wa(l)+fa(l);
+  // 레벨 구간 선택(전체·≤100·≤500·저작·루프·직접)이 클리어율 차트와 벽 TOP 10 에 적용된다. 전체일 때만 퍼널 절단 지점으로 끊는다.
+  const cr = lv.filter(l=>att(l)>=20 && inLv(l) && (lvr.key!=='all' || l<=cut));
+  if(has('level_fail')){
+    out.push(card(`레벨별 클리어율 <span class="muted">${lvLabel()} · 신버전 클리어 ÷ (신버전 클리어 + 실패) · 시도 20+ · ${fmt.n(cr.length)}개 레벨</span>`, cr.length?lineChart([{name:'클리어율',color:'var(--c2)',points:cr.map(l=>[l,ratio(wa(l),att(l))])}],{labels:cr.map(String),ymax:1,yfmt:(v)=>fmt.p(v,0)}):empty('이 구간에 시도 20 이상 레벨 없음 — 구간·기간을 넓히거나 롤아웃을 기다린다')));
+    const walls = cr.map(l=>({l,rate:ratio(fa(l),att(l)),n:att(l)})).sort((a,b)=>b.rate-a.rate).slice(0,10);
+    out.push(card(`벽 TOP 10 <span class="muted">${lvLabel()} · 실패율 · 시도 20+</span>`, walls.length?table(['레벨','실패율','시도','실패 사유'+(rangeOn()?' ◌':''),'벽에 걸린 유저(표본, 3회+)'+(rangeOn()?' ◌':'')], walls.map(w=>[`LV ${w.l}`, `${fmt.p(w.rate)} ${hbar(w.rate,1)}`, fmt.n(w.n), esc(Object.entries(L[w.l].fail_reasons||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · ')), fmt.n(L[w.l].stuck3_sampled)])):empty('이 구간에 시도 20 이상 레벨 없음')));
+    // '실패 사유' 전 레벨 분포 카드는 제거(팀장님 지시 2026-09-13) — 실측 100% moves_zero 라 정보가 없다.
+    //  레벨별 사유는 벽 TOP 10 표의 '실패 사유' 열에 남아 있다.
+  } else {
+    out.push(card('레벨별 클리어율', empty('level_fail 이벤트가 아직 없음 — 계측 빌드 배포 뒤부터')));
+  }
+  // 도달 일수
+  const dtl = J.progression.days_to_level||{}; const ms = Object.keys(dtl).map(Number).sort((a,b)=>a-b).filter(m=>dtl[m].n>0);
+  out.push(card('마일스톤 도달 일수 <span class="muted">설치일 → 첫 클리어 · start 이후 설치자</span>'+ALL(), ms.length?table(['레벨','도달 유저','p25','중앙값','p75'], ms.map(m=>[`LV ${m}`, fmt.n(dtl[m].n), fmt.f(dtl[m].p25), `<b>${fmt.f(dtl[m].p50)}</b>일`, fmt.f(dtl[m].p75)])):empty('마일스톤 도달 없음')));
+  // 히트맵 — 기간을 고르면 그 날짜들의 af_login 만 합산한다(heatmap_by_day). 레벨은 당일 클리어까지 반영된 값.
+  let heat = J.progression.heatmap||{};
+  if(rangeOn() && J.progression.heatmap_by_day){
+    heat = {};
+    daysIn(J).forEach(dd=>Object.entries(J.progression.heatmap_by_day[dd]||{}).forEach(([db,row])=>{
+      const t = heat[db]||(heat[db]={}); Object.entries(row).forEach(([lb,n])=>t[lb]=(t[lb]||0)+n);
+    }));
+  }
+  const dks = Object.keys(heat).map(Number).sort((a,b)=>a-b);
+  // 레벨 구간 = 열 필터(전체일 때만 0 칸 포함), 그 뒤 분포 카드와 같은 폭(LVW)으로 열을 묶는다.
+  const heatAllTot = dks.reduce((a,dk)=>a+Object.values(heat[dk]).reduce((b,n)=>b+n,0),0);
+  const heatG = {};
+  dks.forEach(dk=>{ const keep={}; Object.entries(heat[dk]).forEach(([k,n])=>{ if(lvr.key==='all' || inLv(+k)) keep[k]=n; });
+    heatG[dk] = rebinLevels(keep, LVW, LVANCHOR, LVFOLD); });
+  const lset = new Set(); dks.forEach(dk=>Object.keys(heatG[dk]).forEach(k=>lset.add(Number(k)))); const lks=[...lset].sort((a,b)=>a-b);
+  heat = heatG;
+  if(dks.length && lks.length){
+    let max=0; dks.forEach(dk=>lks.forEach(lk=>max=Math.max(max,heat[dk][lk]||0)));
+    const lbl=(arr,i,suffix)=> arr===lks ? binLabel(arr[i], LVW, LVFOLD)
+      : (i<arr.length-1 ? `${arr[i]}–${arr[i+1]-1}${suffix}` : `${arr[i]}+${suffix}`);
+    let html = `<div class="heat" style="grid-template-columns:70px repeat(${lks.length},1fr)"><div class="h">설치 며칠차 ＼ 최고 LV</div>${lks.map((lk,i)=>`<div class="h">${lbl(lks,i,'')}</div>`).join('')}`;
+    dks.forEach((dk,i)=>{ html+=`<div class="h">${lbl(dks,i,'일')}</div>`; lks.forEach(lk=>{const v=heat[dk][lk]||0; const a=max?0.08+0.85*v/max:0; html+=`<div style="background:rgba(var(--heat-rgb),${v?a.toFixed(2):0})" title="${v} 유저-일">${v?fmt.n(v):''}</div>`;}); });
+    const hTot = dks.reduce((a,dk)=>a+lks.reduce((b,lk)=>b+(heat[dk][lk]||0),0),0);
+    out.push(card(`설치 며칠차 × 최고 레벨 <span class="muted">${lvLabel()} · ${LVW}레벨 단위 · ${rangeOn()?'선택 기간의':''} af_login ${fmt.n(hTot)}건(유저-일)${lvr.key!=='all'?` / 전체 ${fmt.n(heatAllTot)}`:''} · 레벨 = max(로그인 스냅샷, 그날 클리어)</span>`, html+'</div>','span2'));
+  }
+  $('progress').innerHTML = out.join('');
+}
+
+function renderIntegrity(J, has){
+  const I = J.integrity; const tot = I.observed+I.lost; const rate = ratio(I.lost, tot);
+  $('itiles').innerHTML = [
+    tile('관측 시도(표본)', fmt.n(I.observed), `유저 1/${I.sample_mod}`),
+    tile('유실 시도(하한)', fmt.n(I.lost), rate!=null?`${fmt.p(rate,2)} of 시도`:'–'),
+    tile('판정', rate==null?'–':(rate<0.03?'양호':rate<0.08?'주의':'점검'), '기준선은 배포 2주 뒤 확정'),
+  ].join('');
+  const out=[];
+  const bv = Object.entries(I.by_app_version||{}).sort((a,b)=>(b[1][0]+b[1][1])-(a[1][0]+a[1][1]));
+  out.push(card('앱버전별 유실율 <span class="muted">버전 간 급변 = 계측 회귀 후보</span>', bv.length?table(['앱버전','관측','유실','유실율'], bv.map(([v,[o,l]])=>[esc(v), fmt.n(o), fmt.n(l), `${fmt.p(ratio(l,o+l),2)} ${hbar(ratio(l,o+l)||0,0.15)}`])):empty('attempt_count 가 있는 이벤트 없음')));
+  const bl = Object.entries(I.by_level||{}).map(([l,[o,ls]])=>({l:Number(l),o,ls,r:ratio(ls,o+ls)})).filter(x=>x.o+x.ls>=30).sort((a,b)=>b.r-a.r).slice(0,12);
+  out.push(card('레벨별 유실율 TOP <span class="muted">시도 30+</span>', bl.length?table(['레벨','관측','유실','유실율'], bl.map(x=>[`LV ${x.l}`, fmt.n(x.o), fmt.n(x.ls), fmt.p(x.r,2)])):empty('표본 부족')));
+  $('integrity').innerHTML = out.join('');
+}
+
+function renderMoney(J){
+  const M = J.monetization; const days=daysIn(J); const rev=days.reduce((a,x)=>a+(J.daily[x].revenue_usd||0),0);
+  const revAll=allDays(J).reduce((a,x)=>a+(J.daily[x].revenue_usd||0),0);
+  $('mtiles').innerHTML = [
+    tile('결제자'+(rangeOn()?' ◌':''), fmt.n(M.payers), `유저 ${fmt.n(M.users)} 중 ${fmt.p(ratio(M.payers,M.users),2)}`),
+    tile('매출(기간 합)', fmt.usd(rev), rangeOn()?`전체 ${fmt.usd(revAll)}`:`ARPPU ${fmt.usd(ratio(rev,M.payers)||0)}`),
+    tile('재구매자'+(rangeOn()?' ◌':''), fmt.n(Object.entries(M.purchase_count_hist||{}).filter(([k])=>k!=='1').reduce((a,[,v])=>a+v,0)), '결제 2회+'),
+  ].join('');
+  const out=[]; const ord=(o)=>Object.entries(o).sort((a,b)=>(a[0]==='unknown'?1e9:Number(a[0]))-(b[0]==='unknown'?1e9:Number(b[0])));
+  const lb = ord(M.first_purchase_level_bucket||{}); out.push(card('첫 결제 시점의 최고 레벨 <span class="muted">결제 당일 af_login 스냅샷</span>'+ALL(), lb.length?barChart(lb.map(([k,v])=>({label:k==='unknown'?'?':'LV'+k+'+',value:v})),{}):empty('첫 결제 없음')));
+  const db = ord(M.first_purchase_day_bucket||{}); out.push(card('첫 결제 며칠차 <span class="muted">Install Time 기준</span>'+ALL(), db.length?barChart(db.map(([k,v])=>({label:k==='unknown'?'?':'D'+k+'+',value:v})),{}):empty('첫 결제 없음')));
+  const pc = Object.entries(M.purchase_count_hist||{}).sort((a,b)=>(parseInt(a[0])||99)-(parseInt(b[0])||99)); out.push(card('유저당 결제 횟수'+ALL(), pc.length?barChart(pc.map(([k,v])=>({label:k+'회',value:v})),{}):empty('–')));
+  const sku = Object.entries(M.sku||{}).sort((a,b)=>b[1].usd-a[1].usd); const smax = sku.length?sku[0][1].usd:0;
+  out.push(card('SKU 카테고리'+ALL(), sku.length?table(['카테고리','건수','구매자','매출','비중'], sku.map(([k,v])=>[esc(k), fmt.n(v.n), fmt.n(v.users), fmt.usd(v.usd), `${fmt.p(ratio(v.usd,revAll))} ${hbar(v.usd,smax)}`])):empty('–')));
+  out.push(card('일별 매출 · 결제자', lineChart([{name:'매출 $',color:'var(--c2)',points:days.map(x=>[x,J.daily[x].revenue_usd])},{name:'결제자',color:'var(--c3)',points:days.map(x=>[x,J.daily[x].payers])}],{labels:days.map(x=>x.slice(5))})));
+  $('money').innerHTML = out.join('');
+}
+
+function renderAds(J){
+  const A = J.ads; const days=daysIn(J); const out=[];
+  let pl;
+  if(rangeOn() && J.ads_daily){ const agg={}; days.forEach(dd=>Object.entries(J.ads_daily[dd]||{}).forEach(([p,[i,r]])=>{const a=agg[p]||(agg[p]={imps:0,rev_usd:0,users:null}); a.imps+=i; a.rev_usd+=r;})); pl=Object.entries(agg); }
+  else pl = Object.entries(A.placements||{});
+  pl.sort((a,b)=>b[1].imps-a[1].imps); const pmax = pl.length?pl[0][1].imps:0;
+  out.push(card('배치별 노출·유저·수익', pl.length?table(['배치','노출','유저'+(rangeOn()?' ◌':''),'노출/유저','수익','eCPM'], pl.map(([k,v])=>{const users=v.users??(A.placements[k]||{}).users; return [esc(k), `${fmt.n(v.imps)} ${hbar(v.imps,pmax)}`, fmt.n(users), rangeOn()?'–':fmt.f(ratio(v.imps,users)), fmt.usd(v.rev_usd), fmt.usd(ratio(v.rev_usd*1000,v.imps)||0)];})):empty('광고 리포트 없음')));
+  const ih = A.imps_per_user_hist||{}; const order=['1','2-5','6-10','11-20','21+'];
+  out.push(card(`유저당 노출 분포 <span class="muted">광고 본 유저 ${fmt.n(A.users_with_imps)}</span>`+ALL(), order.some(k=>ih[k])?barChart(order.map(k=>({label:k,value:ih[k]||0})),{}):empty('–')));
+  out.push(card('일별 노출 · 광고 수익', lineChart([{name:'노출',color:'var(--c1)',points:days.map(x=>[x,J.daily[x].ad_imps])},{name:'수익 $×100',color:'var(--c2)',points:days.map(x=>[x,(J.daily[x].ad_rev_usd||0)*100])}],{labels:days.map(x=>x.slice(5))})));
+  $('ads').innerHTML = out.join('');
+}
+
+function renderSlices(J){
+  const dims = [['media_source','매체'],['country','국가'],['platform','플랫폼'],['app_version','앱버전'],['seg','유입']];
+  $('sliceseg').innerHTML = dims.map(([k,n])=>`<button type="button" data-dim="${k}" aria-pressed="${k===sliceDim}">${n}</button>`).join('');
+  $('sliceseg').querySelectorAll('button').forEach(b=>b.onclick=()=>{sliceDim=b.dataset.dim; renderSlices(J);});
+  const S = J.slices[sliceDim]||{}; const rows = Object.entries(S).sort((a,b)=>b[1].users-a[1].users); const umax = rows.length?rows[0][1].users:0;
+  $('slices').innerHTML = card(`${dims.find(d=>d[0]===sliceDim)[1]}별 핵심 지표 <span class="muted">D1·D7 분모 = 성숙 유저</span>`+ALL(),
+    rows.length?table(['값','유저','D1','D7','클리어율','결제자','매출','ARPU'], rows.map(([k,v])=>[esc(k), `${fmt.n(v.users)} ${hbar(v.users,umax)}`,
+      v.d1[1]?fmt.p(ratio(v.d1[0],v.d1[1])):'–', v.d7[1]?fmt.p(ratio(v.d7[0],v.d7[1])):'–', (v.wins+v.fails)?fmt.p(ratio(v.wins,v.wins+v.fails)):'–',
+      fmt.n(v.payers), fmt.usd(v.revenue_usd), fmt.usd(ratio(v.revenue_usd,v.users)||0)])):empty('–'),'span2');
+}
+
+// ── 상단 UI ──
+function boot(data){
+  D = data; games = Object.keys(D.games||{}); game = games[0];
+  if(!games.length){ $('empty').hidden=false; $('empty').textContent='데이터가 비어 있음 — python -m general.build 실행'; return; }
+  $('empty').hidden=true;
+  $('tabs').innerHTML = games.map(g=>`<button class="tab" role="tab" aria-selected="${g===game}" data-g="${g}">${esc(D.games[g].meta?.game||g)}</button>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{game=b.dataset.g; $('tabs').querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b)); render();});
+  render();
+}
+$('secnav').innerHTML = [['all','전체'],...SECS].map(([id,n])=>`<button type="button" data-sec="${id}" aria-pressed="${id===activeSec}">${n}</button>`).join('');
+$('secnav').querySelectorAll('button').forEach(b=>b.onclick=()=>{activeSec=b.dataset.sec; $('secnav').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b)); SECS.forEach(([id])=>$(id).hidden=(activeSec!=='all'&&activeSec!==id));});
+$('theme').onclick=()=>{const r=document.documentElement; const dark=r.getAttribute('data-theme')==='dark'; if(dark) r.removeAttribute('data-theme'); else r.setAttribute('data-theme','dark'); $('theme').textContent=dark?'다크':'라이트';};
+$('home').href = 'index.html' + (location.hash||'');     // 공유 링크의 비밀번호를 선택 화면으로 되돌려 준다
+
+/* ── 데이터: 평문(general-data.js) → 암호문(general-data.enc.js, 공개 URL 배포용) → 없음 ──
+   A/B 보드(ab.html)와 같은 형식·같은 비밀번호. #k=비밀번호 가 있으면 입력 없이 열린다. */
+const PWKEY = 'genboard:pass';
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function decryptData(enc, pass){
+  const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt:b64(enc.salt), iterations:enc.iter, hash:'SHA-256'}, km,
+    {name:'AES-GCM', length:256}, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64(enc.iv)}, key, b64(enc.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function showUnlock(enc, err){
+  $('empty').hidden = false;
+  $('empty').innerHTML = `<b>Group 1 일반 지표 보드</b><div class="small ${err?'':'muted'}" style="margin:6px 0 10px${err?';color:var(--crit)':''}">${err||'집계 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다.'}</div>
+    <form id="pwform" style="display:flex;gap:8px;justify-content:center"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password" style="background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:6px 10px;color:var(--ink)"><button class="iconbtn" type="submit">열기</button></form>`;
+  const f = $('pwform'); f.onsubmit = async (ev)=>{ ev.preventDefault();
+    try { const pass = $('pw').value; const data = await decryptData(enc, pass); try{ localStorage.setItem(PWKEY, pass); }catch(e){} boot(data); }
+    catch(e){ showUnlock(enc, '비밀번호가 맞지 않습니다.'); } };
+  $('pw').focus();
+}
+(async function init(){
+  const plain = window.GENERAL_DATA;
+  if(plain && plain.games && Object.keys(plain.games).length) return boot(plain);
+  const enc = window.GENERAL_DATA_ENC;
+  if(!enc){ $('empty').hidden=false; $('empty').textContent='general-data.js 가 없거나 비어 있음 — python -m general.build 실행'; return; }
+  if(!(window.crypto && crypto.subtle)){ $('empty').hidden=false; $('empty').textContent='이 환경에서는 암호를 풀 수 없습니다. https 주소 또는 로컬 파일로 열어야 합니다.'; return; }
+  const m = /(?:^#|[#&])k=([^&]+)/.exec(location.hash);
+  if(m){ try { const pass = decodeURIComponent(m[1]); const data = await decryptData(enc, pass); try{ localStorage.setItem(PWKEY, pass); }catch(e){} return boot(data); } catch(e){} }
+  let saved = null; try { saved = localStorage.getItem(PWKEY); } catch(e){}
+  if(saved){ try { return boot(await decryptData(enc, saved)); } catch(e){} }
+  showUnlock(enc, null);
+})();
+})();
+</script>
+</body>
+</html>
