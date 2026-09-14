@@ -101,7 +101,7 @@ svg .axis{stroke:var(--line);stroke-width:1} svg .grid{stroke:var(--line-soft);s
   <section id="sec-progress"><h2>진행·난이도 <span class="muted">클리어 = af_level_achieved · 실패 = level_fail</span><span class="seg" id="lvseg"></span><span class="chip" id="lvcustom" style="margin-left:6px;padding:2px 6px"><span class="lbl">직접</span><input type="number" id="lvmin" min="1" placeholder="from" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"> <span class="lbl">~</span> <input type="number" id="lvmax" min="1" placeholder="to" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"></span></h2><div class="grid wide" id="progress"></div></section>
   <section id="sec-integrity"><h2>정합 <span class="muted">attempt_count 갭 = 유실 시도(하한)</span></h2><div class="tiles" id="itiles"></div><div class="grid wide" id="integrity"></div></section>
   <section id="sec-money"><h2>수익화 <span class="muted">af_purchase · .dev. 제외</span></h2><div class="tiles" id="mtiles"></div><div class="grid wide" id="money"></div></section>
-  <section id="sec-ads"><h2>광고 <span class="muted">광고 수익 리포트 · Placement</span></h2><div class="grid wide" id="ads"></div></section>
+  <section id="sec-ads"><h2>광고 <span class="muted" id="ads-sub">광고 수익 리포트 · Placement</span></h2><div class="grid wide" id="ads"></div></section>
   <section id="sec-slices"><h2>슬라이스 <span class="muted">핵심 지표를 차원별로</span><span class="seg" id="sliceseg"></span></h2><div class="grid wide" id="slices"></div></section>
 </main>
 <script>
@@ -228,7 +228,8 @@ function render(){
   $('gen').textContent = `${synth?'⚠ 합성 데이터 · ':''}산출 ${D.generated_at||''} · ${J.meta.game||game} · ${J.meta.date_from||''}~${J.meta.date_to||''} · 파일 ${fmt.n(J.meta.files)} · 행 ${fmt.n(J.meta.rows)}`;
   document.title = (synth?'[합성] ':'') + 'Group 1 일반 지표 보드';
   $('deflist').innerHTML = (J.meta.definitions||[]).map(d=>`<li>${esc(d)}</li>`).join('')
-    + '<li>레벨 축(현재 레벨 분포·히트맵)은 고른 구간의 약 1/10 폭(10의 배수)으로 묶는다. 원자료가 10레벨 단위라 구간 경계는 10 에 맞춰 스냅되고, 폭 × 10 지점부터는 한 칸(“N+”)으로 접는다.</li>' + `<li>유저 ${fmt.n(J.meta.users)} · KR 제외 ${fmt.n(J.meta.excluded_kr_users)}${J.meta.instrumented_only?` · 비계측(구버전) 제외 ${fmt.n(J.meta.excluded_not_instrumented_users)}`:''} · 유실 판정 표본 1/${J.meta.sample_mod} · 시작일 ${esc(J.meta.start||'-')}</li>`;
+    + '<li>레벨 축(현재 레벨 분포·히트맵)은 고른 구간의 약 1/10 폭(10의 배수)으로 묶는다. 원자료가 10레벨 단위라 구간 경계는 10 에 맞춰 스냅되고, 폭 × 10 지점부터는 한 칸(“N+”)으로 접는다.</li>'
+    + (J.meta.exclude_banner ? `<li>이번 산출에서 제외한 배너 노출: ${fmt.n(J.meta.excluded_banner_imps)}</li>` : '') + `<li>유저 ${fmt.n(J.meta.users)} · KR 제외 ${fmt.n(J.meta.excluded_kr_users)}${J.meta.instrumented_only?` · 비계측(구버전) 제외 ${fmt.n(J.meta.excluded_not_instrumented_users)}`:''} · 유실 판정 표본 1/${J.meta.sample_mod} · 시작일 ${esc(J.meta.start||'-')}</li>`;
   const ec = J.meta.event_counts||{}; const has = (n)=>(ec[n]||0)>0;
   renderFilters(J); renderLevelSeg(J);
   // 롤아웃 커버리지: 선택 기간 마지막 날 af_login 유저 ÷ 그날 인앱 이벤트가 있는 유저. 계측 유저 한정 빌드에서는 정의상 100% 에 가깝다.
@@ -399,11 +400,14 @@ function renderMoney(J){
 
 function renderAds(J){
   const A = J.ads; const days=daysIn(J); const out=[];
+  $('ads-sub').textContent = J.meta.exclude_banner ? `전면·리워드만 · 배너(배치 없음) 제외 ${fmt.n(J.meta.excluded_banner_imps)} 노출` : '광고 수익 리포트 · Placement';
   let pl;
   if(rangeOn() && J.ads_daily){ const agg={}; days.forEach(dd=>Object.entries(J.ads_daily[dd]||{}).forEach(([p,[i,r]])=>{const a=agg[p]||(agg[p]={imps:0,rev_usd:0,users:null}); a.imps+=i; a.rev_usd+=r;})); pl=Object.entries(agg); }
   else pl = Object.entries(A.placements||{});
   pl.sort((a,b)=>b[1].imps-a[1].imps); const pmax = pl.length?pl[0][1].imps:0;
-  out.push(card('배치별 노출·유저·수익', pl.length?table(['배치','노출','유저'+(rangeOn()?' ◌':''),'노출/유저','수익','eCPM'], pl.map(([k,v])=>{const users=v.users??(A.placements[k]||{}).users; return [esc(k), `${fmt.n(v.imps)} ${hbar(v.imps,pmax)}`, fmt.n(users), rangeOn()?'–':fmt.f(ratio(v.imps,users)), fmt.usd(v.rev_usd), fmt.usd(ratio(v.rev_usd*1000,v.imps)||0)];})):empty('광고 리포트 없음')));
+  // Placement 가 빈 행은 배너다(2026-09-14 확인: 플랫폼별 세 광고 단위 중 전면·리워드가 아닌 하나, eCPM $0.11, 클라가 배너엔 배치를 넘기지 않음)
+  const PLACEMENT_LABEL = {'(none)': '배너 (배치 없음)'};
+  out.push(card('배치별 노출·유저·수익', pl.length?table(['배치','노출','유저'+(rangeOn()?' ◌':''),'노출/유저','수익','eCPM'], pl.map(([k,v])=>{const users=v.users??(A.placements[k]||{}).users; return [esc(PLACEMENT_LABEL[k]||k), `${fmt.n(v.imps)} ${hbar(v.imps,pmax)}`, fmt.n(users), rangeOn()?'–':fmt.f(ratio(v.imps,users)), fmt.usd(v.rev_usd), fmt.usd(ratio(v.rev_usd*1000,v.imps)||0)];})):empty('광고 리포트 없음')));
   const ih = A.imps_per_user_hist||{}; const order=['1','2-5','6-10','11-20','21+'];
   out.push(card(`유저당 노출 분포 <span class="muted">광고 본 유저 ${fmt.n(A.users_with_imps)}</span>`+ALL(), order.some(k=>ih[k])?barChart(order.map(k=>({label:k,value:ih[k]||0})),{}):empty('–')));
   out.push(card('일별 노출 · 광고 수익', lineChart([{name:'노출',color:'var(--c1)',points:days.map(x=>[x,J.daily[x].ad_imps])},{name:'수익 $×100',color:'var(--c2)',points:days.map(x=>[x,(J.daily[x].ad_rev_usd||0)*100])}],{labels:days.map(x=>x.slice(5))})));
