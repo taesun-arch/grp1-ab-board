@@ -150,6 +150,9 @@ const esc = (s)=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 let game = null, sliceDim = 'media_source';
 const SECS = [['sec-access','접속·잔존'],['sec-progress','진행·난이도'],['sec-integrity','정합'],['sec-money','수익화'],['sec-ads','광고'],['sec-slices','슬라이스']];
 let activeSec = 'all';
+// 레벨 저장 키의 표시 이름 — 저작 레벨은 그대로, 루프 칸은 범위로(파이프라인 config.level_key 와 같은 경계)
+const AUTHORED_MAX = 850, LOOP_BUCKET = 10;
+const lvKeyLabel = (n)=> n<=AUTHORED_MAX ? String(n) : `${n}–${n+LOOP_BUCKET-1}`;
 // ── 레벨 구간 선택 (벽 TOP 10 · 레벨별 클리어율) ──
 const LV_PRESETS = [['all','전체',1,null],['100','≤100',1,100],['300','≤300',1,300],['500','≤500',1,500],['850','저작 ≤850',1,850],['loop','루프 851+',851,null]];
 let lvr = {key:'all', min:1, max:null};
@@ -194,7 +197,7 @@ const coh = {os:'all', cols:'key', rev:'total', win:{funnel:1, pay:1, ads:'all'}
     else if(k.startsWith('mode.') && coh.chart[k.slice(5)]) coh.chart[k.slice(5)].mode = v==='date' ? 'date' : 'curve';
     else if(k.startsWith('k.') && coh.chart[k.slice(2)]) coh.chart[k.slice(2)].k = v;
   } })();
-const COH = '<span class="cohb" title="코호트 축 카드 — 상단 코호트 OS 칩 · 기간 칩(설치일 범위) · 성숙 판정을 따른다">◉ 코호트</span> ';
+const COH = '<span class="cohb" title="설치일 코호트 축 카드 — 기간 칩이 설치일 범위로 걸리고 성숙 판정을 따른다">◉ 코호트</span> ';
 const cohOsLabel = ()=>coh.os==='all'?'전체 OS':coh.os==='ios'?'iOS':'Android';
 const winLabel = (K)=>K==='all' ? '관측 전체' : (K===0 ? '설치 당일' : `설치 후 ${K}일까지`);
 const daysBetween = (a,b)=>Math.round((Date.UTC(+b.slice(0,4),+b.slice(5,7)-1,+b.slice(8,10))-Date.UTC(+a.slice(0,4),+a.slice(5,7)-1,+a.slice(8,10)))/86400000);
@@ -268,7 +271,7 @@ function renderFilters(J){
   const days = allDays(J); const lo = days[0]||'', hi = days[days.length-1]||'';
   $('filters').innerHTML = `<span class="chip"><span class="lbl">기간</span><input type="date" id="dfrom" min="${lo}" max="${hi}" value="${rng.from||lo}"> <span class="lbl">~</span> <input type="date" id="dto" min="${lo}" max="${hi}" value="${rng.to||hi}"></span>
     <button class="preset" data-p="all" type="button">전체</button><button class="preset" data-p="7" type="button">최근 7일</button><button class="preset" data-p="14" type="button">최근 14일</button>
-    <span class="chip"><span class="lbl">코호트 OS</span><span class="seg" style="margin-left:0">${[['all','전체'],['ios','iOS'],['aos','Android']].map(([k,nm])=>`<button type="button" data-coh-os="${k}" aria-pressed="${k===coh.os}">${nm}</button>`).join('')}</span><span class="muted small" title="설치일 코호트 카드(◉)에만 적용 — 일별·레벨·슬라이스 카드는 전체 OS">◉ 카드만</span></span>
+    <span class="chip"><span class="lbl">OS</span><span class="seg" style="margin-left:0">${[['all','전체'],['ios','iOS'],['aos','Android']].map(([k,nm])=>`<button type="button" data-coh-os="${k}" aria-pressed="${k===coh.os}">${nm}</button>`).join('')}</span><span class="muted small" title="이 보드의 모든 카드에 적용된다. 전체 = iOS + Android">전 카드</span></span>
     <span class="muted small">${rangeOn()?`${rng.from||lo} ~ ${rng.to||hi} · ${daysIn(J).length}일 · ◌ 표시 카드는 전체 기간`:'전체 기간 · 날짜를 고르면 일별 카드가 따라간다'}</span>`;
   const apply = ()=>{ const f=$('dfrom').value, t=$('dto').value; rng = {from: f&&f!==lo?f:null, to: t&&t!==hi?t:null}; render(); };
   $('dfrom').onchange = apply; $('dto').onchange = apply;
@@ -311,20 +314,51 @@ const tile = (k, v, s='') => `<div class="tile"><div class="k">${k}</div><div cl
 const empty = (msg) => `<div class="empty">${esc(msg)}</div>`;
 const ratio = (a,b)=> b>0 ? a/b : null;
 
-// 산출은 0·빈 값을 빼고 온다(파일 크기). 읽기 전에 한 번만 기본값을 채운다.
+// ── OS 펼치기 — 산출은 모든 숫자를 [ios, aos] 쌍으로 담는다(전체 = 두 슬롯 합).
+//    고른 OS 로 **스칼라 사본**을 만들어 기존 카드 코드가 그대로 돌게 한다. 일반 재귀 변환은 쌍과 진짜 배열
+//    (ret[28]·clr[29]·[분자,분모])을 구분할 수 없어 블록별로 명시한다 — metrics.to_json 과 1:1 로 맞춘다.
+//    산출은 0·빈 값을 빼고 오므로(파일 크기) 없는 키는 여기서 0 으로 채운다.
+const OSI = {ios:0, aos:1};
+const osPick = (p)=> !Array.isArray(p) ? (p===undefined?0:p) : (coh.os==='all' ? (p[0]||0)+(p[1]||0) : (p[OSI[coh.os]]||0));
+const mapVals = (o, f)=>{ const out={}; for(const k in o) out[k]=f(o[k], k); return out; };
 const LV_DEFAULTS = {reach:0, reach_new:0, wins:0, wins_ach:0, fails:0, attempts_sum:0, stuck3_sampled:0};
-function fillLevelDefaults(J){
-  if(J.__filled) return; J.__filled = true;
-  const L = J.levels||{};
-  for(const k in L){ const v = L[k];
-    for(const f in LV_DEFAULTS) if(v[f]===undefined) v[f] = LV_DEFAULTS[f];
-    if(!v.fail_reasons) v.fail_reasons = {}; }
+function osView(J){
+  const P = osPick, M = mapVals;
+  return {
+    meta: Object.assign({}, J.meta, {users:P(J.meta.users), excluded_kr_users:P(J.meta.excluded_kr_users),
+      excluded_not_instrumented_users:P(J.meta.excluded_not_instrumented_users), event_counts:M(J.meta.event_counts||{}, P)}),
+    daily: M(J.daily||{}, (d)=>M(d, P)),
+    retention: J.retention,                        // 코호트 행은 os 필드로 이미 나뉘어 있다(cohRows 가 거른다)
+    levels: M(J.levels||{}, (v)=>Object.assign({}, LV_DEFAULTS, M(v, P), {fail_reasons:M(v.fail_reasons||{}, P)})),
+    levels_daily: M(J.levels_daily||{}, (d)=>M(d, (wf)=>[P(wf[0]), P(wf[1])])),
+    integrity: Object.assign({}, J.integrity, {observed:P(J.integrity.observed), lost:P(J.integrity.lost),
+      by_level:M(J.integrity.by_level||{}, (x)=>[P(x[0]), P(x[1])]),
+      by_app_version:M(J.integrity.by_app_version||{}, (x)=>[P(x[0]), P(x[1])])}),
+    progression: Object.assign({}, J.progression, {new_cohort_users:P(J.progression.new_cohort_users),
+      days_to_level: (J.progression.days_to_level||{})[coh.os] || (J.progression.days_to_level||{}).all || {},
+      current_level_hist:M(J.progression.current_level_hist||{}, P),
+      current_level_by_last_login:M(J.progression.current_level_by_last_login||{}, (r)=>M(r, P)),
+      heatmap:M(J.progression.heatmap||{}, (r)=>M(r, P)),
+      heatmap_by_day:M(J.progression.heatmap_by_day||{}, (d)=>M(d, (r)=>M(r, P)))}),
+    monetization: Object.assign({}, J.monetization, {users:P(J.monetization.users), payers:P(J.monetization.payers),
+      first_purchase_unplaceable:P(J.monetization.first_purchase_unplaceable),
+      first_purchase_level_bucket:M(J.monetization.first_purchase_level_bucket||{}, P),
+      first_purchase_day_bucket:M(J.monetization.first_purchase_day_bucket||{}, P),
+      purchase_count_hist:M(J.monetization.purchase_count_hist||{}, P),
+      sku:M(J.monetization.sku||{}, (v)=>({n:P(v.n), usd:P(v.usd), users:P(v.users)}))}),
+    ads: Object.assign({}, J.ads, {users_with_imps:P(J.ads.users_with_imps),
+      placements:M(J.ads.placements||{}, (v)=>({imps:P(v.imps), rev_usd:P(v.rev_usd), users:P(v.users)})),
+      imps_per_user_hist:M(J.ads.imps_per_user_hist||{}, P)}),
+    ads_daily: M(J.ads_daily||{}, (d)=>M(d, (ir)=>[P(ir[0]), P(ir[1])])),
+    slices: M(J.slices||{}, (dim)=>M(dim, (v)=>({users:P(v.users), d1:[P(v.d1[0]), P(v.d1[1])], d7:[P(v.d7[0]), P(v.d7[1])],
+      wins:P(v.wins), fails:P(v.fails), revenue_usd:P(v.revenue_usd), payers:P(v.payers)}))),
+  };
 }
 
 // ── 렌더 ──
 function render(){
-  const J = D.games[game]; if(!J){ $('empty').hidden=false; $('empty').textContent='데이터 없음 — general/build.py 를 먼저 실행'; return; }
-  fillLevelDefaults(J);
+  const RAW = D.games[game]; if(!RAW){ $('empty').hidden=false; $('empty').textContent='데이터 없음 — general/build.py 를 먼저 실행'; return; }
+  const J = osView(RAW);           // 고른 OS 의 스칼라 뷰 — 아래 카드 코드는 전부 이 J 만 본다
   $('empty').hidden=true;
   const synth = /synth/.test(window.__DATA_FILE||'');
   $('gen').textContent = `${synth?'⚠ 합성 데이터 · ':''}산출 ${D.generated_at||''} · ${J.meta.game||game} · ${J.meta.date_from||''}~${J.meta.date_to||''} · 파일 ${fmt.n(J.meta.files)} · 행 ${fmt.n(J.meta.rows)}`;
@@ -332,6 +366,7 @@ function render(){
   $('deflist').innerHTML = (J.meta.definitions||[]).map(d=>`<li>${esc(d)}</li>`).join('')
     + '<li>레벨 축(현재 레벨 분포·히트맵)은 고른 구간의 약 1/10 폭(10의 배수)으로 묶는다. 원자료가 10레벨 단위라 구간 경계는 10 에 맞춰 스냅되고, 폭 × 10 지점부터는 한 칸(“N+”)으로 접는다.</li>'
     + '<li>코호트 카드 도구: 차트의 "Dn 커브 | 설치일별" 은 x 축을 경과일에서 설치일로 바꾸고, 표의 "핵심 열 | 전체" 는 모든 코호트 표에 같이 적용된다. 창(설치 후 k일까지) 은 도달률·결제·광고에 각각 있다.</li>'
+    + '<li>상단 OS 칩은 이 보드의 모든 카드에 적용된다. 전체 = iOS + Android 이며, 마일스톤 도달 일수(중앙값)만 합칠 수 없어 OS 별로 따로 계산한 값을 쓴다.</li>'
     + (J.meta.exclude_banner ? `<li>이번 산출에서 제외한 배너 노출: ${fmt.n(J.meta.excluded_banner_imps)}</li>` : '') + `<li>유저 ${fmt.n(J.meta.users)} · KR 제외 ${fmt.n(J.meta.excluded_kr_users)}${J.meta.instrumented_only?` · 비계측(구버전) 제외 ${fmt.n(J.meta.excluded_not_instrumented_users)}`:''} · 유실 판정 표본 1/${J.meta.sample_mod} · 시작일 ${esc(J.meta.start||'-')}</li>`;
   const ec = J.meta.event_counts||{}; const has = (n)=>(ec[n]||0)>0;
   renderFilters(J); renderLevelSeg(J);
@@ -448,9 +483,9 @@ function renderProgress(J, has){
     tile('평균 시도/클리어', fmt.f(ratio(CW+CF, CW), 2), '(클리어+실패) ÷ 클리어'),
   ].join('') : '';
   if(has('level_fail')){
-    out.push(card(`레벨별 클리어율 <span class="muted">${lvLabel()} · 신버전 클리어 ÷ (신버전 클리어 + 실패) · 시도 20+ · ${fmt.n(cr.length)}개 레벨</span>`, cr.length?lineChart([{name:'클리어율',color:'var(--c2)',points:cr.map(l=>[l,ratio(wa(l),att(l))])}],{labels:cr.map(String),ymax:1,yfmt:(v)=>fmt.p(v,0)}):empty('이 구간에 시도 20 이상 레벨 없음 — 구간·기간을 넓히거나 롤아웃을 기다린다')));
+    out.push(card(`레벨별 클리어율 <span class="muted">${lvLabel()} · 신버전 클리어 ÷ (신버전 클리어 + 실패) · 시도 20+ · ${fmt.n(cr.length)}개 레벨</span>`, cr.length?lineChart([{name:'클리어율',color:'var(--c2)',points:cr.map(l=>[l,ratio(wa(l),att(l))])}],{labels:cr.map(lvKeyLabel),ymax:1,yfmt:(v)=>fmt.p(v,0)}):empty('이 구간에 시도 20 이상 레벨 없음 — 구간·기간을 넓히거나 롤아웃을 기다린다')));
     const walls = cr.map(l=>({l,rate:ratio(fa(l),att(l)),n:att(l)})).sort((a,b)=>b.rate-a.rate).slice(0,10);
-    out.push(card(`벽 TOP 10 <span class="muted">${lvLabel()} · 실패율 · 시도 20+</span>`, walls.length?table(['레벨','실패율','시도','실패 사유'+(rangeOn()?' ◌':''),'벽에 걸린 유저(표본, 3회+)'+(rangeOn()?' ◌':'')], walls.map(w=>[`LV ${w.l}`, `${fmt.p(w.rate)} ${hbar(w.rate,1)}`, fmt.n(w.n), esc(Object.entries(L[w.l].fail_reasons||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · ')), fmt.n(L[w.l].stuck3_sampled)])):empty('이 구간에 시도 20 이상 레벨 없음')));
+    out.push(card(`벽 TOP 10 <span class="muted">${lvLabel()} · 실패율 · 시도 20+</span>`, walls.length?table(['레벨','실패율','시도','실패 사유'+(rangeOn()?' ◌':''),'벽에 걸린 유저(표본, 3회+)'+(rangeOn()?' ◌':'')], walls.map(w=>[`LV ${lvKeyLabel(w.l)}`, `${fmt.p(w.rate)} ${hbar(w.rate,1)}`, fmt.n(w.n), esc(Object.entries(L[w.l].fail_reasons||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · ')), fmt.n(L[w.l].stuck3_sampled)])):empty('이 구간에 시도 20 이상 레벨 없음')));
     // '실패 사유' 전 레벨 분포 카드는 제거(팀장님 지시 2026-09-13) — 실측 100% moves_zero 라 정보가 없다.
     //  레벨별 사유는 벽 TOP 10 표의 '실패 사유' 열에 남아 있다.
   } else {
@@ -539,7 +574,7 @@ function renderIntegrity(J, has){
   const bv = Object.entries(I.by_app_version||{}).sort((a,b)=>(b[1][0]+b[1][1])-(a[1][0]+a[1][1]));
   out.push(card('앱버전별 유실율 <span class="muted">버전 간 급변 = 계측 회귀 후보</span>', bv.length?table(['앱버전','관측','유실','유실율'], bv.map(([v,[o,l]])=>[esc(v), fmt.n(o), fmt.n(l), `${fmt.p(ratio(l,o+l),2)} ${hbar(ratio(l,o+l)||0,0.15)}`])):empty('attempt_count 가 있는 이벤트 없음')));
   const bl = Object.entries(I.by_level||{}).map(([l,[o,ls]])=>({l:Number(l),o,ls,r:ratio(ls,o+ls)})).filter(x=>x.o+x.ls>=30).sort((a,b)=>b.r-a.r).slice(0,12);
-  out.push(card('레벨별 유실율 TOP <span class="muted">시도 30+</span>', bl.length?table(['레벨','관측','유실','유실율'], bl.map(x=>[`LV ${x.l}`, fmt.n(x.o), fmt.n(x.ls), fmt.p(x.r,2)])):empty('표본 부족')));
+  out.push(card('레벨별 유실율 TOP <span class="muted">시도 30+</span>', bl.length?table(['레벨','관측','유실','유실율'], bl.map(x=>[`LV ${lvKeyLabel(x.l)}`, fmt.n(x.o), fmt.n(x.ls), fmt.p(x.r,2)])):empty('표본 부족')));
   $('integrity').innerHTML = out.join('');
 }
 
