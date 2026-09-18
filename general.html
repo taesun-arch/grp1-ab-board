@@ -84,6 +84,7 @@ table.ret th{position:sticky;top:0;background:var(--card)} table.ret td.cell{tex
 table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border-bottom:2px solid var(--line)} table.ret td.n{color:var(--ink-2)}
 .tools{display:inline-flex;gap:8px;align-items:center;margin-left:auto} .tools select{background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:2px 6px;font-size:12px;color:var(--ink)}
 .card h3 .tools{float:right}
+.cohb{display:inline-block;font-size:10.5px;font-weight:500;color:var(--chip-on-ink);background:var(--chip-on);border-radius:999px;padding:0 7px;margin-right:4px;vertical-align:1px}
 </style>
 </head>
 <body>
@@ -103,15 +104,28 @@ table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border
   <div class="filters" id="filters" style="padding:0 0 10px"></div>
   <div id="empty" class="empty" hidden></div>
   <div id="rollout" class="defs" style="border-color:var(--warn);color:var(--ink-2);font-size:12.5px" hidden></div>
-  <section id="sec-access"><h2>접속·잔존 <span class="muted">af_login 기준 · 코호트 = Install Time</span><span class="seg" id="osseg"></span></h2>
+  <section id="sec-access"><h2>접속·잔존 <span class="muted">af_login 기준 · 코호트 = Install Time</span></h2>
     <div class="tiles" id="tiles"></div><div class="grid wide" id="access"></div>
     <h3 class="subh">코호트 리텐션 <span class="muted">Dn = 설치+n일 af_login 유저 / 코호트 · 분모는 성숙(설치+n ≤ 마지막 날) 코호트만</span></h3>
     <div class="tiles" id="rtiles"></div><div class="grid wide" id="ret"></div>
   </section>
-  <section id="sec-progress"><h2>진행·난이도 <span class="muted">클리어 = af_level_achieved · 실패 = level_fail</span><span class="seg" id="lvseg"></span><span class="chip" id="lvcustom" style="margin-left:6px;padding:2px 6px"><span class="lbl">직접</span><input type="number" id="lvmin" min="1" placeholder="from" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"> <span class="lbl">~</span> <input type="number" id="lvmax" min="1" placeholder="to" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"></span></h2><div class="grid wide" id="progress"></div></section>
+  <section id="sec-progress"><h2>진행·난이도 <span class="muted">클리어 = af_level_achieved · 실패 = level_fail</span><span class="seg" id="lvseg"></span><span class="chip" id="lvcustom" style="margin-left:6px;padding:2px 6px"><span class="lbl">직접</span><input type="number" id="lvmin" min="1" placeholder="from" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"> <span class="lbl">~</span> <input type="number" id="lvmax" min="1" placeholder="to" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"></span></h2><div class="tiles" id="ptiles"></div><div class="grid wide" id="progress"></div>
+    <h3 class="subh">도달률 <span class="muted">◉ 설치 후 k일 이내 첫 클리어 ≥ N 인 유저 / 코호트 — 레벨 구간 선택과 무관</span><span id="funnelwin" class="tools"></span></h3>
+    <div class="tiles" id="ftiles"></div><div class="grid wide" id="funnel"></div>
+    <h3 class="subh">플레이 강도 <span class="muted">◉ 설치 후 n일째 접속한 유저 1명당 레벨 클리어 — 세션·플레이 시간이 없어 클리어 수를 플레이량 대리로 쓴다</span></h3>
+    <div class="tiles" id="pltiles"></div><div class="grid wide" id="play"></div>
+  </section>
   <section id="sec-integrity"><h2>정합 <span class="muted">attempt_count 갭 = 유실 시도(하한)</span></h2><div class="tiles" id="itiles"></div><div class="grid wide" id="integrity"></div></section>
-  <section id="sec-money"><h2>수익화 <span class="muted">af_purchase · .dev. 제외</span></h2><div class="tiles" id="mtiles"></div><div class="grid wide" id="money"></div></section>
-  <section id="sec-ads"><h2>광고 <span class="muted" id="ads-sub">광고 수익 리포트 · Placement</span></h2><div class="grid wide" id="ads"></div></section>
+  <section id="sec-money"><h2>수익화 <span class="muted">af_purchase · .dev. 제외</span></h2><div class="tiles" id="mtiles"></div><div class="grid wide" id="money"></div>
+    <h3 class="subh">누적 ARPU <span class="muted">◉ 설치 코호트의 설치 후 0~n일 누적 매출 / 코호트 · IAA 는 배너 제외</span></h3>
+    <div class="tiles" id="atiles"></div><div class="grid wide" id="arpu"></div>
+    <h3 class="subh">결제 분해 <span class="muted">◉ 창 안 첫 결제 · ARPPU · 상위 1인 — 매출은 결제자가 적어 한 명이 숫자를 뒤집는다</span><span id="paywin" class="tools"></span></h3>
+    <div class="tiles" id="paytiles"></div><div class="grid wide" id="paycoh"></div>
+  </section>
+  <section id="sec-ads"><h2>광고 <span class="muted" id="ads-sub">광고 수익 리포트 · Placement</span></h2><div class="grid wide" id="ads"></div>
+    <h3 class="subh">광고 코호트 <span class="muted" id="adcoh-sub">◉ 임프레션/유저-일 · 배치 구성 · 실패 광고 비율</span><span id="adswin" class="tools"></span></h3>
+    <div class="tiles" id="adtiles"></div><div class="grid wide" id="adcoh"></div>
+  </section>
   <section id="sec-slices"><h2>슬라이스 <span class="muted">핵심 지표를 차원별로</span><span class="seg" id="sliceseg"></span></h2><div class="grid wide" id="slices"></div></section>
 </main>
 <script>
@@ -167,7 +181,84 @@ function binLabel(g, W, fold){
   if(g===fold) return `${g}+`;
   return `${g}–${Math.min(g+W-1, fold-1)}`;
 }
-// ── 기간 선택 (A/B 보드와 같은 칩). 일별로 쪼개진 카드만 따르고, 전체 기간 카드는 ◌ 표시 ──
+// ── 코호트 축(설치일 × Dn) 카드 공용 — 리텐션·누적 ARPU·결제 분해·도달률·플레이 강도·광고 코호트. A/B 보드 agg/aggDay/aggWin 과 같은 규칙(군만 없음). 저장 안 함 ──
+const coh = {os:'all', cols:'key', rev:'total', win:{funnel:1, pay:1, ads:'all'},
+             chart:{ret:{mode:'curve',k:1}, arpu:{mode:'curve',k:1}, funnel:{mode:'curve',k:30}, play:{mode:'curve',k:1}, pay:{mode:'curve',k:1}, ads:{mode:'curve',k:0}}};
+// 테스트·공유용 초기 상태: ?os=ios&cols=all&rev=iap&win.pay=7&mode.ret=date&k.ret=3
+(function(){ const q = new URLSearchParams(location.search);
+  for(const [k,v] of q){
+    if(k==='os' && ['all','ios','aos'].includes(v)) coh.os = v;
+    else if(k==='cols' && ['key','all'].includes(v)) coh.cols = v;
+    else if(k==='rev' && ['total','iap'].includes(v)) coh.rev = v;
+    else if(k.startsWith('win.') && coh.win[k.slice(4)]!==undefined) coh.win[k.slice(4)] = v==='all' ? 'all' : (parseInt(v,10)||0);
+    else if(k.startsWith('mode.') && coh.chart[k.slice(5)]) coh.chart[k.slice(5)].mode = v==='date' ? 'date' : 'curve';
+    else if(k.startsWith('k.') && coh.chart[k.slice(2)]) coh.chart[k.slice(2)].k = v;
+  } })();
+const COH = '<span class="cohb" title="코호트 축 카드 — 상단 코호트 OS 칩 · 기간 칩(설치일 범위) · 성숙 판정을 따른다">◉ 코호트</span> ';
+const cohOsLabel = ()=>coh.os==='all'?'전체 OS':coh.os==='ios'?'iOS':'Android';
+const winLabel = (K)=>K==='all' ? '관측 전체' : (K===0 ? '설치 당일' : `설치 후 ${K}일까지`);
+const daysBetween = (a,b)=>Math.round((Date.UTC(+b.slice(0,4),+b.slice(5,7)-1,+b.slice(8,10))-Date.UTC(+a.slice(0,4),+a.slice(5,7)-1,+a.slice(8,10)))/86400000);
+const arrAt = (a,k)=>(a&&k>=0&&k<a.length)?a[k]:0;
+const activeAt = (c,k)=>k===0?c.n:arrAt(c.ret,k-1);                 // 설치 후 k일째 접속 유저(D0 = 코호트 전원)
+const matureBy = (c,end,k)=>!!end && daysBetween(c.d,end)>=k;
+// 코호트 배열이 없는 옛 산출(코호트 축 추가 전)이면 카드를 비운다 — 새 화면 + 옛 데이터가 잠깐 겹칠 때 0 으로 보이지 않게
+const cohReady = (R)=>!!(R.rows||[]).length && ('iap' in R.rows[0]);
+const cohEmptyMsg = (R)=>(R.rows||[]).length ? '산출이 옛 형식 — 다음 갱신(python -m general.build) 뒤 표시' : '설치 당일 af_login 을 보낸 코호트가 아직 없음';
+const cohRows = (J)=>((J.retention||{}).rows||[]).filter(r=>(coh.os==='all'||r.os===coh.os)&&(!rng.from||r.d>=rng.from)&&(!rng.to||r.d<=rng.to));
+// 하루 값: 성숙한 행만 num/den 합산
+function cohAggDay(rows, k, end, numAt, denAt){ let num=0, den=0; for(const c of rows){ if(!matureBy(c,end,k)) continue; num+=numAt(c,k); den+=denAt(c,k); } return {num, den, v: den?num/den:null}; }
+// 창 값: K='all' 이면 행마다 성숙한 만큼 0..m 전부, 숫자면 K 까지 성숙한 행만 0..K 합산
+function cohAggWin(rows, K, end, numAt, denAt, MAXD){ let num=0, den=0; for(const c of rows){ if(!end) continue; const m=Math.min(daysBetween(c.d,end), MAXD); if(m<0) continue; if(K!=='all'&&m<K) continue; const kmax=K==='all'?m:K; for(let j=0;j<=kmax;j++){ num+=numAt(c,j); den+=denAt(c,j); } } return {num, den, v: den?num/den:null}; }
+const cohTile = (label, sub, X, fmtv, meta, im)=>`<div class="tile"><div class="k">${label} <span class="muted">${sub}</span></div><div class="v2"><span class="v num">${X.v==null?'–':fmtv(X.v)}</span><span class="d num">${X.den?meta(X):(im||'미성숙 — 성숙한 코호트 없음')}</span></div></div>`;
+/* 코호트 라인 차트 카드 — 모드 curve(x = o.xs 전체) | date(선택한 x 의 설치일별).
+   o = {title, sub, xs:[{key,label}], agg(rows,key)->{num,den,v}, yfmt, pct, curveLabel, tip(X)->string, dateTitle(x)->string, extraTools} */
+function cohChartCard(kind, rows, o){
+  const cs = coh.chart[kind]; const dates=[...new Set(rows.map(r=>r.d))].sort();
+  let pts, title;
+  if(cs.mode==='curve'){ pts = o.xs.map(x=>[x.label, o.agg(rows,x.key)]).filter(q=>q[1].v!=null); title = o.title; }
+  else { const x = o.xs.find(x=>String(x.key)===String(cs.k))||o.xs[0]; pts = dates.map(d=>[d.slice(5), o.agg(rows.filter(r=>r.d===d), x.key)]).filter(q=>q[1].v!=null); title = o.dateTitle ? o.dateTitle(x) : `설치일별 ${x.label} ${o.title}`; }
+  const ymax = o.pct ? Math.min(1, Math.max(0.05, ...pts.map(q=>q[1].v))*1.15) : undefined;
+  const chart = pts.length ? lineChart([{name:o.title, color:o.color||'var(--c1)', points:pts.map(q=>[q[0],q[1].v])}], {labels:pts.map(q=>q[0]), ymax, yfmt:o.yfmt, tips:pts.map(q=>o.tip?o.tip(q[1]):'')})
+                           : empty(cs.mode==='curve' ? '성숙한 코호트 없음' : '성숙한 설치일이 아직 없음');
+  const tools = `<span class="tools">${o.extraTools||''}<span class="seg"><button type="button" data-coh-mode="${kind}" data-v="curve" aria-pressed="${cs.mode==='curve'}">${o.curveLabel||'Dn 커브'}</button><button type="button" data-coh-mode="${kind}" data-v="date" aria-pressed="${cs.mode==='date'}">설치일별</button></span>${cs.mode==='date'?`<select data-coh-k="${kind}" aria-label="x 선택">${o.xs.map(x=>`<option value="${x.key}" ${String(x.key)===String(cs.k)?'selected':''}>${x.label}</option>`).join('')}</select>`:''}</span>`;
+  return card(`${COH}${title} <span class="muted">${o.sub}${cs.mode==='date'?' · 미성숙 날짜는 그리지 않음':''}</span>${tools}`, chart);
+}
+/* 코호트 표 — Totals + 설치일 행, 음영 = 표 안 최대값 대비, — = 미성숙.
+   o = {title, sub, rows, cols:[{key,label}], agg(subRows,key), fmt, tip(X,col,ctx)->string, foot:[..], colsToggle:'D1~D28'(있으면 핵심|전체 토글)} */
+function cohTableCard(o){
+  const dates=[...new Set(o.rows.map(r=>r.d))].sort();
+  const compute=(sub)=>o.cols.map(col=>o.agg(sub,col.key));
+  const totals=compute(o.rows); const nAll=o.rows.reduce((a,r)=>a+r.n,0);
+  const perDate=dates.map(d=>{ const sub=o.rows.filter(r=>r.d===d); return {d, n:sub.reduce((a,r)=>a+r.n,0), X:compute(sub)}; });
+  let vmax=0; totals.forEach(X=>{ if(X.v!=null) vmax=Math.max(vmax,X.v); }); perDate.forEach(r=>r.X.forEach(X=>{ if(X.v!=null) vmax=Math.max(vmax,X.v); }));
+  const shade=(v)=> v==null||!vmax ? '' : `background:rgba(var(--heat-rgb),${Math.max(0.04, Math.min(0.55, v/vmax*0.55)).toFixed(3)})`;
+  const cell=(X,col,ctx)=> X.v==null ? `<td class="cell im" title="${esc(ctx)} · ${esc(col.label)} · 미성숙 — 성숙한 코호트 없음">—</td>`
+                                     : `<td class="cell" style="${shade(X.v)}" title="${esc(o.tip(X,col,ctx))}">${o.fmt(X.v)}</td>`;
+  const colTools = o.colsToggle ? `<span class="tools"><span class="seg"><button type="button" data-coh-cols="key" aria-pressed="${coh.cols==='key'}">핵심 열</button><button type="button" data-coh-cols="all" aria-pressed="${coh.cols==='all'}">${o.colsToggle}</button></span></span>` : '';
+  const thead=`<tr><th>설치일</th><th>코호트</th>${o.cols.map(c=>`<th>${esc(c.label)}</th>`).join('')}</tr>`;
+  const trow=`<tr class="total"><td>Totals</td><td class="n num">${fmt.n(nAll)}</td>${totals.map((X,i)=>cell(X,o.cols[i],'Totals')).join('')}</tr>`;
+  const body=perDate.map(r=>`<tr><td>${esc(r.d)}</td><td class="n num">${fmt.n(r.n)}</td>${r.X.map((X,i)=>cell(X,o.cols[i],r.d)).join('')}</tr>`).join('');
+  const foot=(o.foot||[]).filter(Boolean).map(esc).join(' · ');
+  return card(`${COH}${o.title} <span class="muted">${o.sub}</span>${colTools}`,
+    dates.length ? `<div class="tscroll" style="max-height:480px"><table class="ret"><thead>${thead}</thead><tbody>${trow}${body}</tbody></table></div><div class="small muted" style="margin-top:6px">${foot}</div>`
+                 : empty('선택한 범위에 코호트가 없습니다.'), 'span2');
+}
+// 코호트 카드 도구 — innerHTML 로 다시 그려도 살아남게 document 위임
+document.addEventListener('click', (e)=>{
+  const b = e.target.closest('button[data-coh-mode],button[data-coh-cols],button[data-coh-os],button[data-coh-rev]'); if(!b || b.disabled) return;
+  if(b.dataset.cohMode) coh.chart[b.dataset.cohMode].mode = b.dataset.v;
+  else if(b.dataset.cohCols) coh.cols = b.dataset.cohCols;
+  else if(b.dataset.cohOs) coh.os = b.dataset.cohOs;
+  else if(b.dataset.cohRev) coh.rev = b.dataset.cohRev;
+  render();
+});
+document.addEventListener('change', (e)=>{
+  const s = e.target.closest('select[data-coh-k],select[data-coh-win]'); if(!s) return;
+  if(s.dataset.cohK) coh.chart[s.dataset.cohK].k = s.value;
+  else coh.win[s.dataset.cohWin] = s.value==='all' ? 'all' : (parseInt(s.value,10)||0);
+  render();
+});
+// ── 기간 선택 (A/B 보드와 같은 칩). 일별로 쪼개진 카드만 따르고, 전체 기간 카드는 ◌ 표시. 코호트 카드(◉)에서는 설치일 범위 ──
 let rng = {from:null, to:null};
 const allDays = (J)=>Object.keys(J.daily).sort();
 const daysIn = (J)=>allDays(J).filter(d=>(!rng.from||d>=rng.from)&&(!rng.to||d<=rng.to));
@@ -177,6 +268,7 @@ function renderFilters(J){
   const days = allDays(J); const lo = days[0]||'', hi = days[days.length-1]||'';
   $('filters').innerHTML = `<span class="chip"><span class="lbl">기간</span><input type="date" id="dfrom" min="${lo}" max="${hi}" value="${rng.from||lo}"> <span class="lbl">~</span> <input type="date" id="dto" min="${lo}" max="${hi}" value="${rng.to||hi}"></span>
     <button class="preset" data-p="all" type="button">전체</button><button class="preset" data-p="7" type="button">최근 7일</button><button class="preset" data-p="14" type="button">최근 14일</button>
+    <span class="chip"><span class="lbl">코호트 OS</span><span class="seg" style="margin-left:0">${[['all','전체'],['ios','iOS'],['aos','Android']].map(([k,nm])=>`<button type="button" data-coh-os="${k}" aria-pressed="${k===coh.os}">${nm}</button>`).join('')}</span><span class="muted small" title="설치일 코호트 카드(◉)에만 적용 — 일별·레벨·슬라이스 카드는 전체 OS">◉ 카드만</span></span>
     <span class="muted small">${rangeOn()?`${rng.from||lo} ~ ${rng.to||hi} · ${daysIn(J).length}일 · ◌ 표시 카드는 전체 기간`:'전체 기간 · 날짜를 고르면 일별 카드가 따라간다'}</span>`;
   const apply = ()=>{ const f=$('dfrom').value, t=$('dto').value; rng = {from: f&&f!==lo?f:null, to: t&&t!==hi?t:null}; render(); };
   $('dfrom').onchange = apply; $('dto').onchange = apply;
@@ -193,7 +285,7 @@ function lineChart(series, opts){
   const step=Math.max(1,Math.ceil(labels.length/8)); let xl='';
   labels.forEach((lb,i)=>{ if(i%step===0||i===labels.length-1) xl+=`<text x="${xs(i)}" y="${H-8}" text-anchor="middle">${esc(lb)}</text>`; });
   const paths = series.map(s=>{ const d=s.points.map((p,i)=>(i?'L':'M')+xs(i).toFixed(1)+' '+ys(p[1]).toFixed(1)).join(' ');
-    const dots=s.points.map((p,i)=>`<circle cx="${xs(i).toFixed(1)}" cy="${ys(p[1]).toFixed(1)}" r="2.2" fill="${s.color}"><title>${esc(labels[i])} · ${s.name}: ${opts.yfmt?opts.yfmt(p[1]):fmt.n(p[1])}</title></circle>`).join('');
+    const dots=s.points.map((p,i)=>`<circle cx="${xs(i).toFixed(1)}" cy="${ys(p[1]).toFixed(1)}" r="2.2" fill="${s.color}"><title>${esc(labels[i])} · ${s.name}: ${opts.yfmt?opts.yfmt(p[1]):fmt.n(p[1])}${opts.tips&&opts.tips[i]?' · '+esc(opts.tips[i]):''}</title></circle>`).join('');
     return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>${dots}`; }).join('');
   const legend = series.length>1?`<div class="legend">${series.map(s=>`<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>`:'';
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'')}">${g}<line class="axis" x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}"/>${xl}${paths}</svg>${legend}`;
@@ -239,6 +331,7 @@ function render(){
   document.title = (synth?'[합성] ':'') + 'Group 1 일반 지표 보드';
   $('deflist').innerHTML = (J.meta.definitions||[]).map(d=>`<li>${esc(d)}</li>`).join('')
     + '<li>레벨 축(현재 레벨 분포·히트맵)은 고른 구간의 약 1/10 폭(10의 배수)으로 묶는다. 원자료가 10레벨 단위라 구간 경계는 10 에 맞춰 스냅되고, 폭 × 10 지점부터는 한 칸(“N+”)으로 접는다.</li>'
+    + '<li>코호트 카드 도구: 차트의 "Dn 커브 | 설치일별" 은 x 축을 경과일에서 설치일로 바꾸고, 표의 "핵심 열 | 전체" 는 모든 코호트 표에 같이 적용된다. 창(설치 후 k일까지) 은 도달률·결제·광고에 각각 있다.</li>'
     + (J.meta.exclude_banner ? `<li>이번 산출에서 제외한 배너 노출: ${fmt.n(J.meta.excluded_banner_imps)}</li>` : '') + `<li>유저 ${fmt.n(J.meta.users)} · KR 제외 ${fmt.n(J.meta.excluded_kr_users)}${J.meta.instrumented_only?` · 비계측(구버전) 제외 ${fmt.n(J.meta.excluded_not_instrumented_users)}`:''} · 유실 판정 표본 1/${J.meta.sample_mod} · 시작일 ${esc(J.meta.start||'-')}</li>`;
   const ec = J.meta.event_counts||{}; const has = (n)=>(ec[n]||0)>0;
   renderFilters(J); renderLevelSeg(J);
@@ -249,7 +342,7 @@ function render(){
   if(J.meta.instrumented_only){ ban.hidden=false; ban.textContent=`모집단 = 계측 유저(af_login 1회 이상)만. 구버전 유저 ${fmt.n(J.meta.excluded_not_instrumented_users)}명은 전 지표에서 제외. 롤아웃이 끝나면 전원과 같아진다.`; }
   else if(cov!=null && cov<0.8 && has('af_login')){ ban.hidden=false; ban.textContent=`계측 롤아웃 중 — 마지막 날 af_login 커버리지 ${fmt.p(cov,0)} (${fmt.n(last.dau)}/${fmt.n(last.active_any)}). 접속·리텐션·클리어율은 신버전 유저만 반영한다.`; }
   else ban.hidden=true;
-  renderAccess(J, has, cov); renderProgress(J, has); renderIntegrity(J, has); renderMoney(J); renderAds(J); renderSlices(J);
+  renderAccess(J, has, cov); renderProgress(J, has); renderFunnel(J); renderPlay(J); renderIntegrity(J, has); renderMoney(J); renderArpu(J); renderPayCohort(J); renderAds(J); renderAdsCohort(J); renderSlices(J);
   document.querySelector('#sec-integrity h2 .muted').innerHTML = 'attempt_count 갭 = 유실 시도(하한)' + ALL();
   document.querySelector('#sec-slices h2 .muted').innerHTML = '핵심 지표를 차원별로' + ALL();
 }
@@ -262,8 +355,9 @@ function renderAccess(J, has, cov){
     tile('마지막 날 DAU', has('af_login')?fmt.n(d[last]?.dau):'–', has('af_login')?`${last} · 활동 ${fmt.n(d[last]?.active_any)}`:'af_login 미수신'),
     tile('af_login 커버리지', cov!=null?fmt.p(cov,0):'–', J.meta.instrumented_only?'계측 유저 한정':(cov!=null&&cov<0.8?'롤아웃 중':'af_login 유저 ÷ 활동 유저')),
     tile('설치(기간 합)', fmt.n(sum('installs')), 'Install Time 기준'),
+    tile('유저-일 합(기간)', fmt.n(sum('dau')), 'Σ DAU · 매출/유저-일의 분모'),
     tile('결제자'+(rangeOn()?' ◌':''), fmt.n(J.monetization.payers), `전환 ${fmt.p(ratio(J.monetization.payers, J.meta.users),2)}`),
-    tile('매출(기간 합)', fmt.usd(sum('revenue_usd')), rangeOn()?`결제 ${fmt.n(sum('purchases'))}건`:`ARPU ${fmt.usd(ratio(sum('revenue_usd'), J.meta.users)||0)}`),
+    tile('매출(기간 합)', fmt.usd(sum('revenue_usd')), rangeOn()?`결제 ${fmt.n(sum('purchases'))}건`:`유저당 매출(기간) ${fmt.usd(ratio(sum('revenue_usd'), J.meta.users)||0)}`),
     tile('광고 노출(기간 합)', fmt.n(sum('ad_imps')), `수익 ${fmt.usd(sum('ad_rev_usd'))}`),
   ].join('');
   const out = [];
@@ -276,60 +370,27 @@ function renderAccess(J, has, cov){
   renderRetention(J, has);
 }
 
-// ── 코호트 리텐션 (A/B 보드의 리텐션 섹션과 같은 구성: OS 필터 · Dn 타일 · Dn 커브/날짜별 차트 · 설치일 × D1~D28 음영 표) ──
-const retState = {os:'all', mode:'curve', k:1, cols:'key'};
-const dplus = (d,k)=>{ const t=new Date(d+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+k); return t.toISOString().slice(0,10); };
-function retRows(J){ const R=J.retention||{}; return (R.rows||[]).filter(r=>(retState.os==='all'||r.os===retState.os)&&(!rng.from||r.d>=rng.from)&&(!rng.to||r.d<=rng.to)); }
-function retAgg(rows, R, k){ let num=0, den=0; rows.forEach(r=>{ if(dplus(r.d,k)<=R.last_date){ den+=r.n; num+=(r.ret[k-1]||0); } }); return {num, den, v: den?num/den:null}; }
+// ── 코호트 리텐션 — 코호트 공용 헬퍼로 그린다(누적 ARPU·도달률 등과 같은 표·차트 코드) ──
 function renderRetention(J, has){
-  const R = J.retention||{}; const MAXD = R.max_day||28; const KEYS = R.key_days||[1,3,7,14,28];
-  $('osseg').innerHTML = [['all','전체 OS'],['ios','iOS'],['aos','Android']].map(([k,n])=>`<button type="button" data-os="${k}" aria-pressed="${k===retState.os}">${n}</button>`).join('');
-  $('osseg').querySelectorAll('button').forEach(b=>b.onclick=()=>{retState.os=b.dataset.os; render();});
+  const R = J.retention||{}; const MAXD = R.max_day||28; const KEYS = (R.key_days||[1,3,7,14,28]).filter(k=>k<=MAXD); const end = R.last_date;
   if(!has('af_login') || !(R.rows||[]).length){ $('rtiles').innerHTML=''; $('ret').innerHTML=card('코호트 리텐션', empty('설치 당일 af_login 을 보낸 코호트가 아직 없음')); return; }
-  const rows = retRows(J); const dates=[...new Set(rows.map(r=>r.d))].sort();
-  const nAll = rows.reduce((a,r)=>a+r.n,0);
-  // 타일 — D1·D3·D7·D14·D28
-  $('rtiles').innerHTML = KEYS.filter(k=>k<=MAXD).map(k=>{ const X=retAgg(rows,R,k);
-    return `<div class="tile"><div class="k">리텐션 D${k} <span class="muted">설치 +${k}일 접속</span></div><div class="v2"><span class="v num">${X.v==null?'–':fmt.p(X.v)}</span><span class="d num">${X.den?`${fmt.n(X.num)} / ${fmt.n(X.den)}`:`미성숙 — 설치+${k} ≤ ${(R.last_date||'').slice(5)} 인 코호트 없음`}</span></div></div>`; }).join('');
-  const out=[];
-  // 차트 — Dn 커브 | 인스톨 날짜별 D_k
+  const rows = cohRows(J);
+  const agg = (sub,k)=>cohAggDay(sub, k, end, (c,k)=>arrAt(c.ret,k-1), (c)=>c.n);
+  $('rtiles').innerHTML = KEYS.map(k=>cohTile(`리텐션 D${k}`, `설치 +${k}일 접속`, agg(rows,k), fmt.p, X=>`${fmt.n(X.num)} / ${fmt.n(X.den)}`, `미성숙 — 설치+${k} ≤ ${(end||'').slice(5)} 인 코호트 없음`)).join('');
   const ks=[]; for(let k=1;k<=MAXD;k++) ks.push(k);
-  const tools = `<span class="tools"><span class="seg" id="retmode"><button type="button" data-m="curve" aria-pressed="${retState.mode==='curve'}">Dn 커브</button><button type="button" data-m="date" aria-pressed="${retState.mode==='date'}">인스톨 날짜별</button></span>${retState.mode==='date'?`<select id="retk" aria-label="Dn 선택">${ks.map(k=>`<option value="${k}" ${k===retState.k?'selected':''}>D${k}</option>`).join('')}</select>`:''}</span>`;
-  let chart, title, sub;
-  if(retState.mode==='curve'){
-    const pts = ks.map(k=>retAgg(rows,R,k)).map((X,i)=>[ks[i], X.v]).filter(p=>p[1]!=null);
-    title='리텐션 커브'; sub=`설치 후 경과일 · 각 Dn 은 그날까지 성숙한 코호트만(분모가 Dn 마다 다름) · 코호트 ${fmt.n(nAll)}명`;
-    chart = pts.length? lineChart([{name:'리텐션',color:'var(--c1)',points:pts}],{labels:pts.map(p=>'D'+p[0]),ymax:Math.min(1,Math.max(0.05,...pts.map(p=>p[1]))*1.15),yfmt:(v)=>fmt.p(v,0)}) : empty('성숙한 코호트 없음');
-  } else {
-    const k = Math.min(retState.k, MAXD);
-    const pts = dates.map(dd=>{ const X=retAgg(rows.filter(r=>r.d===dd),R,k); return [dd, X.v, X]; }).filter(p=>p[1]!=null);
-    title=`인스톨 날짜별 D${k} 리텐션`; sub='인스톨 날짜(UTC) · 미성숙 날짜는 그리지 않음';
-    chart = pts.length? lineChart([{name:'D'+k,color:'var(--c1)',points:pts.map(p=>[p[0],p[1]])}],{labels:pts.map(p=>p[0].slice(5)),ymax:Math.min(1,Math.max(0.05,...pts.map(p=>p[1]))*1.15),yfmt:(v)=>fmt.p(v,0)}) : empty(`D${k} 가 성숙한 설치일이 아직 없음`);
-  }
-  out.push(card(`${title} <span class="muted">${sub}</span>${tools}`, chart));
-  // 표 — 인스톨 날짜 × D 열 (핵심/전체), 음영 = 값 크기, — = 미성숙
-  const cols = retState.cols==='key' ? KEYS.filter(k=>k<=MAXD) : ks;
-  const totals = cols.map(k=>retAgg(rows,R,k));
-  const perDate = dates.map(dd=>{ const sub=rows.filter(r=>r.d===dd); return {d:dd, n:sub.reduce((a,r)=>a+r.n,0), X:cols.map(k=>retAgg(sub,R,k))}; });
-  let vmax=0; totals.forEach(X=>{ if(X.v!=null) vmax=Math.max(vmax,X.v); }); perDate.forEach(r=>r.X.forEach(X=>{ if(X.v!=null) vmax=Math.max(vmax,X.v); }));
-  const shade=(v)=> v==null||!vmax ? '' : `background:rgba(var(--heat-rgb),${Math.max(0.04, Math.min(0.55, v/vmax*0.55)).toFixed(3)})`;
-  const cell=(X,k,ctx)=> X.v==null ? `<td class="cell im" title="${esc(ctx)} · D${k} · 미성숙(설치+${k} > ${R.last_date})">—</td>`
-                                   : `<td class="cell" style="${shade(X.v)}" title="${esc(ctx)} · D${k} · 잔존 ${fmt.n(X.num)} / 분모 ${fmt.n(X.den)}">${fmt.p(X.v)}</td>`;
-  const colTools = `<span class="tools"><span class="seg" id="retcols"><button type="button" data-c="key" aria-pressed="${retState.cols==='key'}">핵심 열</button><button type="button" data-c="all" aria-pressed="${retState.cols==='all'}">D1~D${MAXD}</button></span></span>`;
-  const thead = `<tr><th>인스톨 날짜</th><th>코호트</th>${cols.map(k=>`<th>D${k}</th>`).join('')}</tr>`;
-  const trow = `<tr class="total"><td>Totals</td><td class="n num">${fmt.n(nAll)}</td>${totals.map((X,i)=>cell(X,cols[i],'Totals')).join('')}</tr>`;
-  const body = perDate.map(r=>`<tr><td>${esc(r.d)}</td><td class="n num">${fmt.n(r.n)}</td>${r.X.map((X,i)=>cell(X,cols[i],r.d)).join('')}</tr>`).join('');
-  out.push(card(`인스톨 날짜별 코호트 리텐션 <span class="muted">${retState.os==='all'?'전체 OS':retState.os==='ios'?'iOS':'Android'} · Dn = 설치+n일 af_login 유저 / 코호트</span>${colTools}`,
-    `<div class="tscroll" style="max-height:480px"><table class="ret"><thead>${thead}</thead><tbody>${trow}${body}</tbody></table></div><div class="small muted" style="margin-top:6px">— : 미성숙(설치+n > ${R.last_date}) · 음영 = 값 크기(표 안 최대값 대비) · 툴팁에 잔존/분모</div>`, 'span2'));
+  const out=[];
+  out.push(cohChartCard('ret', rows, {title:'리텐션 커브', sub:`${cohOsLabel()} · 각 Dn 은 그날까지 성숙한 코호트만(분모가 Dn 마다 다름) · 코호트 ${fmt.n(rows.reduce((a,r)=>a+r.n,0))}명`,
+    xs:ks.map(k=>({key:k,label:'D'+k})), agg, pct:true, yfmt:(v)=>fmt.p(v,0), tip:(X)=>`${fmt.n(X.num)}/${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 리텐션`}));
+  out.push(cohTableCard({title:'설치일별 코호트 리텐션', sub:`${cohOsLabel()} · Dn = 설치+n일 af_login 유저 / 코호트`, rows,
+    cols:(coh.cols==='key'?KEYS:ks).map(k=>({key:k,label:'D'+k})), agg, fmt:fmt.p, colsToggle:`D1~D${MAXD}`,
+    tip:(X,col,ctx)=>`${ctx} · ${col.label} · 잔존 ${fmt.n(X.num)} / 분모 ${fmt.n(X.den)}`,
+    foot:[`— : 미성숙(설치+n > ${end})`, '음영 = 값 크기(표 안 최대값 대비)', '툴팁에 잔존/분모']}));
   $('ret').innerHTML = out.join('');
-  const rm=$('retmode'); if(rm) rm.querySelectorAll('button').forEach(b=>b.onclick=()=>{retState.mode=b.dataset.m; render();});
-  const rk=$('retk'); if(rk) rk.onchange=(e)=>{retState.k=+e.target.value; render();};
-  const rc=$('retcols'); if(rc) rc.querySelectorAll('button').forEach(b=>b.onclick=()=>{retState.cols=b.dataset.c; render();});
 }
 
 function renderProgress(J, has){
   const L = J.levels; const lv = Object.keys(L).map(Number).sort((a,b)=>a-b); const out=[];
-  if(!lv.length){ $('progress').innerHTML = card('진행', empty('클리어·실패 이벤트 없음')); return; }
+  if(!lv.length){ $('ptiles').innerHTML=''; $('progress').innerHTML = card('진행', empty('클리어·실패 이벤트 없음')); return; }
   const users = J.meta.users||1;
   // 도달 퍼널 = 신규 설치 코호트(시작일 이후 설치·설치 당일 af_login)만 — 기존 유저를 넣으면 '현재 위치 분포' 가 돼 퍼널이 아니다.
   const NC = J.progression.new_cohort_users||0; const hasNew = NC>0 && lv.some(l=>L[l].reach_new>0);
@@ -380,6 +441,12 @@ function renderProgress(J, has){
   const att = (l)=>wa(l)+fa(l);
   // 레벨 구간 선택(전체·≤100·≤500·저작·루프·직접)이 클리어율 차트와 벽 TOP 10 에 적용된다. 전체일 때만 퍼널 절단 지점으로 끊는다.
   const cr = lv.filter(l=>att(l)>=20 && inLv(l) && (lvr.key!=='all' || l<=cut));
+  // 구간 합계 타일 — 클리어율 차트와 같은 레벨 집합(시도 20+ · 구간 · 전체일 땐 퍼널 절단까지)
+  const CW = cr.reduce((a,l)=>a+wa(l),0), CF = cr.reduce((a,l)=>a+fa(l),0);
+  $('ptiles').innerHTML = has('level_fail') && cr.length ? [
+    tile('클리어율 합계', fmt.p(ratio(CW, CW+CF)), `${lvLabel()} · 시도 20+ ${fmt.n(cr.length)}개 레벨 · ${fmt.n(CW)} / ${fmt.n(CW+CF)}`),
+    tile('평균 시도/클리어', fmt.f(ratio(CW+CF, CW), 2), '(클리어+실패) ÷ 클리어'),
+  ].join('') : '';
   if(has('level_fail')){
     out.push(card(`레벨별 클리어율 <span class="muted">${lvLabel()} · 신버전 클리어 ÷ (신버전 클리어 + 실패) · 시도 20+ · ${fmt.n(cr.length)}개 레벨</span>`, cr.length?lineChart([{name:'클리어율',color:'var(--c2)',points:cr.map(l=>[l,ratio(wa(l),att(l))])}],{labels:cr.map(String),ymax:1,yfmt:(v)=>fmt.p(v,0)}):empty('이 구간에 시도 20 이상 레벨 없음 — 구간·기간을 넓히거나 롤아웃을 기다린다')));
     const walls = cr.map(l=>({l,rate:ratio(fa(l),att(l)),n:att(l)})).sort((a,b)=>b.rate-a.rate).slice(0,10);
@@ -420,6 +487,37 @@ function renderProgress(J, has){
   $('progress').innerHTML = out.join('');
 }
 
+// ── 도달률 — 설치 후 K일 이내 첫 클리어 ≥ N 인 코호트 유저 비율(창 선택). 레벨 구간 선택과 무관 ──
+function renderFunnel(J){
+  const R = J.retention||{}; const rows = cohRows(J); const end = R.last_date; const K = coh.win.funnel; const MARKS = R.lv_marks||[5,10,20,30,50,100];
+  $('funnelwin').innerHTML = `<span class="muted small">창</span><select data-coh-win="funnel" aria-label="집계 창">${[0,1,2,3,7,14].map(w=>`<option value="${w}" ${w===K?'selected':''}>${winLabel(w)}</option>`).join('')}</select>`;
+  if(!cohReady(R)){ $('ftiles').innerHTML=''; $('funnel').innerHTML=card('도달률', empty(cohEmptyMsg(R))); return; }
+  const agg = (sub,mark)=>cohAggDay(sub, K, end, (c)=>arrAt(c.lv&&c.lv[String(mark)], K), (c)=>c.n);
+  $('ftiles').innerHTML = MARKS.filter(m=>m>=10).map(m=>cohTile(`LV${m} 도달`, `${winLabel(K)} 클리어`, agg(rows,m), v=>fmt.p(v,1), X=>`${fmt.n(X.num)} / ${fmt.n(X.den)}`)).join('');
+  const xs = MARKS.map(m=>({key:m,label:'LV'+m}));
+  const out=[];
+  out.push(cohChartCard('funnel', rows, {title:'도달률', sub:`${winLabel(K)} 도달률 · ${cohOsLabel()}`, xs, agg, pct:true, curveLabel:'레벨 커브', yfmt:(v)=>fmt.p(v,0), tip:(X)=>`${fmt.n(X.num)}/${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 도달률`}));
+  out.push(cohTableCard({title:'설치일별 도달률', sub:`${winLabel(K)} · LV≥N 클리어 유저 / 코호트 · ${cohOsLabel()}`, rows, cols:xs, agg, fmt:v=>fmt.p(v,1),
+    tip:(X,col,ctx)=>`${ctx} · ${col.label} · 도달 ${fmt.n(X.num)} / 코호트 ${fmt.n(X.den)}`,
+    foot:[`— : ${winLabel(K)} 기준으로 미성숙한 코호트`, '도달 = 첫 클리어 ≥ N(af_level_achieved)이 창 안에 있음', '관측 창이 같은 코호트끼리만 비교할 것']}));
+  $('funnel').innerHTML = out.join('');
+}
+// ── 플레이 강도 — 설치 후 k일째 접속 유저 1명당 레벨 클리어 수 ──
+function renderPlay(J){
+  const R = J.retention||{}; const MAXD = R.max_day||28; const rows = cohRows(J); const end = R.last_date;
+  if(!cohReady(R)){ $('pltiles').innerHTML=''; $('play').innerHTML=card('플레이 강도', empty(cohEmptyMsg(R))); return; }
+  const agg = (sub,k)=>cohAggDay(sub, k, end, (c,k)=>arrAt(c.clr,k), activeAt);
+  $('pltiles').innerHTML = [0,1,3,7].map(k=>cohTile(`D${k} 클리어/활성유저`, `설치 후 ${k}일째 접속 유저 1명당`, agg(rows,k), v=>v.toFixed(1), X=>`클리어 ${fmt.n(X.num)} / 활성 ${fmt.n(X.den)}`)).join('');
+  const ks=[]; for(let k=0;k<=MAXD;k++) ks.push(k); const xs = ks.map(k=>({key:k,label:'D'+k}));
+  const out=[];
+  out.push(cohChartCard('play', rows, {title:'클리어/활성유저', sub:`그날 접속한 유저 1명당 레벨 클리어 수 · ${cohOsLabel()}`, xs, agg, yfmt:(v)=>v.toFixed(0), tip:(X)=>`클리어 ${fmt.n(X.num)} / 활성 ${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 클리어/활성유저`}));
+  out.push(cohTableCard({title:'설치일별 클리어/활성유저', sub:`Dn = 설치 후 n일째 · 클리어 수 / 그날 활성 유저 · ${cohOsLabel()}`, rows,
+    cols:(coh.cols==='key'?[0,1,3,7,14,28].filter(k=>k<=MAXD):ks).map(k=>({key:k,label:'D'+k})), agg, fmt:v=>v.toFixed(1), colsToggle:`D0~D${MAXD}`,
+    tip:(X,col,ctx)=>`${ctx} · ${col.label} · 클리어 ${fmt.n(X.num)} / 활성 유저 ${fmt.n(X.den)}`,
+    foot:[`— : 미성숙(설치+n > ${end})`, '세션·플레이 시간 로그가 없어 클리어 수를 플레이량 대리 지표로 쓴다']}));
+  $('play').innerHTML = out.join('');
+}
+
 function renderIntegrity(J, has){
   const I = J.integrity; const tot = I.observed+I.lost; const rate = ratio(I.lost, tot);
   $('itiles').innerHTML = [
@@ -456,6 +554,48 @@ function renderMoney(J){
   $('money').innerHTML = out.join('');
 }
 
+// ── 코호트 누적 ARPU — 설치+0..k일 IAP(+IAA) 누적 $ / 코호트. IAP+IAA 는 광고 리포트 지연 때문에 광고 마지막 날 기준으로 성숙 판정 ──
+function renderArpu(J){
+  const R = J.retention||{}; const MAXD = R.max_day||28; const rows = cohRows(J);
+  if(!cohReady(R)){ $('atiles').innerHTML=''; $('arpu').innerHTML=card('누적 ARPU', empty(cohEmptyMsg(R))); return; }
+  const iaa = !!R.iaa_available && coh.rev==='total';
+  const end = iaa ? (R.ad_last_date||R.last_date) : R.last_date;          // IAP+IAA 는 광고 마지막 날 기준(광고 1~2일 지연, 엄격 쪽)
+  const revLbl = iaa ? 'IAP+IAA' : 'IAP';
+  const agg = (sub,k)=>cohAggDay(sub, k, end, (c,k)=>arrAt(c.iap,k)+(iaa?arrAt(c.iaa,k):0), (c)=>c.n);
+  const DAYS = (R.arpu_days||[0,1,3,7,14,28]).filter(k=>k<=MAXD); const usd4 = (v)=>'$'+v.toFixed(4);
+  $('atiles').innerHTML = DAYS.map(k=>cohTile(`누적 ARPU D${k}`, `설치 +0~${k}일 ${revLbl}`, agg(rows,k), usd4, X=>`n ${fmt.n(X.den)}`, `미성숙 — 설치+${k} ≤ ${(end||'').slice(5)} 인 코호트 없음`)).join('');
+  const ks=[]; for(let k=0;k<=MAXD;k++) ks.push(k);
+  const revSeg = `<span class="seg"><button type="button" data-coh-rev="total" aria-pressed="${iaa}" ${R.iaa_available?'':'disabled title="광고 수익 리포트가 없어 IAP 만 집계됩니다"'}>IAP+IAA</button><button type="button" data-coh-rev="iap" aria-pressed="${!iaa}">IAP만</button></span>`;
+  const out=[];
+  out.push(cohChartCard('arpu', rows, {title:'누적 ARPU 커브', sub:`${revLbl} 유저당 누적 $ · ${cohOsLabel()} · 성숙 기준 ${end||'-'}`, xs:ks.map(k=>({key:k,label:'D'+k})), agg,
+    yfmt:(v)=>'$'+(v>=1?v.toFixed(2):v.toFixed(3)), tip:(X)=>`n ${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 누적 ARPU`, extraTools:revSeg}));
+  out.push(cohTableCard({title:'설치일별 코호트 누적 ARPU', sub:`${cohOsLabel()} · Dn = 설치+0~n일 ${revLbl} 합 / 코호트`, rows,
+    cols:(coh.cols==='key'?DAYS:ks).map(k=>({key:k,label:'D'+k})), agg, fmt:usd4, colsToggle:`D0~D${MAXD}`,
+    tip:(X,col,ctx)=>`${ctx} · ${col.label} · ${revLbl} 누적 $${X.num.toFixed(2)} / 분모 ${fmt.n(X.den)}`,
+    foot:[`— : 미성숙(설치+n > ${end})`, '음영 = 값 크기', iaa?'IAA 는 배너 제외(광고 지표 전부 동일)':'']}));
+  $('arpu').innerHTML = out.join('');
+}
+// ── 결제 분해 — 창(설치 후 K일까지) 안 첫 결제 전환율 · ARPPU · IAP/유저 · 상위 1인 비중 · 누적 전환율 Dn 커브 ──
+function renderPayCohort(J){
+  const R = J.retention||{}; const MAXD = R.max_day||28; const rows = cohRows(J); const end = R.last_date; const K = coh.win.pay;
+  $('paywin').innerHTML = `<span class="muted small">창</span><select data-coh-win="pay" aria-label="집계 창">${[0,1,3,7,14,28].map(w=>`<option value="${w}" ${w===K?'selected':''}>${winLabel(w)}</option>`).join('')}</select>`;
+  if(!cohReady(R)){ $('paytiles').innerHTML=''; $('paycoh').innerHTML=card('결제 분해', empty(cohEmptyMsg(R))); return; }
+  const conv = cohAggDay(rows, K, end, (c,k)=>arrAt(c.pay,k), (c)=>c.n);
+  const arppu = cohAggDay(rows, K, end, (c,k)=>arrAt(c.iap,k), (c,k)=>arrAt(c.pay,k));
+  const perUser = cohAggDay(rows, K, end, (c,k)=>arrAt(c.iap,k), (c)=>c.n);
+  let mx=0, tot=0; for(const c of rows){ if(!end) continue; const m=Math.min(daysBetween(c.d,end),MAXD); if(m<0) continue; mx=Math.max(mx,c.top_iap||0); tot+=arrAt(c.iap,m); }
+  const top = {v: tot?mx/tot:null, den: tot, num: mx};
+  $('paytiles').innerHTML = [
+    cohTile('결제 전환율', `${winLabel(K)} 첫 결제 유저 / 코호트`, conv, v=>fmt.p(v,2), X=>`${fmt.n(X.num)} / ${fmt.n(X.den)}`),
+    cohTile('ARPPU', `${winLabel(K)} IAP / 결제자`, arppu, v=>'$'+v.toFixed(2), X=>`결제자 ${fmt.n(X.den)}`),
+    cohTile('IAP/유저', `${winLabel(K)} IAP / 코호트`, perUser, v=>'$'+v.toFixed(4), X=>`n ${fmt.n(X.den)}`),
+    cohTile('상위 1인 비중', '관측 전체 IAP 중 최다 결제자 1명 — 크면 ARPU 는 한 명이 만든 숫자', top, v=>fmt.p(v,1), X=>`최대 $${X.num.toFixed(2)} / $${X.den.toFixed(2)}`),
+  ].join('');
+  const ks=[]; for(let k=0;k<=MAXD;k++) ks.push(k);
+  $('paycoh').innerHTML = cohChartCard('pay', rows, {title:'누적 결제 전환율', sub:`k일 이내 첫 결제 유저 / 코호트 · ${cohOsLabel()}`, xs:ks.map(k=>({key:k,label:'D'+k})),
+    agg:(sub,k)=>cohAggDay(sub,k,end,(c,k)=>arrAt(c.pay,k),(c)=>c.n), pct:true, yfmt:(v)=>fmt.p(v,1), tip:(X)=>`${fmt.n(X.num)}/${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 누적 결제 전환율`});
+}
+
 function renderAds(J){
   const A = J.ads; const days=daysIn(J); const out=[];
   $('ads-sub').textContent = J.meta.exclude_banner ? `전면·리워드만 · 배너(배치 없음) 제외 ${fmt.n(J.meta.excluded_banner_imps)} 노출` : '광고 수익 리포트 · Placement';
@@ -470,6 +610,38 @@ function renderAds(J){
   out.push(card(`유저당 노출 분포 <span class="muted">광고 본 유저 ${fmt.n(A.users_with_imps)}</span>`+ALL(), order.some(k=>ih[k])?barChart(order.map(k=>({label:k,value:ih[k]||0})),{}):empty('–')));
   out.push(card('일별 노출 · 광고 수익', lineChart([{name:'노출',color:'var(--c1)',points:days.map(x=>[x,J.daily[x].ad_imps])},{name:'수익 $×100',color:'var(--c2)',points:days.map(x=>[x,(J.daily[x].ad_rev_usd||0)*100])}],{labels:days.map(x=>x.slice(5))})));
   $('ads').innerHTML = out.join('');
+}
+
+// ── 광고 코호트 — 임프레션·광고매출/유저-일(창) · eCPM · 실패 광고/클리어 100판 · 배치별. 성숙 기준 = 광고 리포트 마지막 날 ──
+const isFailPl = (pl)=>/fail|restart/i.test(pl);
+const adImp = (c,k,pl)=>{ if(!c.adp) return 0; if(pl) return arrAt(c.adp[pl],k); let s=0; for(const p in c.adp) s+=arrAt(c.adp[p],k); return s; };
+function renderAdsCohort(J){
+  const R = J.retention||{}; const MAXD = R.max_day||28; const rows = cohRows(J); const end = R.ad_last_date; const K = coh.win.ads;
+  $('adswin').innerHTML = `<span class="muted small">창</span><select data-coh-win="ads" aria-label="집계 창">${['all',0,1,3,7,14].map(w=>`<option value="${w}" ${String(w)===String(K)?'selected':''}>${winLabel(w)}</option>`).join('')}</select>`;
+  $('adcoh-sub').textContent = `◉ 성숙 기준 = 광고 데이터 마지막 날 ${end||'-'}${J.meta.exclude_banner?' · 배너 제외':''}`;
+  if(!R.iaa_available){ $('adtiles').innerHTML=''; $('adcoh').innerHTML=card('광고 코호트', empty('광고 수익 리포트가 없어 표시할 수 없습니다')); return; }
+  if(!cohReady(R)){ $('adtiles').innerHTML=''; $('adcoh').innerHTML=card('광고 코호트', empty(cohEmptyMsg(R))); return; }
+  const W = (numAt, denAt)=>cohAggWin(rows, K, end, numAt, denAt, MAXD);
+  const imp = W((c,k)=>adImp(c,k), activeAt);
+  const rev = W((c,k)=>arrAt(c.iaa,k)-(k?arrAt(c.iaa,k-1):0), activeAt);
+  const ecpm = {v: imp.num ? rev.num/imp.num*1000 : null, den: imp.num, num: rev.num};
+  const fail = W((c,k)=>{ let s=0; if(c.adp) for(const p in c.adp) if(isFailPl(p)) s+=arrAt(c.adp[p],k); return s; }, (c,k)=>arrAt(c.clr,k)/100);
+  $('adtiles').innerHTML = [
+    cohTile('임프레션/유저-일', winLabel(K), imp, v=>v.toFixed(1), X=>`${fmt.n(X.den)} 유저-일`),
+    cohTile('광고매출/유저-일', `${winLabel(K)} · IAA $`, rev, v=>'$'+v.toFixed(4), X=>`${fmt.n(X.den)} 유저-일`),
+    cohTile('eCPM', '광고매출 / 임프레션 × 1000', ecpm, v=>'$'+v.toFixed(2), X=>`${fmt.n(X.den)} 임프`),
+    cohTile('실패 광고 / 클리어 100판', 'fail·restart 배치 임프레션 — 실패율 대리 지표', fail, v=>v.toFixed(2), X=>`${fmt.n(Math.round(X.den*100))} 클리어`),
+  ].join('');
+  const pls = [...new Set(rows.flatMap(c=>Object.keys(c.adp||{})))];
+  const perPl = pls.map(pl=>({pl, X:W((c,k)=>adImp(c,k,pl), activeAt)})).sort((a,b)=>b.X.num-a.X.num);
+  const ks=[]; for(let k=0;k<=MAXD;k++) ks.push(k);
+  const out=[];
+  out.push(cohChartCard('ads', rows, {title:'임프레션/활성유저', sub:`그날 접속한 유저 1명당 광고 임프레션(전 배치) · ${cohOsLabel()}`, xs:ks.map(k=>({key:k,label:'D'+k})),
+    agg:(sub,k)=>cohAggDay(sub,k,end,(c,k)=>adImp(c,k),activeAt), yfmt:(v)=>v.toFixed(0), tip:(X)=>`임프 ${fmt.n(X.num)} / 활성 ${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 임프레션/활성유저`}));
+  out.push(card(`${COH}배치별 임프레션/유저-일 <span class="muted">${winLabel(K)} · ${cohOsLabel()} · ⚑ = 실패·재시도 배치</span>`,
+    perPl.length ? table(['배치','/유저-일','비중'], perPl.map(r=>[esc(r.pl)+(isFailPl(r.pl)?' ⚑':''), r.X.v==null?'—':r.X.v.toFixed(2), imp.num?fmt.p(r.X.num/imp.num):'—']))
+                 : empty('광고 데이터가 있는 성숙 코호트가 없습니다.')));
+  $('adcoh').innerHTML = out.join('');
 }
 
 function renderSlices(J){
