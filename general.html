@@ -183,7 +183,7 @@ function binLabel(g, W, fold){
 }
 // ── 코호트 축(설치일 × Dn) 카드 공용 — 리텐션·누적 ARPU·결제 분해·도달률·플레이 강도·광고 코호트. A/B 보드 agg/aggDay/aggWin 과 같은 규칙(군만 없음). 저장 안 함 ──
 const coh = {os:'all', cols:'key', rev:'total', win:{funnel:1, pay:1, ads:'all'},
-             chart:{ret:{mode:'curve',k:1}, arpu:{mode:'curve',k:1}, funnel:{mode:'curve',k:30}, play:{mode:'curve',k:1}, pay:{mode:'curve',k:1}, ads:{mode:'curve',k:0}}};
+             chart:{ret:{mode:'curve',k:1}, arpu:{mode:'curve',k:1}, funnel:{mode:'curve',k:30}, play:{mode:'curve',k:1}, lvavg:{mode:'curve',k:1}, pay:{mode:'curve',k:1}, ads:{mode:'curve',k:0}}};
 // 테스트·공유용 초기 상태: ?os=ios&cols=all&rev=iap&win.pay=7&mode.ret=date&k.ret=3
 (function(){ const q = new URLSearchParams(location.search);
   for(const [k,v] of q){
@@ -515,6 +515,16 @@ function renderPlay(J){
     cols:(coh.cols==='key'?[0,1,3,7,14,28].filter(k=>k<=MAXD):ks).map(k=>({key:k,label:'D'+k})), agg, fmt:v=>v.toFixed(1), colsToggle:`D0~D${MAXD}`,
     tip:(X,col,ctx)=>`${ctx} · ${col.label} · 클리어 ${fmt.n(X.num)} / 활성 유저 ${fmt.n(X.den)}`,
     foot:[`— : 미성숙(설치+n > ${end})`, '세션·플레이 시간 로그가 없어 클리어 수를 플레이량 대리 지표로 쓴다']}));
+  // 평균 달성 레벨 — 설치+0..k일 클리어를 누적해 **코호트 전원**(이탈자 포함)으로 나눈다. 누적 ARPU 와 같은 모양.
+  // 날별 '클리어/활성유저' 를 그대로 더하면(분모가 날마다 줄어) 매일 접속한 가상 유저 기준이 되어 2배로 뜬다(2026-09-18 실측 D6 72.9 vs 150.8).
+  // 클리어 수를 레벨로 읽어도 되는 근거: 신규 코호트 6,022명의 Σ최고클리어 359,061 vs Σ클리어 351,538 → 0.979 (재플레이 없음, 2026-09-18 실측).
+  const aggLv = (sub,k)=>cohAggDay(sub, k, end, (c,k)=>{ let s=0; for(let j=0;j<=k;j++) s+=arrAt(c.clr,j); return s; }, (c)=>c.n);
+  out.push(cohChartCard('lvavg', rows, {title:'평균 달성 레벨 커브', sub:`설치+0~n일 누적 클리어 ÷ 코호트 · ${cohOsLabel()}`, xs, agg:aggLv,
+    yfmt:(v)=>v.toFixed(0), tip:(X)=>`클리어 ${fmt.n(X.num)} / 코호트 ${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 평균 달성 레벨`}));
+  out.push(cohTableCard({title:'설치일별 평균 달성 레벨', sub:`Dn = 설치+0~n일 누적 클리어 ÷ 코호트(이탈자 포함) · ${cohOsLabel()}`, rows,
+    cols:(coh.cols==='key'?[0,1,3,7,14,28].filter(k=>k<=MAXD):ks).map(k=>({key:k,label:'D'+k})), agg:aggLv, fmt:v=>v.toFixed(1), colsToggle:`D0~D${MAXD}`,
+    tip:(X,col,ctx)=>`${ctx} · ${col.label} · 누적 클리어 ${fmt.n(X.num)} / 코호트 ${fmt.n(X.den)}`,
+    foot:[`— : 미성숙(설치+n > ${end})`, '클리어 1회 = 레벨 1 (실측 재플레이 비율 2%)', '평균은 상위 유저가 끌어올린다 — 중앙값 도달 레벨은 도달률 카드에서 볼 것']}));
   $('play').innerHTML = out.join('');
 }
 
