@@ -329,7 +329,8 @@ function osView(J){
       excluded_not_instrumented_users:P(J.meta.excluded_not_instrumented_users), event_counts:M(J.meta.event_counts||{}, P)}),
     daily: M(J.daily||{}, (d)=>M(d, P)),
     retention: J.retention,                        // 코호트 행은 os 필드로 이미 나뉘어 있다(cohRows 가 거른다)
-    levels: M(J.levels||{}, (v)=>Object.assign({}, LV_DEFAULTS, M(v, P), {fail_reasons:M(v.fail_reasons||{}, P)})),
+    levels: M(J.levels||{}, (v)=>Object.assign({}, LV_DEFAULTS, M(v, P), {fail_reasons:M(v.fail_reasons||{}, P),
+      churn_sampled: v.churn_sampled ? [P(v.churn_sampled[0]), P(v.churn_sampled[1])] : [0, 0]})),   // [실패 유저, 미복귀]
     levels_daily: M(J.levels_daily||{}, (d)=>M(d, (wf)=>[P(wf[0]), P(wf[1])])),
     integrity: Object.assign({}, J.integrity, {observed:P(J.integrity.observed), lost:P(J.integrity.lost),
       by_level:M(J.integrity.by_level||{}, (x)=>[P(x[0]), P(x[1])]),
@@ -478,14 +479,19 @@ function renderProgress(J, has){
   const cr = lv.filter(l=>att(l)>=20 && inLv(l) && (lvr.key!=='all' || l<=cut));
   // 구간 합계 타일 — 클리어율 차트와 같은 레벨 집합(시도 20+ · 구간 · 전체일 땐 퍼널 절단까지)
   const CW = cr.reduce((a,l)=>a+wa(l),0), CF = cr.reduce((a,l)=>a+fa(l),0);
+  // 벽 이탈률 — 같은 레벨 집합에서 '마지막 실패 다음날 미복귀' 유저 합계(표본 1/10)
+  const CD = cr.reduce((a,l)=>a+(L[l].churn_sampled||[0,0])[0],0), CX = cr.reduce((a,l)=>a+(L[l].churn_sampled||[0,0])[1],0);
   $('ptiles').innerHTML = has('level_fail') && cr.length ? [
     tile('클리어율 합계', fmt.p(ratio(CW, CW+CF)), `${lvLabel()} · 시도 20+ ${fmt.n(cr.length)}개 레벨 · ${fmt.n(CW)} / ${fmt.n(CW+CF)}`),
     tile('평균 시도/클리어', fmt.f(ratio(CW+CF, CW), 2), '(클리어+실패) ÷ 클리어'),
+    tile('실패 후 다음날 미복귀', CD?fmt.p(ratio(CX, CD)):'–', `${lvLabel()} · 표본 ${fmt.n(CX)} / ${fmt.n(CD)} · ⚠ 구간 간 비교 금지(초반은 신규가 많아 원래 높다)`),
   ].join('') : '';
   if(has('level_fail')){
     out.push(card(`레벨별 클리어율 <span class="muted">${lvLabel()} · 신버전 클리어 ÷ (신버전 클리어 + 실패) · 시도 20+ · ${fmt.n(cr.length)}개 레벨</span>`, cr.length?lineChart([{name:'클리어율',color:'var(--c2)',points:cr.map(l=>[l,ratio(wa(l),att(l))])}],{labels:cr.map(lvKeyLabel),ymax:1,yfmt:(v)=>fmt.p(v,0)}):empty('이 구간에 시도 20 이상 레벨 없음 — 구간·기간을 넓히거나 롤아웃을 기다린다')));
     const walls = cr.map(l=>({l,rate:ratio(fa(l),att(l)),n:att(l)})).sort((a,b)=>b.rate-a.rate).slice(0,10);
-    out.push(card(`벽 TOP 10 <span class="muted">${lvLabel()} · 실패율 · 시도 20+</span>`, walls.length?table(['레벨','실패율','시도','실패 사유'+(rangeOn()?' ◌':''),'벽에 걸린 유저(표본, 3회+)'+(rangeOn()?' ◌':'')], walls.map(w=>[`LV ${lvKeyLabel(w.l)}`, `${fmt.p(w.rate)} ${hbar(w.rate,1)}`, fmt.n(w.n), esc(Object.entries(L[w.l].fail_reasons||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · ')), fmt.n(L[w.l].stuck3_sampled)])):empty('이 구간에 시도 20 이상 레벨 없음')));
+    // 벽 이탈률 = 그 레벨에서 마지막으로 실패한 다음날 af_login 이 없는 유저 비율(표본 1/10 · 유저·레벨당 1건 · 마지막 날 실패는 분모 제외)
+    const chn = (l)=>(L[l].churn_sampled||[0,0]);
+    out.push(card(`벽 TOP 10 <span class="muted">${lvLabel()} · 실패율 · 시도 20+ · 미복귀는 표본이라 분모가 작다(같은 구간 안에서만 비교)</span>`, walls.length?table(['레벨','실패율','시도','다음날 미복귀'+(rangeOn()?' ◌':''),'실패 사유'+(rangeOn()?' ◌':''),'벽에 걸린 유저(표본, 3회+)'+(rangeOn()?' ◌':'')], walls.map(w=>[`LV ${lvKeyLabel(w.l)}`, `${fmt.p(w.rate)} ${hbar(w.rate,1)}`, fmt.n(w.n), chn(w.l)[0]?`${fmt.p(ratio(chn(w.l)[1], chn(w.l)[0]))} <span class="muted">${fmt.n(chn(w.l)[1])}/${fmt.n(chn(w.l)[0])}</span>`:'–', esc(Object.entries(L[w.l].fail_reasons||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · ')), fmt.n(L[w.l].stuck3_sampled)])):empty('이 구간에 시도 20 이상 레벨 없음')));
     // '실패 사유' 전 레벨 분포 카드는 제거(팀장님 지시 2026-09-13) — 실측 100% moves_zero 라 정보가 없다.
     //  레벨별 사유는 벽 TOP 10 표의 '실패 사유' 열에 남아 있다.
   } else {
