@@ -1,1 +1,1 @@
-﻿window.BOARDS = {"ab":"09-18 09:33","general":"09-18 23:48"};
+﻿window.BOARDS = {"ab":"09-19 09:33","general":"09-19 09:35"};
