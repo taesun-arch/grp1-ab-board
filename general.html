@@ -585,14 +585,14 @@ function renderPlay(J){
   }
   const medAt = (sub,k)=>{ const h={}; for(const c of sub){ if(!matureBy(c,end,k)) continue; const src=(c.mxh||{})[k]; for(const b in (src||{})) h[b]=(h[b]||0)+src[b]; } return qFromHist(h, 0.5); };
   const denSeg = `<span class="seg"><button type="button" data-coh-lvden="act" aria-pressed="${ACT}">활성 유저</button><button type="button" data-coh-lvden="n" aria-pressed="${!ACT}">코호트 전원</button></span>`;
-  out.push(cohChartCard('lvavg', rows, {title:'달성 레벨 커브', xs:(ACT?DAYS:ks).map(k=>({key:k,label:'D'+k})), agg:aggLv, extraTools:denSeg,
+  out.push(cohChartCard('lvavg', rows, {title:'달성 레벨 커브', xs:ks.map(k=>({key:k,label:'D'+k})), agg:aggLv, extraTools:denSeg,
     sub: ACT ? `그날 접속한 유저의 평균 최고 레벨 · ${cohOsLabel()}` : `설치+0~n일 누적 클리어 ÷ 코호트(이탈자 포함) · ${cohOsLabel()}`,
     yfmt:(v)=>v.toFixed(0), tip:(X)=>ACT?`활성 ${fmt.n(X.den)}명`:`클리어 ${fmt.n(X.num)} / 코호트 ${fmt.n(X.den)}`,
     dateTitle:(x)=>`설치일별 ${x.label} 달성 레벨`}));
-  out.push(cohTableCard({title:'설치일별 달성 레벨', rows, agg:aggLv, colsToggle: ACT?null:`D0~D${MAXD}`,
+  out.push(cohTableCard({title:'설치일별 달성 레벨', rows, agg:aggLv, colsToggle:`D0~D${MAXD}`,
     sub: ACT ? `Dn = 설치+n일에 접속한 유저의 최고 레벨 · <b>평균 / 중앙값</b> · ${cohOsLabel()}`
              : `Dn = 설치+0~n일 누적 클리어 ÷ 코호트(이탈자 포함) · ${cohOsLabel()}`,
-    cols: (ACT ? DAYS : (coh.cols==='key'?DAYS:ks)).map(k=>({key:k,label:'D'+k})),
+    cols: (coh.cols==='key'?DAYS:ks).map(k=>({key:k,label:'D'+k})),
     fmt: ACT ? (v,X)=>{ const m = X.med; return `${v.toFixed(0)} <span class="muted">/ ${m==null?'–':m.toFixed(0)}</span>`; } : (v)=>v.toFixed(1),
     tip:(X,col,ctx)=>ACT?`${ctx} · ${col.label} · 활성 ${fmt.n(X.den)}명 · 평균 ${X.v.toFixed(1)}`:`${ctx} · ${col.label} · 누적 클리어 ${fmt.n(X.num)} / 코호트 ${fmt.n(X.den)}`,
     med: ACT ? medAt : null, tools: denSeg,
