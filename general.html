@@ -56,6 +56,11 @@ h2{font-size:15px;margin:0 0 10px;display:flex;align-items:baseline;gap:10px} h2
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);min-width:0}
 .card.span2{grid-column:span 2} @media (max-width:980px){.card.span2{grid-column:span 1}}
 .card.spanfull{grid-column:1 / -1}   /* 열이 많은 표(코호트 D0~D28 등)는 줄 전체를 쓴다 — 2칸이면 가운데서 잘린다 */
+/* 코호트 표는 앞선 차트 카드 옆(2번째 칸부터 끝까지)에 놓는다 — 차트가 1칸만 쓰고 우측이 비던 자리를 채운다(2026-09-20).
+   칸이 적은 화면에서는 줄 전체를 쓴다(차트 아래로 내려간다). */
+.card.spanrest{grid-column:1 / -1}
+@media (min-width:1400px){ .card.spanrest{grid-column:2 / -1} }
+.grid.wide{align-items:start}        /* 표 옆 차트가 표 높이만큼 늘어나 빈 칸이 생기지 않게 */
 .card h3{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--ink-2)} .card h3 .muted{font-weight:400}
 .tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:12px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow)}
@@ -252,7 +257,7 @@ function cohTableCard(o){
   const foot=(o.foot||[]).filter(Boolean).map(esc).join(' · ');
   return card(`${COH}${o.title} <span class="muted">${o.sub}</span>${colTools}`,
     dates.length ? `<div class="tscroll" style="max-height:480px"><table class="ret"><thead>${thead}</thead><tbody>${trow}${body}</tbody></table></div><div class="small muted" style="margin-top:6px">${foot}</div>`
-                 : empty('선택한 범위에 코호트가 없습니다.'), 'spanfull');
+                 : empty('선택한 범위에 코호트가 없습니다.'), 'spanrest');
 }
 // 코호트 카드 도구 — innerHTML 로 다시 그려도 살아남게 document 위임
 document.addEventListener('click', (e)=>{
