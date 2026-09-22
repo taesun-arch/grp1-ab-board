@@ -194,7 +194,7 @@ function binLabel(g, W, fold){
 }
 // ── 코호트 축(설치일 × Dn) 카드 공용 — 리텐션·누적 ARPU·결제 분해·도달률·플레이 강도·광고 코호트. A/B 보드 agg/aggDay/aggWin 과 같은 규칙(군만 없음). 저장 안 함 ──
 const coh = {os:'all', cols:'key', rev:'total', lvden:'act', win:{funnel:1, pay:1, ads:'all'},
-             chart:{ret:{mode:'curve',k:1}, arpu:{mode:'curve',k:1}, funnel:{mode:'curve',k:30}, play:{mode:'curve',k:1}, lvavg:{mode:'curve',k:1}, pay:{mode:'curve',k:1}, ads:{mode:'curve',k:0}}};
+             chart:{ret:{mode:'curve',k:1}, arpu:{mode:'curve',k:1}, funnel:{mode:'curve',k:30}, play:{mode:'curve',k:1}, lvavg:{mode:'curve',k:1}, pay:{mode:'curve',k:1}, ads:{mode:'curve',k:0}, arpdau:{mode:'curve',k:0}}};
 // 테스트·공유용 초기 상태: ?os=ios&cols=all&rev=iap&win.pay=7&mode.ret=date&k.ret=3
 (function(){ const q = new URLSearchParams(location.search);
   for(const [k,v] of q){
@@ -704,9 +704,10 @@ function renderAds(J){
   $('ads').innerHTML = out.join('');
 }
 
-// ── 광고 코호트 — 임프레션·광고매출/유저-일(창) · eCPM · 실패 광고/클리어 100판 · 배치별. 성숙 기준 = 광고 리포트 마지막 날 ──
+// ── 광고 코호트 — 임프레션·광고매출/유저-일(창) · IAA ARPDAU(Dn) · eCPM · 실패 광고/클리어 100판 · 배치별. 성숙 기준 = 광고 리포트 마지막 날 ──
 const isFailPl = (pl)=>/fail|restart/i.test(pl);
 const adImp = (c,k,pl)=>{ if(!c.adp) return 0; if(pl) return arrAt(c.adp[pl],k); let s=0; for(const p in c.adp) s+=arrAt(c.adp[p],k); return s; };
+const iaaAt = (c,k)=>arrAt(c.iaa,k)-(k?arrAt(c.iaa,k-1):0);          // 누적 IAA 의 일차 차분 = 설치 후 k일째 광고 매출
 function renderAdsCohort(J){
   const R = J.retention||{}; const MAXD = R.max_day||28; const rows = cohRows(J); const end = R.ad_last_date; const K = coh.win.ads;
   $('adswin').innerHTML = `<span class="muted small">창</span><select data-coh-win="ads" aria-label="집계 창">${['all',0,1,3,7,14].map(w=>`<option value="${w}" ${String(w)===String(K)?'selected':''}>${winLabel(w)}</option>`).join('')}</select>`;
@@ -715,7 +716,7 @@ function renderAdsCohort(J){
   if(!cohReady(R)){ $('adtiles').innerHTML=''; $('adcoh').innerHTML=card('광고 코호트', empty(cohEmptyMsg(R))); return; }
   const W = (numAt, denAt)=>cohAggWin(rows, K, end, numAt, denAt, MAXD);
   const imp = W((c,k)=>adImp(c,k), activeAt);
-  const rev = W((c,k)=>arrAt(c.iaa,k)-(k?arrAt(c.iaa,k-1):0), activeAt);
+  const rev = W(iaaAt, activeAt);
   const ecpm = {v: imp.num ? rev.num/imp.num*1000 : null, den: imp.num, num: rev.num};
   const fail = W((c,k)=>{ let s=0; if(c.adp) for(const p in c.adp) if(isFailPl(p)) s+=arrAt(c.adp[p],k); return s; }, (c,k)=>arrAt(c.clr,k)/100);
   $('adtiles').innerHTML = [
@@ -730,7 +731,9 @@ function renderAdsCohort(J){
   const out=[];
   out.push(cohChartCard('ads', rows, {title:'임프레션/활성유저', sub:`그날 접속한 유저 1명당 광고 임프레션(전 배치) · ${cohOsLabel()}`, xs:ks.map(k=>({key:k,label:'D'+k})),
     agg:(sub,k)=>cohAggDay(sub,k,end,(c,k)=>adImp(c,k),activeAt), yfmt:(v)=>v.toFixed(0), tip:(X)=>`임프 ${fmt.n(X.num)} / 활성 ${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 임프레션/활성유저`}));
-  out.push(card(`${COH}배치별 임프레션/유저-일 <span class="muted">${winLabel(K)} · ${cohOsLabel()} · ⚑ = 실패·재시도 배치</span>`,
+  out.push(cohChartCard('arpdau', rows, {title:'IAA ARPDAU', color:'var(--c2)', sub:`그날 접속한 유저 1명당 광고 매출(전 배치) · ${cohOsLabel()}`, xs:ks.map(k=>({key:k,label:'D'+k})),
+    agg:(sub,k)=>cohAggDay(sub,k,end,iaaAt,activeAt), yfmt:(v)=>'$'+v.toFixed(3), tip:(X)=>`매출 ${fmt.usd(X.num)} / 활성 ${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} IAA ARPDAU`}));
+  out.push(card(`${COH}배치별 임프레션/유저-일<span class="muted">${winLabel(K)} · ${cohOsLabel()} · ⚑ = 실패·재시도 배치</span>`,
     perPl.length ? table(['배치','/유저-일','비중'], perPl.map(r=>[esc(r.pl)+(isFailPl(r.pl)?' ⚑':''), r.X.v==null?'—':r.X.v.toFixed(2), imp.num?fmt.p(r.X.num/imp.num):'—']))
                  : empty('광고 데이터가 있는 성숙 코호트가 없습니다.')));
   $('adcoh').innerHTML = out.join('');
