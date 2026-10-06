@@ -98,7 +98,7 @@ table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border
 <body>
 <header class="top">
   <a class="iconbtn" id="home" href="index.html" title="보드 선택으로">← 보드</a>
-  <div class="brand"><h1>Group 1 일반 지표 보드</h1><div class="sub">AppsFlyer raw · 계측 유저 · A/B 무관</div></div>
+  <div class="brand"><h1>Group 1 일반 지표 보드</h1><div class="sub" id="brandsub">AppsFlyer raw · 계측 유저 · A/B 무관</div></div>
   <nav class="tabs" id="tabs" aria-label="게임"></nav>
   <div class="right"><span id="gen" class="mono"></span><button class="iconbtn" id="theme" type="button">다크</button></div>
 </header>
@@ -159,12 +159,19 @@ let game = null, sliceDim = 'media_source';
 const SECS = [['sec-access','접속·잔존'],['sec-progress','진행·난이도'],['sec-integrity','정합'],['sec-money','수익화'],['sec-ads','광고'],['sec-slices','슬라이스']];
 let activeSec = 'all';
 // 레벨 저장 키의 표시 이름 — 저작 레벨은 그대로, 루프 칸은 범위로(파이프라인 config.level_key 와 같은 경계)
-const AUTHORED_MAX = 850, LOOP_BUCKET = 10;
+// 저작 상한은 게임마다 다르다(sf 850 · cl 400) — 산출 meta.authored_max 를 render 가 읽어 바꾼다. 아래 값은 그것이 없을 때의 기본값.
+const AUTHORED_MAX_DEFAULT = 850, LOOP_BUCKET = 10;
+let AUTHORED_MAX = AUTHORED_MAX_DEFAULT;
 const lvKeyLabel = (n)=> n<=AUTHORED_MAX ? String(n) : `${n}–${n+LOOP_BUCKET-1}`;
-// ── 레벨 구간 선택 (벽 TOP 10 · 레벨별 클리어율) ──
-const LV_PRESETS = [['all','전체',1,null],['100','≤100',1,100],['300','≤300',1,300],['500','≤500',1,500],['850','저작 ≤850',1,850],['loop','루프 851+',851,null]];
+// ── 레벨 구간 선택 (벽 TOP 10 · 레벨별 클리어율) — 고정 구간(≤100·≤300·≤500 중 저작 상한 미만) + 저작 + 루프 ──
+const lvPresets = (a)=>[['all','전체',1,null], ...[100,300,500].filter(x=>x<a).map(x=>[String(x),'≤'+x,1,x]),
+  ['authored',`저작 ≤${a}`,1,a], ['loop',`루프 ${a+1}+`,a+1,null]];
+let LV_PRESETS = lvPresets(AUTHORED_MAX);
 let lvr = {key:'all', min:1, max:null};
 function renderLevelSeg(J){
+  // 게임(탭)을 바꾸면 저작 상한이 달라진다 — 같은 키의 구간을 새 게임 값으로 다시 잡고, 없는 키면 전체로
+  AUTHORED_MAX = (J.meta && J.meta.authored_max) || AUTHORED_MAX_DEFAULT; LV_PRESETS = lvPresets(AUTHORED_MAX);
+  if(lvr.key!=='custom'){ const p = LV_PRESETS.find(x=>x[0]===lvr.key) || LV_PRESETS[0]; lvr = {key:p[0], min:p[2], max:p[3]}; }
   $('lvseg').innerHTML = LV_PRESETS.map(([k,n])=>`<button type="button" data-k="${k}" aria-pressed="${k===lvr.key}">${n}</button>`).join('');
   $('lvseg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ const p=LV_PRESETS.find(x=>x[0]===b.dataset.k); lvr={key:p[0],min:p[2],max:p[3]}; $('lvmin').value=''; $('lvmax').value=''; render(); });
   const custom = ()=>{ const a=parseInt($('lvmin').value,10), b=parseInt($('lvmax').value,10); if(!a&&!b) return; lvr={key:'custom', min:a||1, max:b||null}; render(); };
@@ -326,6 +333,11 @@ function table(cols, rows, opts={}){
 const card = (title, body, cls='') => `<div class="card ${cls}"><h3>${title}</h3>${body}</div>`;
 const tile = (k, v, s='') => `<div class="tile"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`;
 const empty = (msg) => `<div class="empty">${esc(msg)}</div>`;
+// 게임이 보내지 않는 이벤트·파라미터(meta.not_sent, config.GAMES[..].not_sent) — 빈 카드에 '아직 없음' 대신 이 사유를 띄운다
+const notSent = (J, name)=> (J.meta.not_sent||[]).includes(name);
+const notSentMsg = (name)=>`${name} — 이 게임은 AppsFlyer 로 보내지 않는다. 클라 계측이 추가되기 전까지 비어 있다`;
+// af_login 에 max_level 스냅샷이 없는 게임(cl) — 레벨 = 그날까지 최고 클리어, 설치 며칠차 = Install Time
+const noSnap = (J)=> J.meta.login_payload===false;
 const ratio = (a,b)=> b>0 ? a/b : null;
 
 // ── OS 펼치기 — 산출은 모든 숫자를 [ios, aos] 쌍으로 담는다(전체 = 두 슬롯 합).
@@ -378,6 +390,7 @@ function render(){
   const synth = /synth/.test(window.__DATA_FILE||'');
   $('gen').textContent = `${synth?'⚠ 합성 데이터 · ':''}산출 ${D.generated_at||''} · ${J.meta.game||game} · ${J.meta.date_from||''}~${J.meta.date_to||''} · 파일 ${fmt.n(J.meta.files)} · 행 ${fmt.n(J.meta.rows)}`;
   document.title = (synth?'[합성] ':'') + 'Group 1 일반 지표 보드';
+  $('brandsub').textContent = `AppsFlyer raw · ${J.meta.instrumented_only?'계측 유저':'전체 유저'} · A/B 무관`;   // 게임마다 모집단이 다르다(sf 계측 한정 · cl 전체)
   $('deflist').innerHTML = (J.meta.definitions||[]).map(d=>`<li>${esc(d)}</li>`).join('')
     + '<li>레벨 축(현재 레벨 분포·히트맵)은 고른 구간의 약 1/10 폭(10의 배수)으로 묶는다. 원자료가 10레벨 단위라 구간 경계는 10 에 맞춰 스냅되고, 폭 × 10 지점부터는 한 칸(“N+”)으로 접는다.</li>'
     + '<li>코호트 카드 도구: 차트의 "Dn 커브 | 설치일별" 은 x 축을 경과일에서 설치일로 바꾸고, 표의 "핵심 열 | 전체" 는 모든 코호트 표에 같이 적용된다. 창(설치 후 k일까지) 은 도달률·결제·광고에 각각 있다.</li>'
@@ -478,7 +491,7 @@ function renderProgress(J, has){
   if(ck.length){
     const tot = ck.reduce((a,k)=>a+grouped[k],0);
     const bl = (k)=>binLabel(k, LVW, LVFOLD);
-    out.push(card(`활성 유저 현재 레벨 분포 <span class="muted">${lvLabel()} · ${LVW}레벨 단위 · ${rangeOn()?'선택 기간에 마지막으로 접속한':'기간 내 접속한'} 유저 ${fmt.n(tot)}명${lvr.key!=='all'?` / 전체 ${fmt.n(totAll)}`:''} · 현재 레벨 = max(마지막 af_login 스냅샷, 최고 클리어) · 0 = 클리어 없음</span>`,
+    out.push(card(`활성 유저 현재 레벨 분포 <span class="muted">${lvLabel()} · ${LVW}레벨 단위 · ${rangeOn()?'선택 기간에 마지막으로 접속한':'기간 내 접속한'} 유저 ${fmt.n(tot)}명${lvr.key!=='all'?` / 전체 ${fmt.n(totAll)}`:''} · 현재 레벨 = ${noSnap(J)?'창 안 최고 클리어(af_login 스냅샷 없음)':'max(마지막 af_login 스냅샷, 최고 클리어)'} · 0 = 클리어 없음</span>`,
       barChart(ck.map(k=>({label: bl(k), value: grouped[k], title:`LV ${bl(k)}: ${fmt.n(grouped[k])}명 (구간 내 ${fmt.p(grouped[k]/tot)} · 전체 ${fmt.p(grouped[k]/totAll)})`})),{})));
   } else if(Object.keys(byLast).length){
     out.push(card('활성 유저 현재 레벨 분포', empty(lvr.key==='all'?'선택 기간에 마지막으로 접속한 유저 없음':'이 레벨 구간에 유저 없음')));
@@ -509,7 +522,7 @@ function renderProgress(J, has){
     // '실패 사유' 전 레벨 분포 카드는 제거(팀장님 지시 2026-09-13) — 실측 100% moves_zero 라 정보가 없다.
     //  레벨별 사유는 벽 TOP 10 표의 '실패 사유' 열에 남아 있다.
   } else {
-    out.push(card('레벨별 클리어율', empty('level_fail 이벤트가 아직 없음 — 계측 빌드 배포 뒤부터')));
+    out.push(card('레벨별 클리어율', empty(notSent(J,'level_fail') ? notSentMsg('level_fail') : 'level_fail 이벤트가 아직 없음 — 계측 빌드 배포 뒤부터')));
   }
   // 도달 일수
   const dtl = J.progression.days_to_level||{}; const ms = Object.keys(dtl).map(Number).sort((a,b)=>a-b).filter(m=>dtl[m].n>0);
@@ -537,7 +550,7 @@ function renderProgress(J, has){
     let html = `<div class="heat" style="grid-template-columns:70px repeat(${lks.length},1fr)"><div class="h">설치 며칠차 ＼ 최고 LV</div>${lks.map((lk,i)=>`<div class="h">${lbl(lks,i,'')}</div>`).join('')}`;
     dks.forEach((dk,i)=>{ html+=`<div class="h">${lbl(dks,i,'일')}</div>`; lks.forEach(lk=>{const v=heat[dk][lk]||0; const a=max?0.08+0.85*v/max:0; html+=`<div style="background:rgba(var(--heat-rgb),${v?a.toFixed(2):0})" title="${v} 유저-일">${v?fmt.n(v):''}</div>`;}); });
     const hTot = dks.reduce((a,dk)=>a+lks.reduce((b,lk)=>b+(heat[dk][lk]||0),0),0);
-    out.push(card(`설치 며칠차 × 최고 레벨 <span class="muted">${lvLabel()} · ${LVW}레벨 단위 · ${rangeOn()?'선택 기간의':''} af_login ${fmt.n(hTot)}건(유저-일)${lvr.key!=='all'?` / 전체 ${fmt.n(heatAllTot)}`:''} · 레벨 = max(로그인 스냅샷, 그날 클리어)</span>`, html+'</div>','span2'));
+    out.push(card(`설치 며칠차 × 최고 레벨 <span class="muted">${lvLabel()} · ${LVW}레벨 단위 · ${rangeOn()?'선택 기간의':''} af_login ${fmt.n(hTot)}건(유저-일)${lvr.key!=='all'?` / 전체 ${fmt.n(heatAllTot)}`:''} · ${noSnap(J)?'레벨 = 그날까지 최고 클리어 · 며칠차 = Install Time 기준':'레벨 = max(로그인 스냅샷, 그날 클리어)'}</span>`, html+'</div>','span2'));
   }
   $('progress').innerHTML = out.join('');
 }
@@ -554,7 +567,7 @@ function renderFunnel(J){
   out.push(cohChartCard('funnel', rows, {title:'도달률', sub:`${winLabel(K)} 도달률 · ${cohOsLabel()}`, xs, agg, pct:true, curveLabel:'레벨 커브', yfmt:(v)=>fmt.p(v,0), tip:(X)=>`${fmt.n(X.num)}/${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 도달률`}));
   out.push(cohTableCard({title:'설치일별 도달률', sub:`${winLabel(K)} · LV≥N 클리어 유저 / 코호트 · ${cohOsLabel()}`, rows, cols:xs, agg, fmt:v=>fmt.p(v,1),
     tip:(X,col,ctx)=>`${ctx} · ${col.label} · 도달 ${fmt.n(X.num)} / 코호트 ${fmt.n(X.den)}`,
-    foot:[`— : ${winLabel(K)} 기준으로 미성숙한 코호트`, '도달 = 첫 클리어 ≥ N(af_level_achieved)이 창 안에 있음', '관측 창이 같은 코호트끼리만 비교할 것']}));
+    foot:[`— : ${winLabel(K)} 기준으로 미성숙한 코호트`, `도달 = 첫 클리어 ≥ N(${notSent(J,'af_level_achieved')?'Level_Completed_N':'af_level_achieved'})이 창 안에 있음`, '관측 창이 같은 코호트끼리만 비교할 것']}));
   $('funnel').innerHTML = out.join('');
 }
 // ── 플레이 강도 — 설치 후 k일째 접속 유저 1명당 레벨 클리어 수 ──
@@ -611,6 +624,7 @@ function renderPlay(J){
 }
 
 function renderIntegrity(J, has){
+  if(notSent(J,'attempt_count')){ $('itiles').innerHTML=''; $('integrity').innerHTML=card('유실 시도', empty(notSentMsg('attempt_count'))); return; }
   const I = J.integrity; const tot = I.observed+I.lost; const rate = ratio(I.lost, tot);
   $('itiles').innerHTML = [
     tile('관측 시도(표본)', fmt.n(I.observed), `유저 1/${I.sample_mod}`),
