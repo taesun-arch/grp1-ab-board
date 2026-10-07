@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Group 1 보드</title>
+<title>그룹 1 게임 대시 보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -50,24 +50,14 @@ h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
 <body>
 <main class="wrap">
   <div class="head">
-    <h1>Group 1 보드</h1>
+    <h1>그룹 1 게임 대시 보드</h1>
     <span class="sub">AppsFlyer raw 기반 · UTC 달력일</span>
     <button class="theme" id="theme" type="button">다크</button>
   </div>
   <div class="sub">볼 보드를 고르세요. 두 보드는 <b>모집단과 접속 정의가 다릅니다.</b></div>
 
+  <!-- 일반 지표 보드가 왼쪽(먼저) — 2026-10-07 팀장님 지시. -->
   <div class="cards">
-    <a class="card ab" id="link-ab" href="ab.html">
-      <h2>A/B 코호트 보드</h2>
-      <div class="what">GameForge 실험의 군 간 비교. 실험 단위로 동결되고 새 실험이 탭으로 붙습니다.</div>
-      <ul>
-        <li>모집단 = 실험 라벨이 붙은 코호트(인스톨 당일 라벨)</li>
-        <li>접속 = <span class="mono">exp_daily_active</span>(GameForge 첫 sync)</li>
-        <li>리텐션 · 누적 ARPU · 도달 스테이지 · 광고 · 결제 · DAU</li>
-      </ul>
-      <div class="meta"><span id="ab-gen">갱신 시각 확인 중</span><span class="open">열기 →</span></div>
-    </a>
-
     <a class="card gen" id="link-general" href="general.html">
       <h2>일반 지표 보드</h2>
       <div class="what">실험과 무관한 게임별 전체 지표(Bash Fiesta · Color Cube Crush 탭). 끊기지 않는 시계열입니다.</div>
@@ -77,6 +67,17 @@ h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
         <li>접속·진행·난이도 · 정합 · 수익화 · 광고 · 매체 슬라이스</li>
       </ul>
       <div class="meta"><span id="gen-gen">갱신 시각 확인 중</span><span class="open">열기 →</span></div>
+    </a>
+
+    <a class="card ab" id="link-ab" href="ab.html">
+      <h2>A/B 코호트 보드</h2>
+      <div class="what">GameForge 실험의 군 간 비교. 실험 단위로 동결되고 새 실험이 탭으로 붙습니다.</div>
+      <ul>
+        <li>모집단 = 실험 라벨이 붙은 코호트(인스톨 당일 라벨)</li>
+        <li>접속 = <span class="mono">exp_daily_active</span>(GameForge 첫 sync)</li>
+        <li>리텐션 · 누적 ARPU · 도달 스테이지 · 광고 · 결제 · DAU</li>
+      </ul>
+      <div class="meta"><span id="ab-gen">갱신 시각 확인 중</span><span class="open">열기 →</span></div>
     </a>
   </div>
 
