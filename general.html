@@ -343,7 +343,8 @@ const tile = (k, v, s='') => `<div class="tile"><div class="k">${k}</div><div cl
 const empty = (msg) => `<div class="empty">${esc(msg)}</div>`;
 // 게임이 보내지 않는 이벤트·파라미터(meta.not_sent, config.GAMES[..].not_sent) — 빈 카드에 '아직 없음' 대신 이 사유를 띄운다
 const notSent = (J, name)=> (J.meta.not_sent||[]).includes(name);
-const notSentMsg = (name)=>`${name} — 이 게임은 AppsFlyer 로 보내지 않는다. 클라 계측이 추가되기 전까지 비어 있다`;
+// 사유가 게임 설정에 있으면(meta.not_sent_why — rr: 실패가 없는 게임) 그 문장을, 없으면 '계측 대기' 기본 문구를 쓴다
+const notSentMsg = (J, name)=>`${name} — ${(J.meta.not_sent_why||{})[name] || '이 게임은 AppsFlyer 로 보내지 않는다. 클라 계측이 추가되기 전까지 비어 있다'}`;
 // af_login 에 max_level 스냅샷이 없는 게임(cl) — 레벨 = 그날까지 최고 클리어, 설치 며칠차 = Install Time
 const noSnap = (J)=> J.meta.login_payload===false;
 const ratio = (a,b)=> b>0 ? a/b : null;
@@ -530,7 +531,7 @@ function renderProgress(J, has){
     // '실패 사유' 전 레벨 분포 카드는 제거(팀장님 지시 2026-09-13) — 실측 100% moves_zero 라 정보가 없다.
     //  레벨별 사유는 벽 TOP 10 표의 '실패 사유' 열에 남아 있다.
   } else {
-    out.push(card('레벨별 클리어율', empty(notSent(J,'level_fail') ? notSentMsg('level_fail') : 'level_fail 이벤트가 아직 없음 — 계측 빌드 배포 뒤부터')));
+    out.push(card('레벨별 클리어율', empty(notSent(J,'level_fail') ? notSentMsg(J,'level_fail') : 'level_fail 이벤트가 아직 없음 — 계측 빌드 배포 뒤부터')));
   }
   // 도달 일수
   const dtl = J.progression.days_to_level||{}; const ms = Object.keys(dtl).map(Number).sort((a,b)=>a-b).filter(m=>dtl[m].n>0);
@@ -632,9 +633,9 @@ function renderPlay(J){
 }
 
 function renderIntegrity(J, has){
-  if(notSent(J,'attempt_count')){ $('itiles').innerHTML=''; $('integrity').innerHTML=card('유실 시도', empty(notSentMsg('attempt_count'))); return; }
-  // 실패가 없으면 클리어 전 시도 번호가 전부 '빠진 번호' 로 잡혀 실패 수가 유실로 보인다(rr) — 판정하지 않는다
-  if(notSent(J,'level_fail')){ $('itiles').innerHTML=''; $('integrity').innerHTML=card('유실 시도', empty(notSentMsg('level_fail')+' — 유실 판정은 실패의 attempt_count 가 있어야 한다')); return; }
+  if(notSent(J,'attempt_count')){ $('itiles').innerHTML=''; $('integrity').innerHTML=card('유실 시도', empty(notSentMsg(J,'attempt_count'))); return; }
+  // level_fail 이 없으면 클리어 전 시도 번호(재시작 등)가 전부 '빠진 번호' 로 잡혀 유실처럼 보인다(rr) — 판정하지 않는다
+  if(notSent(J,'level_fail')){ $('itiles').innerHTML=''; $('integrity').innerHTML=card('유실 시도', empty(notSentMsg(J,'level_fail')+' — 유실 판정은 실패의 attempt_count 가 있어야 한다')); return; }
   const I = J.integrity; const tot = I.observed+I.lost; const rate = ratio(I.lost, tot);
   $('itiles').innerHTML = [
     tile('관측 시도(표본)', fmt.n(I.observed), `유저 1/${I.sample_mod}`),
