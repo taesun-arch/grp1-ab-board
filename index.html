@@ -45,6 +45,7 @@ a.t:hover{transform:translateY(-2px);border-color:var(--line)}
 .side .head{display:flex;align-items:center;gap:10px} .side .head img{width:34px;height:34px;border-radius:22%}
 .row3{display:flex;gap:24px;flex-wrap:wrap;margin-top:auto}
 .sum{grid-column:span 5;grid-row:span 1;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--card)),var(--card))}
+.over{grid-column:span var(--span,6)}   /* 히어로 옆 두 자리를 넘친 UA·합계 타일 — 아래 한 줄을 균등 분할(UA 4게임, 2026-10-27) */
 .g{grid-column:span 3;grid-row:span 2}
 .g .head{display:flex;align-items:center;gap:12px} .g .head img{width:48px;height:48px;border-radius:22%}
 .g .row3{gap:18px;margin-top:12px} .g .spark{margin-top:auto} .g .spark svg{height:56px}
@@ -81,7 +82,7 @@ a.t:hover{transform:translateY(-2px);border-color:var(--line)}
 .notice{margin-top:22px;padding:12px 16px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;color:var(--ink-3);font-size:12.5px}
 .notice b{color:var(--ink-2)}
 @media (max-width:1100px){
-  .bento{grid-template-columns:repeat(6,minmax(0,1fr))} .hero,.side,.sum,.board,.lockt{grid-column:span 6} .g{grid-column:span 3}
+  .bento{grid-template-columns:repeat(6,minmax(0,1fr))} .hero,.side,.sum,.over,.board,.lockt{grid-column:span 6} .g{grid-column:span 3}
   .row{grid-template-columns:1fr 1fr 1fr} .row .spark,.row .go2{display:none} .who{grid-column:1 / -1}
 }
 @media (max-width:640px){
@@ -166,10 +167,14 @@ function render(S) {
       <div class="kv"><div><div class="k">D1 ROAS · 최근 7일</div><div class="big">${pct(u.d1)}</div><div class="s">설치 ${num(u.d1_n)}명 · 본전 100%</div></div>
       <div><div class="k">D0 ROAS · 최근 3일</div><div class="mid">${pct(u.d0)}</div><div class="s">설치 ${num(u.d0_n)}명</div></div>
       <div><div class="k">광고비 · ${md(u.last)}</div><div class="mid">${usd(u.cost)}</div><div class="s">CPI ${usd(u.cpi, 2)} · 설치 ${num(u.installs)}</div></div></div></a>`;
-    for (const k of uaKeys.slice(1)) { const v = G[k].ua;
-      h += `<a class="t side" href="${uaUrl(k)}" style="--c:${C(k)}"><div class="head"><img src="${I(k)}" alt=""><span class="name" style="font-size:20px">${esc(G[k].name)}</span><span class="s" style="margin-left:auto">UA</span></div>
+    // 오른쪽 열(사이드 UA 타일 + 합계) 중 히어로 옆 두 자리를 넘는 것은 아래 한 줄을 나눠 쓴다
+    const rest = uaKeys.length - 2, span = rest > 0 ? Math.max(3, Math.floor(12 / rest)) : 0;
+    let slot = 0; const over = () => slot++ >= 2 && span ? [' over', `--span:${span};`] : ['', ''];
+    for (const k of uaKeys.slice(1)) { const v = G[k].ua, [oc, os] = over();
+      h += `<a class="t side${oc}" href="${uaUrl(k)}" style="${os}--c:${C(k)}"><div class="head"><img src="${I(k)}" alt=""><span class="name" style="font-size:20px">${esc(G[k].name)}</span><span class="s" style="margin-left:auto">UA</span></div>
         <div class="row3"><div><div class="k">D1 ROAS · 7일</div><div class="mid" style="color:${C(k)}">${pct(v.d1)}</div></div><div><div class="k">광고비 · ${md(v.last)}</div><div class="mid">${usd(v.cost)}</div></div><div><div class="k">CPI</div><div class="mid">${usd(v.cpi, 2)}</div></div></div></a>`; }
-    h += `<div class="t sum"><div class="k">어제 합계 · UA ${uaKeys.length}게임 · 게임 ${genKeys.length}개</div>
+    const [oc, os] = over();
+    h += `<div class="t sum${oc}" style="${os}"><div class="k">어제 합계 · UA ${uaKeys.length}게임 · 게임 ${genKeys.length}개</div>
       <div class="row3">${totals.map(([k, v]) => `<div><div class="k">${k.split(' · ')[0]}</div><div class="mid">${v}</div></div>`).join('')}</div></div>`;
   }
   for (const k of genKeys) { const g = G[k].general;
