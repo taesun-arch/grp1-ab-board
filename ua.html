@@ -99,7 +99,7 @@ details.defs li{margin:4px 0}
 
     <h2 class="gx-h2">캠페인 · 광고별 ROAS <small>설치 후 k일째까지 누적 매출 ÷ 광고비</small></h2>
     <div class="seg" id="roasMode"><button type="button" data-m="camp" class="on">캠페인 → 광고</button><button type="button" data-m="ad">광고 → 캠페인</button></div>
-    <div class="note">위 줄을 누르면 아래 단계로 펼쳐집니다(광고 → 캠페인 보기의 광고 줄은 같은 광고를 모든 캠페인에 걸쳐 합친 값). Dk 칸은 고른 기간의 <b>모든</b> 설치일이 k일째까지 매출이 도착했을 때만 보입니다 — 일부 설치일만 도착했으면 “—”(그 값은 기간 전체 ROAS 가 아니므로). 기간 칩의 [매출 도착분까지] 또는 설치일 끝을 앞당기면 채워집니다. 설치일별 진행은 아래 표.</div>
+    <div class="note">위 줄을 누르면 아래 단계로 펼쳐집니다(광고 → 캠페인 보기의 광고 줄은 같은 광고를 모든 캠페인에 걸쳐 합친 값). Dk 칸은 k일째까지 매출 관측이 끝난 설치일만 모읍니다 — 작은 숫자 = 그 칸의 설치 수. 칸마다 모인 설치일이 달라 D1 &gt; D3 처럼 보일 수 있습니다(아래 설치일별 표는 줄마다 같은 설치일이라 단조 증가). 매출이 아직 안 온 칸은 “—”.</div>
     <div class="card"><table id="roas"></table></div>
 
     <h2 class="gx-h2">ROAS 진행 <small>설치일별 D0~D7 누적 · 날짜를 누르면 캠페인별</small></h2>
@@ -149,12 +149,8 @@ function agg(cells) {
   }
   m.cpi = m.n ? m.cost / m.n : null;
   m.small = m.n < M.min_n;
-  // Dk ROAS·매출/설치는 기간 안 **모든** 설치일의 Dk 매출이 도착했을 때만 낸다 — 일부 설치일만 합친 값은 기간 ROAS 로 읽히므로 숨긴다
-  // (팀장님 2026-10-27). 성숙분의 설치·광고비가 기간 전체와 같아야 '다 도착'. partial = 일부만 도착(타일이 '좁히면 표시' 안내).
-  const full = r => r.n === m.n && Math.abs(r.cost - m.cost) < 1e-6;
-  m.curve = rv.map(r => [full(r) && r.n && r.cost > 0 ? r.rev / r.cost : null, r.n]);
-  m.arpu = rv.map(r => full(r) && r.n ? r.rev / r.n : null);
-  m.partial = rv.map(r => !full(r) && r.n > 0);
+  m.curve = rv.map(r => [r.n && r.cost > 0 ? r.rev / r.cost : null, r.n]);
+  m.arpu = rv.map(r => r.n ? r.rev / r.n : null);
   m.ret = {}; m.retn = {};
   RK.forEach((k, i) => { m.ret[k] = rt[i].n ? rt[i].act / rt[i].n : null; m.retn[k] = rt[i].n; });
   m.lv0_mean = m.n ? Math.round(m.lvsum / m.n * 10) / 10 : null;
@@ -176,7 +172,7 @@ function tree(cells, k1, k2) {
 // ── 렌더 조각 ──
 function roasCell(pair, n0, sep) {
   const [v, n] = pair;
-  if (v == null) return `<td class="roas na${sep ? " sep" : ""}" title="기간 안에 이 경과일 매출이 아직 안 온 설치일이 있어 표시하지 않음">—</td>`;
+  if (v == null) return `<td class="roas na${sep ? " sep" : ""}">—</td>`;
   const a = Math.min(v, 1.2) / 1.2 * 0.32;
   const nn = n !== n0 ? `<span class="nn">${n}</span>` : "";
   return `<td class="roas${v >= 1 ? " hit" : ""}${sep ? " sep" : ""}" style="background:rgba(var(--heat-rgb),${a.toFixed(3)})"><b>${pct(v)}</b>${nn}</td>`;
@@ -204,18 +200,15 @@ const table = (id, head, body, n) => { $(id).innerHTML = n ? `<thead>${head}</th
 
 // ── 기간 칩 (일반 보드와 같은 모양: 날짜 두 칸 + 전체·최근 7일·최근 14일) — 설치일 범위 ──
 function drawFilters() {
-  const revTo = M.obs_rev && M.obs_rev >= LO ? (M.obs_rev < HI ? M.obs_rev : HI) : null;   // 매출(D0)이 다 도착한 마지막 설치일
-  const preset = st.from === LO && st.to === HI ? "all" : (revTo && st.from === LO && st.to === revTo ? "rev" : (st.to === HI && st.from === shift(HI, 6) ? "7" : (st.to === HI && st.from === shift(HI, 13) ? "14" : "")));
+  const preset = st.from === LO && st.to === HI ? "all" : (st.to === HI && st.from === shift(HI, 6) ? "7" : (st.to === HI && st.from === shift(HI, 13) ? "14" : ""));
   const days = DATES.filter(d => d >= st.from && d <= st.to).length;
   $("filters").innerHTML = `<span class="chip"><span class="lbl">설치일</span><input type="date" id="dfrom" min="${LO}" max="${HI}" value="${st.from}"> <span class="lbl">~</span> <input type="date" id="dto" min="${LO}" max="${HI}" value="${st.to}"></span>
-    ${[["all", "전체"], ["7", "최근 7일"], ["14", "최근 14일"]].concat(revTo && revTo < HI ? [["rev", "매출 도착분까지"]] : []).map(([p, nm]) => `<button class="preset${preset === p ? " on" : ""}" data-p="${p}" type="button" title="${p === "rev" ? "D0 매출이 다 도착한 설치일(~" + revTo + ")까지 — 그 기간의 D0 ROAS 가 보인다" : ""}">${nm}</button>`).join("")}
+    ${[["all", "전체"], ["7", "최근 7일"], ["14", "최근 14일"]].map(([p, nm]) => `<button class="preset${preset === p ? " on" : ""}" data-p="${p}" type="button">${nm}</button>`).join("")}
     <span class="range">${st.from} ~ ${st.to} · 설치일 ${days}일 · 모든 표에 적용</span>`;
   $("dfrom").addEventListener("change", e => { st.from = e.target.value || LO; if (st.from > st.to) st.to = st.from; render(); });
   $("dto").addEventListener("change", e => { st.to = e.target.value || HI; if (st.to < st.from) st.from = st.to; render(); });
   document.querySelectorAll(".preset").forEach(b => b.addEventListener("click", () => {
-    const p = b.dataset.p;
-    if (p === "rev") { st.from = LO; st.to = revTo; return render(); }
-    st.to = HI; st.from = p === "all" ? LO : (shift(HI, +p - 1) < LO ? LO : shift(HI, +p - 1)); render();
+    const p = b.dataset.p; st.to = HI; st.from = p === "all" ? LO : (shift(HI, +p - 1) < LO ? LO : shift(HI, +p - 1)); render();
   }));
 }
 
@@ -228,8 +221,7 @@ function render() {
   const tiles = [["광고비", usd(O.cost), `${cells.length ? DATES.filter(d => d >= st.from && d <= st.to).length : 0}일`], ["설치", O.n.toLocaleString(), "원시 설치 리포트"], ["CPI", usd(O.cpi), "광고비 ÷ 설치"]];
   $("tiles").innerHTML = tiles.map(([k, v, n]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`).join("")
     + M.ks.map(k => { const [v, n] = O.curve[k]; const hit = v != null && v >= 1;
-      const sub = v != null ? `설치 ${n.toLocaleString()}명 기준` : (O.partial[k] ? `설치일 ~${revCut(k).slice(5)} 로 좁히면 표시` : "매출 관측 전");
-      return `<div class="tile roas"><div class="k">D${k} ROAS</div><div class="v${hit ? " hit" : ""}">${pct(v)}</div><div class="n">${sub}</div>${v != null ? `<div class="meter${hit ? " hit" : ""}" style="width:${Math.min(v, 1) * 100}%"></div>` : ""}</div>`; }).join("");
+      return `<div class="tile roas"><div class="k">D${k} ROAS</div><div class="v${hit ? " hit" : ""}">${pct(v)}</div><div class="n">${n ? `설치 ${n.toLocaleString()}명 기준` : "매출 관측 전"}</div>${v != null ? `<div class="meter${hit ? " hit" : ""}" style="width:${Math.min(v, 1) * 100}%"></div>` : ""}</div>`; }).join("");
 
   // 캠페인·광고별 ROAS — 보기 전환
   {
@@ -287,7 +279,7 @@ function useGame(key) {
   $("hdoc").textContent = `${M.plat === "aos" ? "Android" : "iOS"} · ${M.media.join(" · ")} · 설치일 ${LO} ~ ${HI} · 게임 이벤트 관측 끝 ${M.obs_ev} · 매출 관측 끝 ${M.obs_rev}`;
   $("defs").innerHTML = [
     "기간(설치일) = 위 칩. 모든 표·타일이 그 설치일 범위의 코호트만 합산한다(일반 보드의 코호트 카드와 같은 방식).",
-    "ROAS Dk = 설치일 코호트가 설치 당일(D0)부터 k일째까지 낸 매출(IAP af_purchase .dev. 제외 + 광고 매출 리포트, 배너 포함) ÷ 그 설치일들의 광고비. 고른 기간의 모든 설치일이 k일째까지 매출 관측이 끝났을 때만 표시(일부만 끝났으면 “—”, 2026-10-27). 매출/설치도 같은 규칙.",
+    "ROAS Dk = 설치일 코호트가 설치 당일(D0)부터 k일째까지 낸 매출(IAP af_purchase .dev. 제외 + 광고 매출 리포트, 배너 포함) ÷ 그 설치일들의 광고비. 매출 관측이 k일째까지 끝난 설치일만 포함.",
     `매출 관측 끝(${M.obs_rev})이 게임 이벤트 관측 끝(${M.obs_ev})보다 늦을 수 있다 — AppsFlyer 광고 매출 원시는 1~2일 늦게 도착한다(2026-10-27 실측). 그래서 최근 설치일은 ROAS 가 “—” 이고 잔존·레벨만 먼저 보인다. 매출 관측 끝 날짜의 광고 매출도 덜 들어왔을 수 있다(미확인).`,
     "광고비 = AppsFlyer Master API(설치일 × 매체 × 캠페인 × 광고). 광고 단위 합계 = 캠페인 합계(센트 단위 일치 확인). AppLovin 광고 세트는 AppsFlyer 에 _DEFAULT 로만 와서 '광고'(Creative set) 단위로 본다.",
     "설치 = AppsFlyer 원시 설치 리포트(논오가닉, KR·리타기팅 제외). Master API 는 최근 설치일의 설치 수를 0 으로 줘서(2026-10-26 실측) 쓰지 않는다. 원시 설치 수는 집계 리포트와 설치일 × 캠페인 단위로 일치.",
