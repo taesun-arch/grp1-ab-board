@@ -155,8 +155,9 @@ function agg(cells) {
   m.curve = rv.map(r => [full(r) && r.n && r.cost > 0 ? r.rev / r.cost : null, r.n]);
   m.arpu = rv.map(r => full(r) && r.n ? r.rev / r.n : null);
   m.partial = rv.map(r => !full(r) && r.n > 0);
+  // 잔존도 ROAS 와 같은 규칙 — 기간 안 모든 설치일이 k일째까지 관측됐을 때만(일부만이면 "—", 팀장님 2026-10-27)
   m.ret = {}; m.retn = {};
-  RK.forEach((k, i) => { m.ret[k] = rt[i].n ? rt[i].act / rt[i].n : null; m.retn[k] = rt[i].n; });
+  RK.forEach((k, i) => { m.ret[k] = m.n && rt[i].n === m.n ? rt[i].act / rt[i].n : null; m.retn[k] = rt[i].n; });
   m.lv0_mean = m.n ? Math.round(m.lvsum / m.n * 10) / 10 : null;
   m.reach10 = m.n ? m.r10 / m.n : null; m.reach30 = m.n ? m.r30 / m.n : null;
   return m;
@@ -184,7 +185,7 @@ function roasCell(pair, n0, sep) {
 // 열 묶음 경계: 셀 html 의 <td 에 sep 클래스를 붙인다(<td> · <td class="…"> 둘 다)
 const sepd = (h, on = true) => on ? h.replace(/^<td( class=")?/, (m0, c) => c ? '<td class="sep ' : '<td class="sep"') : h;
 const nameCell = (name, m) => `<td class="name" title="${esc(name)}">${esc(name)}${m.small ? `<span class="tag">표본 ${m.n}</span>` : ""}</td>`;
-const retCell = (m, k) => `<td>${pct(m.ret[k])}${m.ret[k] != null && m.retn[k] !== m.n ? `<span class="nn">${m.retn[k]}</span>` : ""}</td>`;
+const retCell = (m, k) => m.ret[k] == null ? `<td class="na" title="기간 안에 ${k}일째가 아직 관측되지 않은 설치일이 있어 표시하지 않음">—</td>` : `<td>${pct(m.ret[k])}</td>`;
 function treeRows(render, total, nodes) {
   let h = total ? render("전체", total, "total", "") : "";
   nodes.forEach((p, i) => {
@@ -291,7 +292,7 @@ function useGame(key) {
     `매출 관측 끝(${M.obs_rev})이 게임 이벤트 관측 끝(${M.obs_ev})보다 늦을 수 있다 — AppsFlyer 광고 매출 원시는 1~2일 늦게 도착한다(2026-10-27 실측). 그래서 최근 설치일은 ROAS 가 “—” 이고 잔존·레벨만 먼저 보인다. 매출 관측 끝 날짜의 광고 매출도 덜 들어왔을 수 있다(미확인).`,
     "광고비 = AppsFlyer Master API(설치일 × 매체 × 캠페인 × 광고). 광고 단위 합계 = 캠페인 합계(센트 단위 일치 확인). AppLovin 광고 세트는 AppsFlyer 에 _DEFAULT 로만 와서 '광고'(Creative set) 단위로 본다.",
     "설치 = AppsFlyer 원시 설치 리포트(논오가닉, KR·리타기팅 제외). Master API 는 최근 설치일의 설치 수를 0 으로 줘서(2026-10-26 실측) 쓰지 않는다. 원시 설치 수는 집계 리포트와 설치일 × 캠페인 단위로 일치.",
-    "잔존 Dk = k일째에 인앱 이벤트가 1건 이상 있는 유저 비율. 일반 지표 보드의 리텐션(af_login 기준)과 정의가 달라 절대값 대조 금지.",
+    "잔존 Dk = k일째에 인앱 이벤트가 1건 이상 있는 유저 비율. 고른 기간의 모든 설치일이 k일째까지 관측됐을 때만 표시(ROAS 와 같은 규칙). 일반 지표 보드의 리텐션(af_login 기준)과 정의가 달라 절대값 대조 금지.",
     "레벨 = af_level_achieved 의 설치 당일 최고 레벨(실패 지표는 이 보드에서 보지 않는다 — 게임 지표는 일반 지표 보드).",
     `설치 ${M.min_n}명 미만은 '표본' 표시 — 숫자는 보이되 판단 근거로 쓰기 어렵다.`,
     "광고(Creative set) 이름은 캠페인마다 같은 이름이 따로 존재한다(광고 ID 는 캠페인별로 다름). 광고 → 캠페인 보기의 광고 줄은 이름 기준 합계.",
