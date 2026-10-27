@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UA · 마케팅 · GRP1 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="site.css">
+<script src="site.js"></script>
+<style>
+/* UA(마케팅) 보드 — ROAS 중심. 게임 지표 보드(general.html)와 분리(팀장님 결정 2026-10-27). 색 토큰·상단·히어로는 site.css. */
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gc,var(--accent));outline-offset:2px}
+.main{padding:0 var(--gutter) 40px;max-width:1500px}
+.filters{position:sticky;top:57px;z-index:20;display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;padding:10px 0;background:var(--bg)}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 14px}
+.chip .lbl{font-size:12px;color:var(--ink-3)}
+.chip input[type=date]{background:var(--card-2);border:1px solid transparent;border-radius:999px;padding:3px 10px;font:12.5px var(--mono);color:var(--ink);color-scheme:inherit}
+.preset{border:1px solid transparent;background:transparent;color:var(--ink-2);font-size:12.5px;padding:4px 11px;border-radius:999px;cursor:pointer}
+.preset:hover{color:var(--ink);border-color:var(--line)}
+.preset.on{background:var(--ink);color:var(--bg);font-weight:600}
+.range{font-size:12px;color:var(--ink-3)}
+/* KPI 타일 — ROAS 는 100%(본전) 대비 막대 */
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:6px 0 4px}
+.tile{position:relative;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:14px 16px 13px;overflow:hidden}
+.tile .k{font-size:12px;color:var(--ink-3);font-weight:500}
+.tile .v{margin-top:4px;font:600 26px/1.1 var(--font);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.tile .n{margin-top:4px;font-size:11.5px;color:var(--ink-3)}
+.tile.roas .v{color:var(--gc,var(--accent))}
+.tile.roas .v.hit{color:var(--good)}
+.tile .meter{position:absolute;left:0;bottom:0;height:3px;background:var(--gc,var(--accent));opacity:.85}
+.tile.roas .meter.hit{background:var(--good)}
+/* 카드·표 */
+.card{background:var(--card);border:1px solid var(--line-soft);border-radius:14px;overflow-x:auto}
+.note{color:var(--ink-3);font-size:12.5px;margin:-2px 2px 10px;max-width:1100px}
+.seg{display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--card);border:1px solid var(--line-soft);margin:0 0 10px}
+.seg button{border:0;background:transparent;border-radius:999px;padding:5px 14px;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.seg button.on{background:var(--gc,var(--accent));color:#12131a;font-weight:600}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}
+th,td{padding:7px 12px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+th{font-weight:500;color:var(--ink-3);font-size:12px;background:var(--card-2)}
+th:first-child,td:first-child{text-align:left}
+tbody tr:hover td{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+td.name{max-width:340px;overflow:hidden;text-overflow:ellipsis}
+tr.camp td{font-weight:600}
+tr.camp td.name{cursor:pointer}
+tr.camp td.name::before{content:"▸";display:inline-block;width:16px;color:var(--ink-3);transition:transform .15s}
+tr.camp.open td.name::before{transform:rotate(90deg)}
+tr.ad{display:none}
+tr.ad.show{display:table-row}
+tr.ad td.name{padding-left:34px;font-weight:400;color:var(--ink-2)}
+tr.total td{font-weight:700;background:color-mix(in srgb,var(--gc,var(--accent)) 9%,var(--card))}
+tr.small td{color:var(--ink-3)}
+tr.churn td{font-weight:400}
+td.roas.hit b{color:var(--good)}
+td b{font-weight:inherit}
+td .nn{color:var(--ink-3);font-size:10.5px;margin-left:3px}
+td.na{color:var(--ink-3)}
+.tag{display:inline-block;font-size:10.5px;padding:0 7px;border-radius:999px;background:var(--card-2);color:var(--ink-3);margin-left:6px;font-weight:400;vertical-align:1px}
+.sep{border-left:2px solid var(--line)}
+.empty{padding:28px;color:var(--ink-3);text-align:center}
+details.defs{margin-top:28px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:12px 16px;color:var(--ink-2);font-size:12.5px}
+details.defs summary{cursor:pointer;font-weight:600;color:var(--ink)}
+details.defs li{margin:4px 0}
+/* 잠금 화면 */
+.lock{max-width:420px;margin:48px auto;padding:26px;background:var(--card);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
+.lock b{font:700 20px var(--game)}
+.lock form{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.lock input{background:var(--card-2);border:1px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--ink);min-width:0}
+.lock button{border:0;border-radius:999px;padding:8px 18px;background:var(--ink);color:var(--bg);font-weight:600;cursor:pointer}
+.err{color:var(--crit)}
+@media (max-width:720px){ .filters{top:96px} .tile .v{font-size:22px} }
+</style>
+</head>
+<body>
+<header class="gx-bar">
+  <a class="gx-brand" href="index.html" data-keep-hash title="메인으로"><b>GRP1</b><span>대시보드</span></a>
+  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash aria-current="page">UA · 마케팅</a></nav>
+  <div class="gx-right"><span id="gen" class="gx-gen"></span><button class="gx-btn" id="theme" type="button">라이트</button></div>
+</header>
+<section class="gx-hero" id="hero">
+  <div class="gx-wash"></div><img class="gx-art" alt="" hidden><div class="gx-shade"></div>
+  <div class="gx-copy">
+    <div class="gx-when"><span class="gx-pill">UA · 마케팅</span><span>ROAS 중심 · 광고비 대비 IAP+광고 매출</span></div>
+    <h1 class="gx-name">UA · 마케팅</h1>
+    <div class="gx-doc" id="hdoc"></div>
+  </div>
+  <nav class="gx-games" id="games" role="tablist" aria-label="게임"></nav>
+</section>
+<main class="main">
+  <div id="lock" hidden></div>
+  <div id="board" hidden>
+    <div class="filters" id="filters"></div>
+    <div class="tiles" id="tiles"></div>
+
+    <h2 class="gx-h2">캠페인 · 광고별 ROAS <small>설치 후 k일째까지 누적 매출 ÷ 광고비</small></h2>
+    <div class="seg" id="roasMode"><button type="button" data-m="camp" class="on">캠페인 → 광고</button><button type="button" data-m="ad">광고 → 캠페인</button></div>
+    <div class="note">위 줄을 누르면 아래 단계로 펼쳐집니다(광고 → 캠페인 보기의 광고 줄은 같은 광고를 모든 캠페인에 걸쳐 합친 값). Dk 칸은 k일째까지 매출 관측이 끝난 설치일만 모읍니다 — 작은 숫자 = 그 칸의 설치 수. 칸마다 모인 설치일이 달라 D1 &gt; D3 처럼 보일 수 있습니다(아래 설치일별 표는 줄마다 같은 설치일이라 단조 증가). 매출이 아직 안 온 칸은 “—”.</div>
+    <div class="card"><table id="roas"></table></div>
+
+    <h2 class="gx-h2">ROAS 진행 <small>설치일별 D0~D7 누적 · 날짜를 누르면 캠페인별</small></h2>
+    <div class="card"><table id="daily"></table></div>
+
+    <h2 class="gx-h2">보조 지표 <small>CPI · 설치당 매출 · 잔존 · 스테이지</small></h2>
+    <div class="card"><table id="aux"></table></div>
+
+    <h2 class="gx-h2">D0 최고 레벨 분포 <small>설치 당일 어디까지 갔나</small></h2>
+    <div class="note">처음엔 “설치 전원” 줄만 보이고, 전체·날짜를 누르면 “D1 미복귀”(다음 날부터 한 번도 안 들어온 유저가 멈춘 레벨, 작은 숫자 = D1 관측이 끝난 설치자 수) 줄과 캠페인별이 함께 펼쳐집니다.</div>
+    <div class="card"><table id="lvl"></table></div>
+
+    <details class="defs"><summary>정의 · 데이터 출처 · 주의</summary><ul id="defs"></ul></details>
+  </div>
+</main>
+<div class="gx-foot">AppsFlyer raw · Master API · UTC 달력일 · 공유 링크의 비밀번호(#k=)는 다른 보드로 그대로 넘어갑니다.</div>
+
+<script src="ua-data.js"></script>
+<script src="ua-data.enc.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = GX.esc;
+const pct = (v, d = 1) => v == null ? "—" : (v * 100).toFixed(d) + "%";
+const usd = (v, d = 2) => v == null ? "—" : "$" + Number(v).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d});
+const shift = (d, k) => { const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() - k); return t.toISOString().slice(0, 10); };
+GX.wireTheme($("theme")); GX.withHash();
+
+let D = null, G = null, M = null, CURVE, RK, NB, DATES, LO, HI, revCut, evCut;
+const st = {game: null, from: null, to: null, mode: "camp"};
+try { const s = JSON.parse(localStorage.getItem("ua:state") || "{}"); if (s.mode === "ad" || s.mode === "camp") st.mode = s.mode; } catch (e) {}
+const save = () => { try { localStorage.setItem("ua:state", JSON.stringify({mode: st.mode})); } catch (e) {} };
+const Q = new URLSearchParams(location.search);   // ?game=rr&from=YYYY-MM-DD&to=YYYY-MM-DD&mode=camp|ad (기존 보드와 같은 방식)
+if (Q.get("mode") === "ad" || Q.get("mode") === "camp") st.mode = Q.get("mode");
+
+// ── 칸 합산 (ua/build.py agg() 와 같은 식) ──
+function agg(cells) {
+  const m = {n: 0, cost: 0, lvsum: 0, r10: 0, r30: 0, lvd: Array(NB).fill(0), ch: 0, chd: Array(NB).fill(0), n1: 0};
+  const rv = CURVE.map(() => ({rev: 0, cost: 0, n: 0})), rt = RK.map(() => ({act: 0, n: 0}));
+  for (const c of cells) {
+    m.n += c.n; m.cost += c.cost; m.lvsum += c.lvsum; m.r10 += c.r10; m.r30 += c.r30;
+    c.lvd.forEach((x, i) => m.lvd[i] += x);
+    CURVE.forEach((k, i) => { if (c.d <= revCut(k)) { rv[i].rev += c.rev[i]; rv[i].cost += c.cost; rv[i].n += c.n; } });
+    RK.forEach((k, i) => { if (c.d <= evCut(k)) { rt[i].act += c.ret[i]; rt[i].n += c.n; } });
+    if (c.d <= evCut(1)) { m.ch += c.ch; c.chd.forEach((x, i) => m.chd[i] += x); m.n1 += c.n; }
+  }
+  m.cpi = m.n ? m.cost / m.n : null;
+  m.small = m.n < M.min_n;
+  m.curve = rv.map(r => [r.n && r.cost > 0 ? r.rev / r.cost : null, r.n]);
+  m.arpu = rv.map(r => r.n ? r.rev / r.n : null);
+  m.ret = {}; m.retn = {};
+  RK.forEach((k, i) => { m.ret[k] = rt[i].n ? rt[i].act / rt[i].n : null; m.retn[k] = rt[i].n; });
+  m.lv0_mean = m.n ? Math.round(m.lvsum / m.n * 10) / 10 : null;
+  m.reach10 = m.n ? m.r10 / m.n : null; m.reach30 = m.n ? m.r30 / m.n : null;
+  return m;
+}
+function groupBy(cells, key) {
+  const g = new Map();
+  for (const c of cells) { const k = c[key]; if (!g.has(k)) g.set(k, []); g.get(k).push(c); }
+  return g;
+}
+// 2단 트리: 위 key1 → 아래 key2. 정렬은 광고비 큰 순(설치일은 날짜 순)
+function tree(cells, k1, k2) {
+  const out = [...groupBy(cells, k1)].map(([name, cs]) => ({name, m: agg(cs),
+    kids: [...groupBy(cs, k2)].map(([n2, c2]) => ({name: n2, m: agg(c2)})).sort((a, b) => b.m.cost - a.m.cost)}));
+  return k1 === "d" ? out.sort((a, b) => a.name < b.name ? -1 : 1) : out.sort((a, b) => b.m.cost - a.m.cost);
+}
+
+// ── 렌더 조각 ──
+function roasCell(pair, n0, sep) {
+  const [v, n] = pair;
+  if (v == null) return `<td class="roas na${sep ? " sep" : ""}">—</td>`;
+  const a = Math.min(v, 1.2) / 1.2 * 0.32;
+  const nn = n !== n0 ? `<span class="nn">${n}</span>` : "";
+  return `<td class="roas${v >= 1 ? " hit" : ""}${sep ? " sep" : ""}" style="background:rgba(var(--heat-rgb),${a.toFixed(3)})"><b>${pct(v)}</b>${nn}</td>`;
+}
+// 열 묶음 경계: 셀 html 의 <td 에 sep 클래스를 붙인다(<td> · <td class="…"> 둘 다)
+const sepd = (h, on = true) => on ? h.replace(/^<td( class=")?/, (m0, c) => c ? '<td class="sep ' : '<td class="sep"') : h;
+const nameCell = (name, m) => `<td class="name" title="${esc(name)}">${esc(name)}${m.small ? `<span class="tag">표본 ${m.n}</span>` : ""}</td>`;
+const retCell = (m, k) => `<td>${pct(m.ret[k])}${m.ret[k] != null && m.retn[k] !== m.n ? `<span class="nn">${m.retn[k]}</span>` : ""}</td>`;
+function treeRows(render, total, nodes) {
+  let h = total ? render("전체", total, "total", "") : "";
+  nodes.forEach((p, i) => {
+    h += render(p.name, p.m, "camp" + (p.m.small ? " small" : ""), `data-c="${i}"`);
+    p.kids.forEach(k => { h += render(k.name, k.m, "ad" + (k.m.small ? " small" : ""), `data-p="${i}"`); });
+  });
+  return h;
+}
+function wire(tbl) {
+  tbl.querySelectorAll("tr.camp").forEach(tr => tr.querySelector("td.name")?.addEventListener("click", () => {
+    const i = tr.dataset.c, open = !tr.classList.contains("open");
+    tbl.querySelectorAll(`tr.camp[data-c="${i}"]`).forEach(t => t.classList.toggle("open", open));
+    tbl.querySelectorAll(`tr.ad[data-p="${i}"]`).forEach(t => t.classList.toggle("show", open));
+  }));
+}
+const table = (id, head, body, n) => { $(id).innerHTML = n ? `<thead>${head}</thead><tbody>${body}</tbody>` : `<tbody><tr><td class="empty">선택한 설치일에 데이터 없음</td></tr></tbody>`; wire($(id)); };
+
+// ── 기간 칩 (일반 보드와 같은 모양: 날짜 두 칸 + 전체·최근 7일·최근 14일) — 설치일 범위 ──
+function drawFilters() {
+  const preset = st.from === LO && st.to === HI ? "all" : (st.to === HI && st.from === shift(HI, 6) ? "7" : (st.to === HI && st.from === shift(HI, 13) ? "14" : ""));
+  const days = DATES.filter(d => d >= st.from && d <= st.to).length;
+  $("filters").innerHTML = `<span class="chip"><span class="lbl">설치일</span><input type="date" id="dfrom" min="${LO}" max="${HI}" value="${st.from}"> <span class="lbl">~</span> <input type="date" id="dto" min="${LO}" max="${HI}" value="${st.to}"></span>
+    ${[["all", "전체"], ["7", "최근 7일"], ["14", "최근 14일"]].map(([p, nm]) => `<button class="preset${preset === p ? " on" : ""}" data-p="${p}" type="button">${nm}</button>`).join("")}
+    <span class="range">${st.from} ~ ${st.to} · 설치일 ${days}일 · 모든 표에 적용</span>`;
+  $("dfrom").addEventListener("change", e => { st.from = e.target.value || LO; if (st.from > st.to) st.to = st.from; render(); });
+  $("dto").addEventListener("change", e => { st.to = e.target.value || HI; if (st.to < st.from) st.from = st.to; render(); });
+  document.querySelectorAll(".preset").forEach(b => b.addEventListener("click", () => {
+    const p = b.dataset.p; st.to = HI; st.from = p === "all" ? LO : (shift(HI, +p - 1) < LO ? LO : shift(HI, +p - 1)); render();
+  }));
+}
+
+function render() {
+  const cells = G.cells.filter(c => c.d >= st.from && c.d <= st.to);
+  const O = agg(cells);
+  drawFilters();
+
+  // KPI 타일 — ROAS 는 본전(100%) 대비 막대
+  const tiles = [["광고비", usd(O.cost), `${cells.length ? DATES.filter(d => d >= st.from && d <= st.to).length : 0}일`], ["설치", O.n.toLocaleString(), "원시 설치 리포트"], ["CPI", usd(O.cpi), "광고비 ÷ 설치"]];
+  $("tiles").innerHTML = tiles.map(([k, v, n]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`).join("")
+    + M.ks.map(k => { const [v, n] = O.curve[k]; const hit = v != null && v >= 1;
+      return `<div class="tile roas"><div class="k">D${k} ROAS</div><div class="v${hit ? " hit" : ""}">${pct(v)}</div><div class="n">${n ? `설치 ${n.toLocaleString()}명 기준` : "매출 관측 전"}</div>${v != null ? `<div class="meter${hit ? " hit" : ""}" style="width:${Math.min(v, 1) * 100}%"></div>` : ""}</div>`; }).join("");
+
+  // 캠페인·광고별 ROAS — 보기 전환
+  {
+    const ad = st.mode === "ad";
+    document.querySelectorAll("#roasMode button").forEach(b => b.classList.toggle("on", b.dataset.m === st.mode));
+    const head = `<tr><th>${ad ? "광고 / 캠페인" : "캠페인 / 광고"}</th><th class="sep">광고비</th><th>설치</th><th>CPI</th>${M.ks.map((k, i) => `<th class="${i ? "" : "sep"}">D${k} ROAS</th>`).join("")}<th class="sep">D1 잔존</th><th class="sep">D0 평균 레벨</th></tr>`;
+    const body = treeRows((name, m, cls, attr) => `<tr class="${cls}" ${attr}>${nameCell(name, m)}<td class="sep">${usd(m.cost)}</td><td>${m.n}</td><td>${usd(m.cpi)}</td>${M.ks.map((k, i) => roasCell(m.curve[k], m.n, !i)).join("")}${sepd(retCell(m, 1))}<td class="sep">${m.lv0_mean ?? "—"}</td></tr>`,
+      O, tree(cells, ad ? "a" : "c", ad ? "c" : "a"));
+    table("roas", head, body, cells.length);
+  }
+  // ROAS 진행 — 설치일 통합, 누르면 캠페인별
+  {
+    const head = `<tr><th>설치일 / 캠페인</th><th class="sep">광고비</th><th>설치</th><th>CPI</th>${CURVE.map((k, i) => `<th class="${i ? "" : "sep"}">D${k} ROAS</th>`).join("")}<th class="sep">D1 잔존</th><th class="sep">D0 평균 레벨</th></tr>`;
+    const body = treeRows((name, m, cls, attr) => `<tr class="${cls}" ${attr}>${nameCell(name, m)}<td class="sep">${usd(m.cost)}</td><td>${m.n}</td><td>${usd(m.cpi)}</td>${m.curve.map((p, i) => roasCell(p, m.n, !i)).join("")}${sepd(retCell(m, 1))}<td class="sep">${m.lv0_mean ?? "—"}</td></tr>`,
+      null, tree(cells, "d", "c"));
+    table("daily", head, body, cells.length);
+  }
+  // 보조 지표 — 세 번째 값 true = 그 열 앞에 묶음 경계(설치 | CPI | 매출/설치 | 잔존 | 레벨)
+  {
+    const cols = [["CPI", m => `<td>${usd(m.cpi)}</td>`, true], ["D0 매출/설치", m => `<td>${usd(m.arpu[0], 3)}</td>`, true], ["D1 매출/설치", m => `<td>${usd(m.arpu[1], 3)}</td>`],
+      ["D1 잔존", m => retCell(m, 1), true], ["D3 잔존", m => retCell(m, 3)], ["D7 잔존", m => retCell(m, 7)],
+      ["D0 평균 레벨", m => `<td>${m.lv0_mean ?? "—"}</td>`, true], ["D0 LV10+", m => `<td>${pct(m.reach10, 0)}</td>`], ["D0 LV30+", m => `<td>${pct(m.reach30, 0)}</td>`]];
+    const head = `<tr><th>캠페인 / 광고</th><th class="sep">설치</th>${cols.map(c => `<th class="${c[2] ? "sep" : ""}">${c[0]}</th>`).join("")}</tr>`;
+    const body = treeRows((name, m, cls, attr) => `<tr class="${cls}" ${attr}>${nameCell(name, m)}<td class="sep">${m.n}</td>${cols.map(c => sepd(c[1](m), !!c[2])).join("")}</tr>`, O, tree(cells, "c", "a"));
+    table("aux", head, body, cells.length);
+  }
+  // D0 최고 레벨 분포 — 설치 전원 줄만 먼저, 위 줄을 누르면 D1 미복귀 줄 + 캠페인별(각각 전원·미복귀)
+  {
+    const B = M.lv_buckets;
+    const head = `<tr><th>설치일 / 캠페인</th><th class="sep">대상</th><th>명</th>${B.map((b, i) => `<th class="${i ? "" : "sep"}">LV ${b}</th>`).join("")}</tr>`;
+    const cellsOf = (n, dist) => dist.map((x, i) => `<td${i ? "" : ' class="sep"'}>${n ? pct(x / n, 0) : "—"}</td>`).join("");
+    const pair = (name, m, cls, attr, kid) =>
+      `<tr class="${cls}" ${attr}>${nameCell(name, m)}<td class="sep">설치 전원</td><td>${m.n}</td>${cellsOf(m.n, m.lvd)}</tr>`
+      + `<tr class="ad churn${m.small ? " small" : ""}" ${kid}><td></td><td class="sep">D1 미복귀</td>`
+      + (m.n1 ? `<td>${m.ch}<span class="nn">/${m.n1}</span></td>${cellsOf(m.ch, m.chd)}` : `<td>—</td><td class="na sep" colspan="${B.length}">D1 관측 전</td>`) + `</tr>`;
+    let h = pair("전체", O, "total camp", `data-c="t"`, `data-p="t"`);
+    tree(cells, "d", "c").forEach((p, i) => {
+      h += pair(p.name, p.m, "camp" + (p.m.small ? " small" : ""), `data-c="${i}"`, `data-p="${i}"`);
+      p.kids.forEach(k => { h += pair(k.name, k.m, "ad" + (k.m.small ? " small" : ""), `data-p="${i}"`, `data-p="${i}"`); });
+    });
+    table("lvl", head, h, cells.length);
+  }
+}
+
+function useGame(key) {
+  st.game = key; G = D.games[key]; M = G.meta;
+  CURVE = M.curve; RK = M.ret_ks; NB = M.lv_buckets.length;
+  revCut = k => M.obs_rev ? shift(M.obs_rev, k) : "";
+  evCut = k => M.obs_ev ? shift(M.obs_ev, k) : "";
+  DATES = [...new Set(G.cells.map(c => c.d))].sort(); LO = DATES[0] || M.start; HI = DATES[DATES.length - 1] || M.start;
+  st.from = LO; st.to = HI;
+  if (Q.get("from")) st.from = Q.get("from") < LO ? LO : Q.get("from");
+  if (Q.get("to")) st.to = Q.get("to") > HI ? HI : Q.get("to");
+  GX.hero($("hero"), key, M.game);
+  $("hdoc").textContent = `${M.plat === "aos" ? "Android" : "iOS"} · ${M.media.join(" · ")} · 설치일 ${LO} ~ ${HI} · 게임 이벤트 관측 끝 ${M.obs_ev} · 매출 관측 끝 ${M.obs_rev}`;
+  $("defs").innerHTML = [
+    "기간(설치일) = 위 칩. 모든 표·타일이 그 설치일 범위의 코호트만 합산한다(일반 보드의 코호트 카드와 같은 방식).",
+    "ROAS Dk = 설치일 코호트가 설치 당일(D0)부터 k일째까지 낸 매출(IAP af_purchase .dev. 제외 + 광고 매출 리포트, 배너 포함) ÷ 그 설치일들의 광고비. 매출 관측이 k일째까지 끝난 설치일만 포함.",
+    `매출 관측 끝(${M.obs_rev})이 게임 이벤트 관측 끝(${M.obs_ev})보다 늦을 수 있다 — AppsFlyer 광고 매출 원시는 1~2일 늦게 도착한다(2026-10-27 실측). 그래서 최근 설치일은 ROAS 가 “—” 이고 잔존·레벨만 먼저 보인다. 매출 관측 끝 날짜의 광고 매출도 덜 들어왔을 수 있다(미확인).`,
+    "광고비 = AppsFlyer Master API(설치일 × 매체 × 캠페인 × 광고). 광고 단위 합계 = 캠페인 합계(센트 단위 일치 확인). AppLovin 광고 세트는 AppsFlyer 에 _DEFAULT 로만 와서 '광고'(Creative set) 단위로 본다.",
+    "설치 = AppsFlyer 원시 설치 리포트(논오가닉, KR·리타기팅 제외). Master API 는 최근 설치일의 설치 수를 0 으로 줘서(2026-10-26 실측) 쓰지 않는다. 원시 설치 수는 집계 리포트와 설치일 × 캠페인 단위로 일치.",
+    "잔존 Dk = k일째에 인앱 이벤트가 1건 이상 있는 유저 비율. 일반 지표 보드의 리텐션(af_login 기준)과 정의가 달라 절대값 대조 금지.",
+    "레벨 = af_level_achieved 의 설치 당일 최고 레벨. Spin the Yarn 은 실패 없는 게임이라 실패 지표는 없다.",
+    `설치 ${M.min_n}명 미만은 '표본' 표시 — 숫자는 보이되 판단 근거로 쓰기 어렵다.`,
+    "광고(Creative set) 이름은 캠페인마다 같은 이름이 따로 존재한다(광고 ID 는 캠페인별로 다름). 광고 → 캠페인 보기의 광고 줄은 이름 기준 합계.",
+    "AppsFlyer 대시보드(집계 리포트)는 매출이 더 빨리 잡히지만 이 보드는 유저 단위 원시로 계산한다 — 최근 1~2일은 이 보드 ROAS 가 더 낮거나 비어 있는 게 정상.",
+  ].map(s => `<li>${esc(s)}</li>`).join("");
+  $("games").querySelectorAll(".gx-game").forEach(b => b.setAttribute("aria-selected", b.dataset.g === key));
+  render();
+}
+
+function boot(data) {
+  D = data;
+  const keys = Object.keys(D.games || {}).filter(k => (D.games[k].cells || []).length);
+  if (!keys.length) { $("lock").hidden = false; $("lock").innerHTML = `<div class="empty">UA 데이터가 비어 있음 — python -m ua.pull · python -m ua.build</div>`; return; }
+  $("lock").hidden = true; $("board").hidden = false;
+  $("gen").textContent = `산출 ${D.generated_at || ""}`;
+  $("games").innerHTML = keys.map(k => GX.posterBtn(k, D.games[k].meta.game, false)).join("");
+  $("games").querySelectorAll(".gx-game").forEach(b => b.addEventListener("click", () => useGame(b.dataset.g)));
+  document.querySelectorAll("#roasMode button").forEach(b => b.addEventListener("click", () => { st.mode = b.dataset.m; save(); render(); }));
+  useGame(keys.includes(Q.get("game")) ? Q.get("game") : keys[0]);
+}
+
+/* ── 데이터: 평문(ua-data.js, 로컬) → 암호문(ua-data.enc.js, 공개 URL) — 일반 보드와 같은 형식·같은 비밀번호·같은 저장 키 ── */
+const PWKEY = "genboard:pass";
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function decryptData(enc, pass) {
+  const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({name: "PBKDF2", salt: b64(enc.salt), iterations: enc.iter, hash: "SHA-256"}, km, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name: "AES-GCM", iv: b64(enc.iv)}, key, b64(enc.ct))));
+}
+function showUnlock(enc, err) {
+  $("lock").hidden = false;
+  $("lock").innerHTML = `<div class="lock"><b>UA · 마케팅</b><div class="${err ? "err" : ""}" style="margin:8px 0 0;font-size:13px;color:${err ? "" : "var(--ink-3)"}">${err || "집계 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다."}</div>
+    <form id="pwform"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password"><button type="submit">열기</button></form></div>`;
+  $("pwform").onsubmit = async ev => { ev.preventDefault();
+    try { const pass = $("pw").value; const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} boot(data); }
+    catch (e) { showUnlock(enc, "비밀번호가 맞지 않습니다."); } };
+  $("pw").focus();
+}
+(async function init() {
+  const plain = window.UA_DATA;
+  if (plain && plain.games && Object.keys(plain.games).length) return boot(plain);
+  const enc = window.UA_DATA_ENC;
+  if (!enc) { $("lock").hidden = false; $("lock").innerHTML = `<div class="empty">ua-data.js 가 없거나 비어 있음 — python -m ua.build 실행</div>`; return; }
+  if (!(window.crypto && crypto.subtle)) { $("lock").hidden = false; $("lock").innerHTML = `<div class="empty">이 환경에서는 암호를 풀 수 없습니다. https 주소 또는 로컬 파일로 열어야 합니다.</div>`; return; }
+  const m = /(?:^#|[#&])k=([^&]+)/.exec(location.hash);
+  if (m) { try { const pass = decodeURIComponent(m[1]); const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} return boot(data); } catch (e) {} }
+  let saved = null; try { saved = localStorage.getItem(PWKEY); } catch (e) {}
+  if (saved) { try { return boot(await decryptData(enc, saved)); } catch (e) {} }
+  showUnlock(enc, null);
+})();
+})();
+</script>
+</body>
+</html>

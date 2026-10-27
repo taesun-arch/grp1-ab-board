@@ -1,0 +1,87 @@
+/* GRP1 대시보드 공용 디자인 — 메인(index) · 일반 지표(general) · UA(ua) 세 화면이 같이 쓴다.
+   참고: GRP1 레벨 카탈로그(grp1-level-balance) 메인 — 어두운 무대 + 게임 키아트 히어로 + 앱 아이콘 포스터.
+   다크가 기본, 라이트는 토글(localStorage 'grp1:theme', 세 화면 공유). 클래스는 gx- 접두어로 각 화면 CSS 와 겹치지 않게 한다.
+   색 토큰 이름(--bg·--card·--ink …)은 기존 보드 CSS 가 쓰는 이름 그대로 — 보드 내부 카드·차트는 손대지 않고 색만 따라온다. */
+:root{
+  color-scheme:dark;
+  --bg:#101119; --bg-0:rgba(16,17,25,0); --card:#1a1c28; --card-2:#222536; --line:#2b2e40; --line-soft:#232636;
+  --ink:#f4f5fa; --ink-2:#b4b8c8; --ink-3:#80849a;
+  --accent:#8aa2ff; --accent-ink:#12131a;
+  --c1:#6f93ff; --c2:#2fc79a; --c3:#f0a040; --c4:#b18cff; --c5:#ff6b6b; --c6:#8f9bb3;
+  --good:#3ccf7a; --warn:#f5b83d; --crit:#ff6b6b;
+  --chip:#222536; --chip-on:#2c3a66; --chip-on-ink:#dfe6ff;
+  --heat-rgb:111,147,255;
+  --shadow:0 1px 0 rgba(0,0,0,.35);
+  --font:"IBM Plex Sans KR",-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --game:"Fredoka","IBM Plex Sans KR",-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",Consolas,"Malgun Gothic",monospace;
+  --gutter:clamp(16px,3vw,40px);
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f3f4f7; --bg-0:rgba(243,244,247,0); --card:#ffffff; --card-2:#f6f7fa; --line:#dfe3ea; --line-soft:#eceef3;
+  --ink:#171a20; --ink-2:#4a5160; --ink-3:#7b8494;
+  --accent:#2a78d6; --accent-ink:#ffffff;
+  --c1:#2a78d6; --c2:#1bae7a; --c3:#d97a12; --c4:#8a5cd6; --c5:#d03b3b; --c6:#6b7a90;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --chip:#eef0f4; --chip-on:#dbe8fb; --chip-on-ink:#1b4f9c;
+  --heat-rgb:42,120,214;
+  --shadow:0 1px 2px rgba(20,26,40,.08);
+}
+
+/* ── 상단 막대: 브랜드 · 보드 전환 · 도구 ── */
+.gx-bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;padding:12px var(--gutter);
+  background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line-soft)}
+.gx-brand{display:inline-flex;align-items:baseline;gap:8px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.gx-brand b{font:700 20px/1 var(--game);letter-spacing:.01em}
+.gx-brand span{font-size:13px;color:var(--ink-3);font-weight:500}
+.gx-switch{display:flex;gap:2px;padding:3px;border-radius:999px;background:color-mix(in srgb,var(--ink) 9%,transparent);font-size:13px;font-weight:500}
+.gx-switch a{padding:6px 14px;border-radius:999px;color:var(--ink-2);text-decoration:none;white-space:nowrap;transition:color .15s}
+.gx-switch a:hover{color:var(--ink)}
+.gx-switch a[aria-current]{background:var(--ink);color:var(--bg);font-weight:600}
+.gx-right{margin-left:auto;display:flex;align-items:center;gap:12px;color:var(--ink-3);font-size:12px;min-width:0}
+.gx-right .gx-gen{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:11.5px}
+.gx-btn{background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px;color:var(--ink-2);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.gx-btn:hover{color:var(--ink);border-color:var(--ink-3)}
+
+/* ── 보드 히어로: 게임 키아트(오른쪽) + 색 번짐 + 게임 이름 + 게임 전환 포스터 ── */
+.gx-hero{position:relative;overflow:hidden;isolation:isolate;min-height:236px;padding:34px var(--gutter) 22px;display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.gx-wash{position:absolute;inset:-30%;z-index:-3;background-size:cover;background-position:center;filter:blur(90px) saturate(1.4) brightness(.5);opacity:.9;transition:background-image .4s}
+.gx-art{position:absolute;top:0;right:0;z-index:-2;height:100%;aspect-ratio:1;object-fit:cover;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 55%);mask-image:linear-gradient(90deg,transparent 0%,#000 55%)}
+.gx-shade{position:absolute;inset:0;z-index:-1;pointer-events:none;background:
+  linear-gradient(90deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 88%,transparent) 34%,color-mix(in srgb,var(--bg) 25%,transparent) 64%,var(--bg-0) 82%),
+  linear-gradient(0deg,var(--bg) 0%,var(--bg-0) 55%)}
+:root[data-theme="light"] .gx-wash{filter:blur(90px) saturate(1.2) brightness(1.15);opacity:.55}
+.gx-copy{flex:1 1 380px;min-width:0}
+.gx-when{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 10px;color:var(--ink-2);font-size:13px}
+.gx-pill{background:var(--gc,var(--accent));color:#12131a;font-weight:600;font-size:12px;line-height:1;padding:5px 10px;border-radius:999px}
+.gx-name{margin:0;font:700 clamp(36px,4.6vw,64px)/.98 var(--game);letter-spacing:-.01em;color:var(--ink);text-wrap:balance}
+.gx-doc{margin:10px 0 0;font-size:14px;font-weight:500;color:var(--ink-2)}
+/* 게임 전환 — 앱 아이콘 포스터(작게). 버튼 글자는 게임 이름만(화면 테스트가 읽는다) */
+.gx-games{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.gx-game{display:flex;flex-direction:column;align-items:center;gap:7px;width:84px;padding:0;border:0;background:transparent;color:var(--ink-2);
+  font:600 12.5px/1.15 var(--game);text-align:center;cursor:pointer;text-decoration:none;text-shadow:0 1px 6px rgba(0,0,0,.75)}
+:root[data-theme="light"] .gx-game{text-shadow:0 1px 6px rgba(255,255,255,.85)}
+.gx-game img{display:block;width:64px;height:64px;border-radius:22%;transition:transform .2s var(--ease),box-shadow .2s;box-shadow:0 6px 20px -8px rgba(0,0,0,.6)}
+.gx-game:hover img{transform:scale(1.06)}
+.gx-game:hover{color:var(--ink)}
+.gx-game[aria-selected="true"]{color:var(--ink)}
+.gx-game[aria-selected="true"] img{box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--gc,var(--accent))}
+.gx-game[disabled]{opacity:.4;cursor:default}
+
+/* ── 섹션 제목·카드 공용(UA 화면) ── */
+.gx-h2{display:flex;align-items:baseline;gap:10px;margin:30px 0 10px;font-size:16px;font-weight:600;color:var(--ink)}
+.gx-h2 small{font-weight:400;font-size:12px;color:var(--ink-3)}
+.gx-foot{padding:10px var(--gutter) 36px;color:var(--ink-3);font-size:12px}
+
+@media (max-width:720px){
+  .gx-bar{flex-wrap:wrap;gap:10px}
+  .gx-brand span{display:none}
+  .gx-right .gx-gen{display:none}
+  .gx-hero{min-height:0;padding-top:24px}
+  .gx-art{opacity:.55}
+  .gx-game{width:68px} .gx-game img{width:52px;height:52px}
+}
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} }

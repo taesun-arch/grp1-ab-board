@@ -3,115 +3,190 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>그룹 1 게임 대시 보드</title>
+<title>GRP1 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="site.css">
+<script src="site.js"></script>
 <style>
-/* 보드 선택 화면. 팔레트는 두 보드와 같다(라이트 기본, 다크는 이 화면에서만 토글). */
-:root{
-  color-scheme:light;
-  --bg:#f3f4f7; --card:#ffffff; --card-2:#f6f7fa; --line:#dfe3ea;
-  --ink:#171a20; --ink-2:#4a5160; --ink-3:#7b8494;
-  --accent:#2a78d6; --a:#2a78d6; --b:#1baf7a;
-  --chip:#eef0f4; --shadow:0 1px 2px rgba(20,26,40,.08);
-  --font:"IBM Plex Sans",-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
-  --mono:"IBM Plex Mono",Consolas,"Malgun Gothic",monospace;
-}
-:root[data-theme="dark"]{
-  color-scheme:dark;
-  --bg:#14161b; --card:#1c1f26; --card-2:#22262e; --line:#2c313b;
-  --ink:#e6e9ef; --ink-2:#aab2bf; --ink-3:#7c8594;
-  --accent:#4f8ef7; --a:#3987e5; --b:#19a070;
-  --chip:#22262e; --shadow:0 1px 0 rgba(0,0,0,.35);
-}
+/* 메인 — 게임 히어로 + 게임 포스터 + 보드 카드. 참고: GRP1 레벨 카탈로그 메인(어두운 무대·키아트 히어로·앱 아이콘 포스터).
+   A/B 코호트 보드는 2026-10-27 메인에서 뺐다(모든 실험 종료 · 팀장님 지시). ab.html 파일은 공개 사이트에 그대로 남아 있다. */
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);min-height:100%}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
-.wrap{max-width:900px;margin:0 auto;padding:48px 24px 40px}
-.head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
-h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
-.sub{color:var(--ink-3);font-size:12.5px}
-.theme{margin-left:auto;background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:5px 10px;color:var(--ink-2);font:inherit;font-size:12px;cursor:pointer}
-.theme:hover{color:var(--ink);border-color:var(--ink-3)}
-.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));margin:22px 0 18px}
-.card{display:block;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px 16px;box-shadow:var(--shadow);border-left:4px solid var(--accent);transition:border-color .12s, transform .12s}
-.card:hover{transform:translateY(-1px);border-color:var(--ink-3)}
-.card.ab{border-left-color:var(--a)} .card.gen{border-left-color:var(--b)}
-.card h2{margin:0 0 4px;font-size:16px;font-weight:600}
-.card .what{color:var(--ink-2);font-size:13px;margin-bottom:10px}
-.card ul{margin:0;padding-left:17px;color:var(--ink-3);font-size:12.5px} .card li{margin:2px 0}
-.card .meta{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);color:var(--ink-3);font-size:11.5px;font-family:var(--mono);display:flex;gap:10px;flex-wrap:wrap}
-.open{color:var(--accent);font-weight:500}
-.note{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;box-shadow:var(--shadow)}
-.note b{font-size:13px} .note ul{margin:6px 0 0;padding-left:17px;color:var(--ink-2);font-size:12.5px} .note li{margin:3px 0}
-.foot{margin-top:16px;color:var(--ink-3);font-size:11.5px}
+:focus-visible{outline:2px solid var(--gc,var(--accent));outline-offset:4px;border-radius:8px}
+.gx-bar{position:absolute;inset:0 0 auto;background:linear-gradient(to bottom,color-mix(in srgb,var(--bg) 80%,transparent),var(--bg-0));border-bottom:0;backdrop-filter:none;-webkit-backdrop-filter:none}
+
+/* 히어로: 색 번짐 → 키아트(오른쪽) → 어둠 그라데이션 → 글 */
+.stage{position:relative;height:clamp(440px,64vh,640px);overflow:hidden;isolation:isolate}
+.stage .gx-wash{z-index:0;inset:-20%;filter:blur(90px) saturate(1.4) brightness(.55)}
+.stage .gx-art{z-index:1;-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 42%);mask-image:linear-gradient(90deg,transparent 0%,#000 42%);transition:opacity .5s var(--ease)}
+.stage .gx-shade{z-index:2;background:
+  linear-gradient(90deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 90%,transparent) 30%,color-mix(in srgb,var(--bg) 30%,transparent) 56%,var(--bg-0) 74%),
+  linear-gradient(0deg,var(--bg) 0%,var(--bg-0) 40%)}
+:root[data-theme="light"] .stage .gx-wash{filter:blur(90px) saturate(1.2) brightness(1.1);opacity:.6}
+.copy{position:absolute;z-index:3;left:var(--gutter);bottom:clamp(84px,13vh,128px);max-width:min(640px,60vw);transition:opacity .3s var(--ease),transform .3s var(--ease)}
+.copy.swap{opacity:0;transform:translateY(6px)}
+.when{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 14px;color:var(--ink-2);font-size:14px}
+.name{margin:0;font:700 clamp(42px,6.6vw,92px)/.96 var(--game);letter-spacing:-.015em;text-wrap:balance}
+.doc{margin:14px 0 26px;font-size:clamp(15px,1.5vw,19px);font-weight:500;color:var(--ink-2)}
+.ctas{display:flex;flex-wrap:wrap;gap:12px}
+.play{display:inline-flex;align-items:center;gap:10px;font-weight:600;font-size:16px;padding:13px 26px 13px 20px;border-radius:8px;transition:transform .15s,box-shadow .5s,background .2s}
+.play:hover{transform:scale(1.03)}
+.play svg{width:16px;height:16px;flex:none}
+.play.main{background:#fff;color:#12131a;box-shadow:0 10px 36px -10px var(--gc,var(--accent))}
+.play.alt{background:color-mix(in srgb,var(--ink) 16%,transparent);color:var(--ink);backdrop-filter:blur(6px)}
+.play.alt:hover{background:color-mix(in srgb,var(--ink) 24%,transparent)}
+.play[aria-disabled="true"]{opacity:.45;pointer-events:none}
+:root[data-theme="light"] .play.main{background:#12131a;color:#fff}
+
+/* 게임 포스터 줄 — 히어로 아래쪽에 살짝 걸친다 */
+.row{position:relative;z-index:4;margin-top:-44px;padding-bottom:12px}
+.row h3,.boards h3{margin:0;padding:0 var(--gutter);font-size:18px;font-weight:600}
+.rail{display:flex;gap:clamp(14px,1.6vw,22px);overflow-x:auto;padding:16px var(--gutter) 18px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.poster{flex:none;width:clamp(132px,12vw,184px);border:0;padding:0;background:transparent;color:var(--ink);text-align:left;cursor:pointer;font:inherit}
+.pic{position:relative;display:block;aspect-ratio:1;border-radius:22%;background:var(--card);transition:transform .25s var(--ease),box-shadow .25s}
+.pic img{display:block;width:100%;height:100%;border-radius:inherit}
+.poster:hover .pic{transform:scale(1.05)}
+.poster[aria-selected="true"] .pic{box-shadow:0 0 0 3px var(--bg),0 0 0 6px var(--c,var(--accent))}
+.badge{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);white-space:nowrap;background:var(--c,var(--accent));
+  color:#12131a;font-weight:600;font-size:12px;line-height:1;padding:5px 10px;border-radius:999px;box-shadow:0 0 0 3px var(--bg)}
+.t{display:block;margin-top:16px;font:600 17px/1.2 var(--game)}
+.m{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:5px;font-size:13px;color:var(--ink-3)}
+
+/* 보드 카드 */
+.boards{padding:18px 0 8px}
+.bgrid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));padding:14px var(--gutter) 0}
+.board{position:relative;display:block;overflow:hidden;background:var(--card);border:1px solid var(--line-soft);border-radius:18px;padding:22px 22px 18px;transition:transform .2s var(--ease),border-color .2s}
+.board:hover{transform:translateY(-2px);border-color:var(--line)}
+.board::before{content:"";position:absolute;inset:0 0 auto;height:3px;background:var(--bc)}
+.board .kicker{font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--bc)}
+.board h4{margin:6px 0 6px;font:700 26px/1.1 var(--game)}
+.board p{margin:0 0 12px;color:var(--ink-2);font-size:14px}
+.board ul{margin:0;padding-left:18px;color:var(--ink-3);font-size:13px} .board li{margin:3px 0}
+.board .meta{display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--ink-3)}
+.board .meta .icons{display:flex;gap:6px} .board .meta img{width:26px;height:26px;border-radius:22%}
+.board .meta .go{margin-left:auto;color:var(--ink);font-weight:600}
+.notice{margin:22px var(--gutter) 0;padding:14px 18px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;color:var(--ink-2);font-size:13px}
+.notice b{color:var(--ink)} .notice ul{margin:6px 0 0;padding-left:18px} .notice li{margin:3px 0}
+.mono{font-family:var(--mono);font-size:.92em}
+@media (max-width:640px){
+  .stage{height:min(80vh,620px)}
+  .stage .gx-art{height:auto;width:100%;-webkit-mask-image:linear-gradient(180deg,#000 50%,transparent 100%);mask-image:linear-gradient(180deg,#000 50%,transparent 100%)}
+  .stage .gx-shade{background:linear-gradient(0deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 88%,transparent) 36%,var(--bg-0) 68%)}
+  .copy{right:var(--gutter);bottom:64px;max-width:none}
+  .row{margin-top:-28px}
+}
 </style>
 </head>
 <body>
-<main class="wrap">
-  <div class="head">
-    <h1>그룹 1 게임 대시 보드</h1>
-    <span class="sub">AppsFlyer raw 기반 · UTC 달력일</span>
-    <button class="theme" id="theme" type="button">다크</button>
-  </div>
-  <div class="sub">볼 보드를 고르세요. 두 보드는 <b>모집단과 접속 정의가 다릅니다.</b></div>
+<header class="gx-bar">
+  <a class="gx-brand" href="index.html" data-keep-hash><b>GRP1</b><span>대시보드</span></a>
+  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a></nav>
+  <div class="gx-right"><button class="gx-btn" id="theme" type="button">라이트</button></div>
+</header>
 
-  <!-- 일반 지표 보드가 왼쪽(먼저) — 2026-10-07 팀장님 지시. -->
-  <div class="cards">
-    <a class="card gen" id="link-general" href="general.html">
-      <h2>일반 지표 보드</h2>
-      <div class="what">실험과 무관한 게임별 전체 지표(Bash Fiesta · Color Crush Cannon · Spin the Yarn 탭). 끊기지 않는 시계열입니다.</div>
+<section class="stage" id="hero">
+  <div class="gx-wash"></div><img class="gx-art" alt=""><div class="gx-shade"></div>
+  <div class="copy" id="copy">
+    <div class="when"><span class="gx-pill" id="pill"></span><span id="hwhen"></span></div>
+    <h2 class="name gx-name" id="hname"></h2>
+    <div class="doc" id="hdoc"></div>
+    <div class="ctas">
+      <a class="play main" id="go-gen" href="general.html" data-keep-hash><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 1.8v12.4c0 .6.7 1 1.2.7l10-6.2c.5-.3.5-1.1 0-1.4l-10-6.2C3.7.8 3 1.2 3 1.8z" fill="currentColor"/></svg>일반 지표 열기</a>
+      <a class="play alt" id="go-ua" href="ua.html" data-keep-hash>UA · 마케팅 열기</a>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>게임</h3>
+  <div class="rail" id="rail" role="tablist" aria-label="게임"></div>
+</section>
+
+<section class="boards">
+  <h3>보드</h3>
+  <div class="bgrid">
+    <a class="board" href="general.html" data-keep-hash style="--bc:#6f93ff">
+      <div class="kicker">GAME METRICS</div>
+      <h4>일반 지표</h4>
+      <p>게임 자체의 끊기지 않는 시계열 — 접속·잔존, 진행·난이도, 수익화, 광고, 매체 슬라이스.</p>
       <ul>
-        <li>모집단 = Bash Fiesta 는 계측 유저(<span class="mono">af_login</span> 1회 이상, 2026-09-11 이후) · Color Crush Cannon 은 2026-10-02 이후 전체 유저 · Spin the Yarn 은 계측 유저(2026-10-22 이후)</li>
+        <li>모집단 = Bash Fiesta · Spin the Yarn 은 계측 유저(<span class="mono">af_login</span> 1회 이상), Color Crush Cannon 은 전체 유저</li>
         <li>접속 = <span class="mono">af_login</span>(로그인 완료)</li>
-        <li>접속·진행·난이도 · 정합 · 수익화 · 광고 · 매체 슬라이스</li>
       </ul>
-      <div class="meta"><span id="gen-gen">갱신 시각 확인 중</span><span class="open">열기 →</span></div>
+      <div class="meta"><span class="icons" id="gen-icons"></span><span id="gen-at">갱신 시각 확인 중</span><span class="go">열기 →</span></div>
     </a>
-
-    <a class="card ab" id="link-ab" href="ab.html">
-      <h2>A/B 코호트 보드</h2>
-      <div class="what">GameForge 실험의 군 간 비교. <b>모든 실험 종료(2026-10-26)</b> — 각 탭은 처치 마지막 날까지의 최종 데이터로 보관하며 더 갱신하지 않습니다.</div>
+    <a class="board" href="ua.html" data-keep-hash style="--bc:#ff6fb5">
+      <div class="kicker">MARKETING · UA</div>
+      <h4>UA · 마케팅</h4>
+      <p>광고비 대비 매출(ROAS) 중심 — 캠페인 · 광고(Creative set)별 CPI · ROAS 진행과 잔존 · 스테이지를 함께.</p>
       <ul>
-        <li>모집단 = 실험 라벨이 붙은 코호트(인스톨 당일 라벨)</li>
-        <li>접속 = <span class="mono">exp_daily_active</span>(GameForge 첫 sync)</li>
-        <li>리텐션 · 누적 ARPU · 도달 스테이지 · 광고 · 결제 · DAU</li>
+        <li>모집단 = 논오가닉 설치(AppsFlyer 원시 설치 리포트) · 광고비 = Master API</li>
+        <li>현재 Spin the Yarn(Android · AppLovin)만</li>
       </ul>
-      <div class="meta"><span id="ab-gen">갱신 시각 확인 중</span><span class="open">열기 →</span></div>
+      <div class="meta"><span class="icons" id="ua-icons"></span><span id="ua-at">갱신 시각 확인 중</span><span class="go">열기 →</span></div>
     </a>
   </div>
-
-  <div class="note">
+  <div class="notice">
     <b>두 보드의 숫자를 서로 대조하지 마세요.</b>
     <ul>
-      <li>모집단이 다릅니다. A/B 는 실험 라벨이 붙은 유저, 일반은 계측 빌드를 쓴 전체 유저입니다.</li>
-      <li>접속 정의가 다릅니다. A/B 의 <span class="mono">exp_daily_active</span> 는 GameForge 첫 sync 직후, 일반의 <span class="mono">af_login</span> 은 로그인 완료(플레이어 데이터 로드) 시점이라 더 늦습니다. 그 사이 이탈자가 일반 보드에는 잡히지 않습니다.</li>
-      <li>시작일이 다릅니다. A/B 는 실험 시작일, 일반은 계측 빌드 배포일(2026-09-11)입니다.</li>
-      <li>각 보드의 리텐션·DAU 절대값은 AppsFlyer 대시보드·GameForge 콘솔과도 대조하지 않습니다.</li>
+      <li>모집단이 다릅니다 — 일반 지표는 계측 빌드를 쓴 유저 전체, UA 는 광고로 들어온 설치만입니다.</li>
+      <li>잔존 정의가 다릅니다 — 일반 지표는 <span class="mono">af_login</span>, UA 는 그날 인앱 이벤트 1건 이상입니다.</li>
+      <li>AppsFlyer 대시보드와도 절대값을 대조하지 않습니다(집계 기준·매출 도착 시점이 다름).</li>
     </ul>
   </div>
-  <div class="foot">공유 링크의 비밀번호(<span class="mono">#k=</span>)는 보드로 그대로 넘어갑니다.</div>
-</main>
+</section>
+<div class="gx-foot">AppsFlyer raw 기반 · UTC 달력일 · 공유 링크의 비밀번호(<span class="mono">#k=</span>)는 각 보드로 그대로 넘어갑니다.</div>
+
 <script src="boards.js"></script>
 <script>
 (function(){
-  'use strict';
-  // 공유 링크의 #k=비밀번호 를 보드 링크에 그대로 넘긴다(# 뒤는 서버로 가지 않는다).
-  var hash = location.hash || '';
-  if (hash) {
-    document.getElementById('link-ab').href = 'ab.html' + hash;
-    document.getElementById('link-general').href = 'general.html' + hash;
-  }
-  // boards.js 가 있으면 갱신 시각을 보여준다(배포 스크립트가 만든다). 없으면 조용히 비운다.
-  var B = window.BOARDS || {};
-  function put(id, v){ document.getElementById(id).textContent = v ? ('갱신 ' + v) : ''; }
-  put('ab-gen', B.ab); put('gen-gen', B.general);
-  var root = document.documentElement, btn = document.getElementById('theme');
-  btn.addEventListener('click', function(){
-    var dark = root.getAttribute('data-theme') === 'dark';
-    if (dark) root.removeAttribute('data-theme'); else root.setAttribute('data-theme', 'dark');
-    btn.textContent = dark ? '다크' : '라이트';
-  });
+'use strict';
+const $ = id => document.getElementById(id);
+GX.wireTheme($('theme'));
+// 보드별로 볼 수 있는 게임 — 일반 지표: general.config 의 배포 게임 · UA: ua.config.GAMES. 게임을 붙이면 여기도 추가.
+const HAS = {general: ['sf', 'cl', 'rr'], ua: ['rr']};
+const ORDER = ['rr', 'cl', 'sf'];                // 최근 시작한 게임부터
+const B = window.BOARDS || {};                  // update_dashboard.ps1 이 쓰는 갱신 시각 {general, ua}
+const hash = location.hash || '';
+$('gen-at').textContent = B.general ? '갱신 ' + B.general : '';
+$('ua-at').textContent = B.ua ? '갱신 ' + B.ua : '';
+const icon = k => `<img src="${GX.GAMES[k].icon}" alt="" title="${GX.esc(GX.GAMES[k].name)}">`;
+$('gen-icons').innerHTML = HAS.general.map(icon).join('');
+$('ua-icons').innerHTML = HAS.ua.map(icon).join('');
+
+let cur = null;
+function pick(k, animate){
+  if (k === cur) return;
+  cur = k;
+  const g = GX.GAMES[k], ua = HAS.ua.includes(k), copy = $('copy');
+  const apply = () => {
+    GX.hero($('hero'), k);
+    $('pill').textContent = ua ? 'UA 진행 중' : '게임 지표';
+    $('hwhen').textContent = (B.general ? '일반 지표 갱신 ' + B.general : '') + (ua && B.ua ? ' · UA 갱신 ' + B.ua : '');
+    $('hdoc').textContent = ua ? '게임 지표 · 마케팅(ROAS) 지표' : '게임 지표 — 접속·잔존 · 진행·난이도 · 수익화 · 광고';
+    $('go-gen').href = 'general.html?game=' + k + hash;
+    const gu = $('go-ua');
+    gu.href = ua ? 'ua.html?game=' + k + hash : '#';
+    gu.setAttribute('aria-disabled', String(!ua));
+    gu.lastChild.textContent = ua ? 'UA · 마케팅 열기' : 'UA 준비 중';
+    $('rail').querySelectorAll('.poster').forEach(p => p.setAttribute('aria-selected', p.dataset.g === k));
+    copy.classList.remove('swap');
+  };
+  if (animate) { copy.classList.add('swap'); setTimeout(apply, 180); } else apply();
+}
+$('rail').innerHTML = ORDER.map(k => {
+  const g = GX.GAMES[k], ua = HAS.ua.includes(k);
+  return `<button class="poster" type="button" role="tab" data-g="${k}" style="--c:${g.color}">
+    <span class="pic"><img src="${g.icon}" alt="">${ua ? '<span class="badge">UA</span>' : ''}</span>
+    <span class="t">${GX.esc(g.name)}</span><span class="m">${ua ? '일반 지표 · UA' : '일반 지표'}</span></button>`;
+}).join('');
+$('rail').querySelectorAll('.poster').forEach(p => p.addEventListener('click', () => pick(p.dataset.g, true)));
+pick(ORDER[0], false);
+GX.withHash();
 })();
 </script>
 </body>
