@@ -115,7 +115,7 @@ a{color:inherit;text-decoration:none}
       <h4>일반 지표</h4>
       <p>게임 자체의 끊기지 않는 시계열 — 접속·잔존, 진행·난이도, 수익화, 광고, 매체 슬라이스.</p>
       <ul>
-        <li>모집단 = Bash Fiesta · Spin the Yarn 은 계측 유저(<span class="mono">af_login</span> 1회 이상), Color Crush Cannon 은 전체 유저</li>
+        <li>모집단 = Bash Fiesta · Spin the Yarn · Tail Jam 은 계측 유저(<span class="mono">af_login</span> 1회 이상), Color Crush Cannon 은 전체 유저</li>
         <li>접속 = <span class="mono">af_login</span>(로그인 완료)</li>
       </ul>
       <div class="meta"><span class="icons" id="gen-icons"></span><span id="gen-at">갱신 시각 확인 중</span><span class="go">열기 →</span></div>
@@ -149,8 +149,8 @@ a{color:inherit;text-decoration:none}
 const $ = id => document.getElementById(id);
 GX.wireTheme($('theme'));
 // 보드별로 볼 수 있는 게임 — 일반 지표: general.config 의 배포 게임 · UA: ua.config.GAMES. 게임을 붙이면 여기도 추가.
-// Tail Jam(tj) 은 UA 만 있다(2026-10-27) — 히어로에서 UA 가 기본 버튼이 되고 일반 지표 버튼은 숨는다.
-const HAS = {general: ['sf', 'cl', 'rr'], ua: ['rr', 'tj']};
+// 한쪽 보드만 있는 게임은 히어로에서 있는 쪽이 기본 버튼이 된다(UA 만 있으면 UA 가 기본, 일반 지표 버튼은 숨김).
+const HAS = {general: ['sf', 'cl', 'rr', 'tj'], ua: ['rr', 'tj']};
 const ORDER = ['rr', 'tj', 'cl', 'sf'];          // UA 진행 게임 → 최근 시작한 게임 순
 const B = window.BOARDS || {};                  // update_dashboard.ps1 이 쓰는 갱신 시각 {general, ua}
 const hash = location.hash || '';

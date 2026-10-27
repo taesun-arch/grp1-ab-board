@@ -16,6 +16,8 @@
   --game:"Fredoka","IBM Plex Sans KR",-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",Consolas,"Malgun Gothic",monospace;
   --gutter:clamp(16px,3vw,40px);
+  --maxw:1520px;                 /* 보드 본문 폭 상한 — 히어로 글자도 같은 왼쪽 끝에 맞춘다 */
+  --inset:max(var(--gutter),calc((100% - var(--maxw)) / 2));
   --ease:cubic-bezier(.2,.7,.2,1);
 }
 :root[data-theme="light"]{
@@ -46,7 +48,7 @@
 .gx-btn:hover{color:var(--ink);border-color:var(--ink-3)}
 
 /* ── 보드 히어로: 게임 키아트(오른쪽) + 색 번짐 + 게임 이름 + 게임 전환 포스터 ── */
-.gx-hero{position:relative;overflow:hidden;isolation:isolate;min-height:236px;padding:34px var(--gutter) 22px;display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.gx-hero{position:relative;overflow:hidden;isolation:isolate;min-height:236px;padding:34px var(--inset) 22px;display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap}
 .gx-wash{position:absolute;inset:-30%;z-index:-3;background-size:cover;background-position:center;filter:blur(90px) saturate(1.4) brightness(.5);opacity:.9;transition:background-image .4s}
 .gx-art{position:absolute;top:0;right:0;z-index:-2;height:100%;aspect-ratio:1;object-fit:cover;
   -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 55%);mask-image:linear-gradient(90deg,transparent 0%,#000 55%)}

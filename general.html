@@ -18,7 +18,8 @@ button,select{font:inherit;color:inherit} button{cursor:pointer}
 .num{font-variant-numeric:tabular-nums} .mono{font-family:var(--mono)} .muted{color:var(--ink-3)} .small{font-size:12px}
 .iconbtn{background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:5px 10px;color:var(--ink-2);font-size:12px}
 .iconbtn:hover{color:var(--ink);border-color:var(--ink-3)}
-.wrap{padding:14px 24px 40px;max-width:1900px;margin:0 auto}   /* 코호트 표가 D0~D28 로 넓다 — 넓은 모니터에서 화면을 더 쓴다 */
+/* 본문 폭 상한(공용 --maxw) — 넓은 모니터에서 카드가 듬성듬성 퍼지던 것을 막는다(2026-10-27 팀장님: 빈 공간·구분 문제). 히어로 글자와 왼쪽 끝을 맞춘다 */
+.wrap{padding:6px var(--gutter) 40px;max-width:calc(var(--maxw) + 2 * var(--gutter));margin:0 auto}
 .defs{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px;box-shadow:var(--shadow)}
 .defs summary{cursor:pointer;font-weight:600;color:var(--ink-2)} .defs ul{margin:8px 0 0;padding-left:18px;color:var(--ink-2);font-size:12.5px} .defs li{margin:3px 0}
 .defs .ban{display:inline-block;margin-top:8px;background:#3a1c1c;color:#ffb3b3;border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600}
@@ -27,22 +28,40 @@ button,select{font:inherit;color:inherit} button{cursor:pointer}
 .card,.tile,.defs,.chip{border-radius:12px}
 .tile .v{font-variant-numeric:tabular-nums}
 h2{font-size:16px}
-.secnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+/* 상단 도구 막대 — 섹션 바로가기 + 기간·OS 칩. 스크롤해도 상단 막대(.gx-bar) 아래에 붙는다 */
+.toolbar{position:sticky;top:57px;z-index:15;margin:0 0 16px;padding:10px 0;background:color-mix(in srgb,var(--bg) 90%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line-soft)}
+@media (max-width:720px){ .toolbar{position:static} }
+.secnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
 .secnav button{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--ink-2)}
 .secnav button[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink);border-color:transparent;font-weight:500}
-section{margin-bottom:22px} section[hidden]{display:none}
-h2{font-size:15px;margin:0 0 10px;display:flex;align-items:baseline;gap:10px} h2 .muted{font-weight:400;font-size:12px}
-.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))} .grid.wide{grid-template-columns:repeat(auto-fill,minmax(460px,1fr))}
+/* 섹션 = 테두리 있는 판(번호 배지 + 제목 밑줄), 소제목 = 점선 구분선 + 색 막대 — 전체 보기에서 항목 경계가 보이게(2026-10-27) */
+main section{margin:0 0 22px;padding:18px 20px 22px;border:1px solid var(--line-soft);border-radius:18px;
+  background:color-mix(in srgb,var(--card) 40%,var(--bg));scroll-margin-top:150px}
+main section[hidden]{display:none}
+h2{font-size:15px;margin:0 0 10px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;row-gap:6px} h2 .muted{font-weight:400;font-size:12px}
+main section > h2{font-size:19px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid var(--line)}
+main section > h2::before{align-self:center;font:600 11.5px/1 var(--mono);padding:5px 8px;border-radius:999px;
+  color:var(--gc,var(--accent));background:color-mix(in srgb,var(--gc,var(--accent)) 16%,transparent)}
+/* 번호는 순서로 고정 — counter 는 바로가기로 숨긴 섹션을 세지 않아 하나만 보면 늘 01 이 된다 */
+main section:nth-of-type(1) > h2::before{content:"01"} main section:nth-of-type(2) > h2::before{content:"02"}
+main section:nth-of-type(3) > h2::before{content:"03"} main section:nth-of-type(4) > h2::before{content:"04"}
+main section:nth-of-type(5) > h2::before{content:"05"} main section:nth-of-type(6) > h2::before{content:"06"}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+/* 카드 배치 = 줄바꿈 flex — 줄 끝에 남는 칸을 같은 줄 카드가 늘어나 채운다(3열 고정 격자에서 1·5장일 때 생기던 빈칸 제거).
+   spanrest(코호트 표)는 2칸 몫으로 앞 차트 옆에, span2·spanfull(히트맵·슬라이스 표)은 한 줄 전체. 표 옆 차트가 표 높이로 늘지 않게 위 정렬. */
+.grid.wide{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.grid.wide > *{flex:1 1 440px;min-width:0}
+.grid.wide > .card.spanrest{flex:2 1 894px}
+.grid.wide > .card.span2,.grid.wide > .card.spanfull{flex:1 1 100%}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);min-width:0}
-.card.span2{grid-column:span 2} @media (max-width:980px){.card.span2{grid-column:span 1}}
-.card.spanfull{grid-column:1 / -1}   /* 열이 많은 표(코호트 D0~D28 등)는 줄 전체를 쓴다 — 2칸이면 가운데서 잘린다 */
-/* 코호트 표는 앞선 차트 카드 옆(2번째 칸부터 끝까지)에 놓는다 — 차트가 1칸만 쓰고 우측이 비던 자리를 채운다(2026-09-20).
-   칸이 적은 화면에서는 줄 전체를 쓴다(차트 아래로 내려간다). */
-.card.spanrest{grid-column:1 / -1}
-@media (min-width:1400px){ .card.spanrest{grid-column:2 / -1} }
-.grid.wide{align-items:start}        /* 표 옆 차트가 표 높이만큼 늘어나 빈 칸이 생기지 않게 */
+.card svg{max-height:340px}     /* 한 줄에 혼자 남아 넓어진 차트가 지나치게 커지지 않게(비율 유지, 가운데) */
+/* 타일 + 카드 1장인 묶음은 나란히 — 타일 왼쪽, 카드 오른쪽(DAU 차트 옆이 통째로 비던 자리) */
+.pair:has(> .grid.wide > .card:only-child){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;align-items:start}
+.pair:has(> .grid.wide > .card:only-child) > .tiles{margin:0}
+@media (max-width:1100px){ .pair{display:block!important} .pair > .tiles{margin-bottom:12px!important} }
 .card h3{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--ink-2)} .card h3 .muted{font-weight:400}
-.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:12px}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:12px}   /* auto-fit — 타일이 줄을 채운다(빈 칸 없음) */
 .tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow)}
 .tile .k{font-size:11.5px;color:var(--ink-3)} .tile .v{font-size:20px;font-weight:600;margin-top:2px} .tile .s{font-size:11.5px;color:var(--ink-3)}
 table{width:100%;border-collapse:collapse;font-size:12.5px} th,td{padding:5px 8px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
@@ -64,7 +83,8 @@ svg .axis{stroke:var(--line);stroke-width:1} svg .grid{stroke:var(--line-soft);s
 .chip input[type=date]{background:var(--chip);border:1px solid transparent;border-radius:5px;padding:3px 6px;font-size:12.5px;font-family:var(--mono);color:var(--ink)}
 .preset{border:0;background:transparent;color:var(--accent);font-size:12px;padding:2px 6px;border-radius:4px} .preset:hover{background:var(--chip)}
 .all{color:var(--ink-3);font-weight:400;font-size:11px;border:1px dashed var(--line);border-radius:4px;padding:0 5px;margin-left:6px}
-h3.subh{font-size:13.5px;margin:18px 0 8px;display:flex;align-items:baseline;gap:10px;color:var(--ink)} h3.subh .muted{font-weight:400;font-size:12px}
+h3.subh{font-size:14.5px;margin:26px 0 12px;padding-top:18px;border-top:1px dashed var(--line);display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;row-gap:6px;color:var(--ink)} h3.subh .muted{font-weight:400;font-size:12px}
+h3.subh::before{content:"";align-self:center;width:4px;height:15px;border-radius:2px;background:var(--gc,var(--accent))}
 .tile .v2{display:flex;gap:14px;align-items:baseline} .tile .v2 .d{font-size:11.5px;color:var(--ink-3)}
 table.ret th{position:sticky;top:0;background:var(--card)} table.ret td.cell{text-align:right;font-variant-numeric:tabular-nums}
 table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border-bottom:2px solid var(--line)} table.ret td.n{color:var(--ink-2)}
@@ -97,31 +117,32 @@ table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border
     <ul id="deflist"></ul>
     <span class="ban">A/B 코호트 보드·AppsFlyer 대시보드·GameForge 콘솔과 절대값을 대조하지 말 것 — 모집단·접속 정의가 다르다</span>
   </details>
-  <div class="secnav" id="secnav"></div>
-  <div class="filters" id="filters" style="padding:0 0 10px"></div>
+  <!-- 섹션 바로가기 + 기간·OS 칩 — 스크롤해도 상단에 붙는다(긴 화면에서 위치를 잃지 않게) -->
+  <div class="toolbar" id="toolbar"><div class="secnav" id="secnav"></div>
+  <div class="filters" id="filters"></div></div>
   <div id="empty" class="empty" hidden></div>
   <div id="rollout" class="defs" style="border-color:var(--warn);color:var(--ink-2);font-size:12.5px" hidden></div>
   <section id="sec-access"><h2>접속·잔존 <span class="muted">af_login 기준 · 코호트 = Install Time</span></h2>
-    <div class="tiles" id="tiles"></div><div class="grid wide" id="access"></div>
+    <div class="pair"><div class="tiles" id="tiles"></div><div class="grid wide" id="access"></div></div>
     <h3 class="subh">코호트 리텐션 <span class="muted">Dn = 설치+n일 af_login 유저 / 코호트 · 분모는 성숙(설치+n ≤ 마지막 날) 코호트만</span></h3>
-    <div class="tiles" id="rtiles"></div><div class="grid wide" id="ret"></div>
+    <div class="pair"><div class="tiles" id="rtiles"></div><div class="grid wide" id="ret"></div></div>
   </section>
-  <section id="sec-progress"><h2>진행·난이도 <span class="muted">클리어 = af_level_achieved · 실패 = level_fail</span><span class="seg" id="lvseg"></span><span class="chip" id="lvcustom" style="margin-left:6px;padding:2px 6px"><span class="lbl">직접</span><input type="number" id="lvmin" min="1" placeholder="from" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"> <span class="lbl">~</span> <input type="number" id="lvmax" min="1" placeholder="to" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"></span></h2><div class="tiles" id="ptiles"></div><div class="grid wide" id="progress"></div>
+  <section id="sec-progress"><h2>진행·난이도 <span class="muted">클리어 = af_level_achieved · 실패 = level_fail</span><span class="seg" id="lvseg"></span><span class="chip" id="lvcustom" style="margin-left:6px;padding:2px 6px"><span class="lbl">직접</span><input type="number" id="lvmin" min="1" placeholder="from" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"> <span class="lbl">~</span> <input type="number" id="lvmax" min="1" placeholder="to" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"></span></h2><div class="pair"><div class="tiles" id="ptiles"></div><div class="grid wide" id="progress"></div></div>
     <h3 class="subh">도달률 <span class="muted">◉ 설치 후 k일 이내 첫 클리어 ≥ N 인 유저 / 코호트 — 레벨 구간 선택과 무관</span><span id="funnelwin" class="tools"></span></h3>
-    <div class="tiles" id="ftiles"></div><div class="grid wide" id="funnel"></div>
+    <div class="pair"><div class="tiles" id="ftiles"></div><div class="grid wide" id="funnel"></div></div>
     <h3 class="subh">플레이 강도 <span class="muted">◉ 설치 후 n일째 접속한 유저 1명당 레벨 클리어 — 세션·플레이 시간이 없어 클리어 수를 플레이량 대리로 쓴다</span></h3>
-    <div class="tiles" id="pltiles"></div><div class="grid wide" id="play"></div>
+    <div class="pair"><div class="tiles" id="pltiles"></div><div class="grid wide" id="play"></div></div>
   </section>
-  <section id="sec-integrity"><h2>정합 <span class="muted">attempt_count 갭 = 유실 시도(하한)</span></h2><div class="tiles" id="itiles"></div><div class="grid wide" id="integrity"></div></section>
-  <section id="sec-money"><h2>수익화 <span class="muted">af_purchase · .dev. 제외</span></h2><div class="tiles" id="mtiles"></div><div class="grid wide" id="money"></div>
+  <section id="sec-integrity"><h2>정합 <span class="muted">attempt_count 갭 = 유실 시도(하한)</span></h2><div class="pair"><div class="tiles" id="itiles"></div><div class="grid wide" id="integrity"></div></div></section>
+  <section id="sec-money"><h2>수익화 <span class="muted">af_purchase · .dev. 제외</span></h2><div class="pair"><div class="tiles" id="mtiles"></div><div class="grid wide" id="money"></div></div>
     <h3 class="subh">누적 ARPU <span class="muted">◉ 설치 코호트의 설치 후 0~n일 누적 매출 / 코호트 · IAA 는 배너 제외</span></h3>
-    <div class="tiles" id="atiles"></div><div class="grid wide" id="arpu"></div>
+    <div class="pair"><div class="tiles" id="atiles"></div><div class="grid wide" id="arpu"></div></div>
     <h3 class="subh">결제 분해 <span class="muted">◉ 창 안 첫 결제 · ARPPU · 상위 1인 — 매출은 결제자가 적어 한 명이 숫자를 뒤집는다</span><span id="paywin" class="tools"></span></h3>
-    <div class="tiles" id="paytiles"></div><div class="grid wide" id="paycoh"></div>
+    <div class="pair"><div class="tiles" id="paytiles"></div><div class="grid wide" id="paycoh"></div></div>
   </section>
   <section id="sec-ads"><h2>광고 <span class="muted" id="ads-sub">광고 수익 리포트 · Placement</span></h2><div class="grid wide" id="ads"></div>
     <h3 class="subh">광고 코호트 <span class="muted" id="adcoh-sub">◉ 임프레션/유저-일 · 배치 구성 · 실패 광고 비율</span><span id="adswin" class="tools"></span></h3>
-    <div class="tiles" id="adtiles"></div><div class="grid wide" id="adcoh"></div>
+    <div class="pair"><div class="tiles" id="adtiles"></div><div class="grid wide" id="adcoh"></div></div>
   </section>
   <section id="sec-slices"><h2>슬라이스 <span class="muted">핵심 지표를 차원별로</span><span class="seg" id="sliceseg"></span></h2><div class="grid wide" id="slices"></div></section>
 </main>
