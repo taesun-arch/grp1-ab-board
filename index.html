@@ -10,75 +10,84 @@
 <link rel="stylesheet" href="site.css">
 <script src="site.js"></script>
 <style>
-/* 메인 — 게임 히어로 + 게임 포스터 + 보드 카드. 참고: GRP1 레벨 카탈로그 메인(어두운 무대·키아트 히어로·앱 아이콘 포스터).
-   A/B 코호트 보드는 2026-10-27 메인에서 뺐다(모든 실험 종료 · 팀장님 지시). ab.html 파일은 공개 사이트에 그대로 남아 있다. */
+/* 메인 — 벤토(기본) · 브리핑 두 보기(팀장님 2026-10-27: "시안 B 기본에 시안 A 로 전환"). 숫자는 board_summary.py 요약(암호문).
+   A/B 코호트 보드는 2026-10-27 메인에서 뺐다(모든 실험 종료). ab.html 파일은 공개 사이트에 마지막 판 그대로 남아 있다. */
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}     /* .bento{display:grid} 가 hidden 을 이기지 않게 — 보기 전환이 이 속성으로 숨긴다 */
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
-:focus-visible{outline:2px solid var(--gc,var(--accent));outline-offset:4px;border-radius:8px}
-.gx-bar{position:absolute;inset:0 0 auto;background:linear-gradient(to bottom,color-mix(in srgb,var(--bg) 80%,transparent),var(--bg-0));border-bottom:0;backdrop-filter:none;-webkit-backdrop-filter:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+.page{max-width:calc(var(--maxw) + 2 * var(--gutter));margin:0 auto;padding:28px var(--gutter) 30px}
+.top{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 14px;margin-bottom:16px}
+.top h1{margin:0;font:700 30px/1 var(--game)} .top .when{color:var(--ink-3);font:12.5px var(--mono)}
+.view{margin-left:auto;display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--card);border:1px solid var(--line-soft)}
+.view button{border:0;background:transparent;border-radius:999px;padding:5px 14px;font:inherit;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.view button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:600}
+.up{color:var(--good)} .down{color:var(--crit)}
+.k{font-size:12px;color:var(--ink-3);font-weight:500} .s{font-size:11.5px;color:var(--ink-3)}
+.mid{font:600 24px/1.15 var(--font);font-variant-numeric:tabular-nums}
+.name{font:700 22px/1.05 var(--game)}
+.spark svg{display:block;width:100%}
 
-/* 히어로: 색 번짐 → 키아트(오른쪽) → 어둠 그라데이션 → 글 */
-.stage{position:relative;height:clamp(440px,64vh,640px);overflow:hidden;isolation:isolate}
-.stage .gx-wash{z-index:0;inset:-20%;filter:blur(90px) saturate(1.4) brightness(.55)}
-.stage .gx-art{z-index:1;-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 42%);mask-image:linear-gradient(90deg,transparent 0%,#000 42%);transition:opacity .5s var(--ease)}
-.stage .gx-shade{z-index:2;background:
-  linear-gradient(90deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 90%,transparent) 30%,color-mix(in srgb,var(--bg) 30%,transparent) 56%,var(--bg-0) 74%),
-  linear-gradient(0deg,var(--bg) 0%,var(--bg-0) 40%)}
-:root[data-theme="light"] .stage .gx-wash{filter:blur(90px) saturate(1.2) brightness(1.1);opacity:.6}
-.copy{position:absolute;z-index:3;left:var(--gutter);bottom:clamp(84px,13vh,128px);max-width:min(640px,60vw);transition:opacity .3s var(--ease),transform .3s var(--ease)}
-.copy.swap{opacity:0;transform:translateY(6px)}
-.when{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 14px;color:var(--ink-2);font-size:14px}
-.name{margin:0;font:700 clamp(42px,6.6vw,92px)/.96 var(--game);letter-spacing:-.015em;text-wrap:balance}
-.doc{margin:14px 0 26px;font-size:clamp(15px,1.5vw,19px);font-weight:500;color:var(--ink-2)}
-.ctas{display:flex;flex-wrap:wrap;gap:12px}
-.play{display:inline-flex;align-items:center;gap:10px;font-weight:600;font-size:16px;padding:13px 26px 13px 20px;border-radius:8px;transition:transform .15s,box-shadow .5s,background .2s}
-.play:hover{transform:scale(1.03)}
-.play svg{width:16px;height:16px;flex:none}
-.play.main{background:#fff;color:#12131a;box-shadow:0 10px 36px -10px var(--gc,var(--accent))}
-.play.alt{background:color-mix(in srgb,var(--ink) 16%,transparent);color:var(--ink);backdrop-filter:blur(6px)}
-.play.alt:hover{background:color-mix(in srgb,var(--ink) 24%,transparent)}
-.play[aria-disabled="true"]{opacity:.45;pointer-events:none}
-.play[hidden]{display:none}
-:root[data-theme="light"] .play.main{background:#12131a;color:#fff}
-
-/* 게임 포스터 줄 — 히어로 아래쪽에 살짝 걸친다 */
-.row{position:relative;z-index:4;margin-top:-44px;padding-bottom:12px}
-.row h3,.boards h3{margin:0;padding:0 var(--gutter);font-size:18px;font-weight:600}
-.rail{display:flex;gap:clamp(14px,1.6vw,22px);overflow-x:auto;padding:16px var(--gutter) 18px;scrollbar-width:none}
-.rail::-webkit-scrollbar{display:none}
-.poster{flex:none;width:clamp(132px,12vw,184px);border:0;padding:0;background:transparent;color:var(--ink);text-align:left;cursor:pointer;font:inherit}
-.pic{position:relative;display:block;aspect-ratio:1;border-radius:22%;background:var(--card);transition:transform .25s var(--ease),box-shadow .25s}
-.pic img{display:block;width:100%;height:100%;border-radius:inherit}
-.poster:hover .pic{transform:scale(1.05)}
-.poster[aria-selected="true"] .pic{box-shadow:0 0 0 3px var(--bg),0 0 0 6px var(--c,var(--accent))}
-.badge{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);white-space:nowrap;background:var(--c,var(--accent));
-  color:#12131a;font-weight:600;font-size:12px;line-height:1;padding:5px 10px;border-radius:999px;box-shadow:0 0 0 3px var(--bg)}
-.t{display:block;margin-top:16px;font:600 17px/1.2 var(--game)}
-.m{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:5px;font-size:13px;color:var(--ink-3)}
-
-/* 보드 카드 */
-.boards{padding:18px 0 8px}
-.bgrid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));padding:14px var(--gutter) 0}
-.board{position:relative;display:block;overflow:hidden;background:var(--card);border:1px solid var(--line-soft);border-radius:18px;padding:22px 22px 18px;transition:transform .2s var(--ease),border-color .2s}
-.board:hover{transform:translateY(-2px);border-color:var(--line)}
+/* ── 벤토 ── */
+.bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:150px;gap:14px}
+.t{position:relative;overflow:hidden;isolation:isolate;border-radius:22px;border:1px solid var(--line-soft);background:var(--card);padding:18px 20px;display:flex;flex-direction:column;transition:transform .2s var(--ease),border-color .2s}
+a.t:hover{transform:translateY(-2px);border-color:var(--line)}
+.big{font:600 46px/1 var(--font);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.hero{grid-column:span 7;grid-row:span 2;padding:26px 28px}
+.hero .art{position:absolute;right:-30px;top:-20px;height:130%;aspect-ratio:1;object-fit:cover;z-index:-2;opacity:.92;
+  -webkit-mask-image:radial-gradient(circle at 65% 45%,#000 30%,transparent 70%);mask-image:radial-gradient(circle at 65% 45%,#000 30%,transparent 70%)}
+.hero::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,var(--card) 30%,transparent 75%)}
+.pill{align-self:flex-start;background:var(--c);color:#12131a;font-weight:600;font-size:12px;padding:4px 10px;border-radius:999px}
+.hero .name{font-size:42px;margin:12px 0 auto}
+.kv{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end} .kv .big{color:var(--c)}
+.side{grid-column:span 5;grid-row:span 1;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 16%,var(--card)),var(--card) 60%)}
+.side .head{display:flex;align-items:center;gap:10px} .side .head img{width:34px;height:34px;border-radius:22%}
+.row3{display:flex;gap:24px;flex-wrap:wrap;margin-top:auto}
+.sum{grid-column:span 5;grid-row:span 1;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--card)),var(--card))}
+.g{grid-column:span 3;grid-row:span 2}
+.g .head{display:flex;align-items:center;gap:12px} .g .head img{width:48px;height:48px;border-radius:22%}
+.g .row3{gap:18px;margin-top:12px} .g .spark{margin-top:auto} .g .spark svg{height:56px}
+.board{grid-column:span 6;grid-row:span 1;justify-content:center}
+.board .name{font-size:26px} .board .icons{display:flex;gap:6px;margin-top:8px} .board .icons img{width:28px;height:28px;border-radius:22%}
 .board::before{content:"";position:absolute;inset:0 0 auto;height:3px;background:var(--bc)}
-.board .kicker{font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--bc)}
-.board h4{margin:6px 0 6px;font:700 26px/1.1 var(--game)}
-.board p{margin:0 0 12px;color:var(--ink-2);font-size:14px}
-.board ul{margin:0;padding-left:18px;color:var(--ink-3);font-size:13px} .board li{margin:3px 0}
-.board .meta{display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--ink-3)}
-.board .meta .icons{display:flex;gap:6px} .board .meta img{width:26px;height:26px;border-radius:22%}
-.board .meta .go{margin-left:auto;color:var(--ink);font-weight:600}
-.notice{margin:22px var(--gutter) 0;padding:14px 18px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;color:var(--ink-2);font-size:13px}
-.notice b{color:var(--ink)} .notice ul{margin:6px 0 0;padding-left:18px} .notice li{margin:3px 0}
-.mono{font-family:var(--mono);font-size:.92em}
+.board .go{position:absolute;right:22px;top:50%;transform:translateY(-50%);font-size:22px;color:var(--ink-3)}
+.lockt{grid-column:span 12;grid-row:span 2;align-items:center;justify-content:center;text-align:center}
+.lockt b{font:700 22px var(--game)} .lockt form{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.lockt input{background:var(--card-2);border:1px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--ink);font:inherit}
+.lockt button{border:0;border-radius:999px;padding:8px 18px;background:var(--ink);color:var(--bg);font:inherit;font-weight:600;cursor:pointer}
+
+/* ── 브리핑 ── */
+.totals{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px}
+.tot{background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:12px 18px;min-width:150px}
+.blk{margin-top:26px}
+.blk h2{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 12px;margin:0 0 12px;font-size:18px;font-weight:600}
+.blk h2 small{font-size:12.5px;color:var(--ink-3);font-weight:400}
+.blk h2 a{margin-left:auto;font-size:13px;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+.blk h2 a:hover{color:var(--ink);border-color:var(--ink-3)}
+.row{position:relative;display:grid;grid-template-columns:minmax(220px,1.3fr) repeat(5,minmax(92px,1fr)) minmax(150px,1.2fr) 34px;align-items:center;gap:14px;
+  padding:14px 18px;margin-bottom:10px;border-radius:16px;border:1px solid var(--line-soft);overflow:hidden;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--c) 15%,var(--card)) 0%,var(--card) 34%)}
+.row:hover{border-color:var(--line)}
+.row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+.who{display:flex;align-items:center;gap:14px;min-width:0}
+.who img{width:52px;height:52px;border-radius:22%;flex:none;box-shadow:0 6px 18px -8px rgba(0,0,0,.7)}
+.who b{display:block;font:700 19px/1.1 var(--game)} .who span{font-size:12px;color:var(--ink-3)}
+.m .v{font:600 19px/1.25 var(--font);font-variant-numeric:tabular-nums} .m .v.hot{color:var(--c)} .m .v.good{color:var(--good)}
+.meter{height:4px;border-radius:2px;background:var(--line-soft);margin-top:5px;overflow:hidden} .meter i{display:block;height:100%;background:var(--c)}
+.row .spark svg{height:38px}
+.go2{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink-2)}
+.row:hover .go2{background:var(--c);color:#12131a}
+.notice{margin-top:22px;padding:12px 16px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;color:var(--ink-3);font-size:12.5px}
+.notice b{color:var(--ink-2)}
+@media (max-width:1100px){
+  .bento{grid-template-columns:repeat(6,minmax(0,1fr))} .hero,.side,.sum,.board,.lockt{grid-column:span 6} .g{grid-column:span 3}
+  .row{grid-template-columns:1fr 1fr 1fr} .row .spark,.row .go2{display:none} .who{grid-column:1 / -1}
+}
 @media (max-width:640px){
-  .stage{height:min(80vh,620px)}
-  .stage .gx-art{height:auto;width:100%;-webkit-mask-image:linear-gradient(180deg,#000 50%,transparent 100%);mask-image:linear-gradient(180deg,#000 50%,transparent 100%)}
-  .stage .gx-shade{background:linear-gradient(0deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 88%,transparent) 36%,var(--bg-0) 68%)}
-  .copy{right:var(--gutter);bottom:64px;max-width:none}
-  .row{margin-top:-28px}
+  .bento{grid-auto-rows:auto} .t{min-height:150px} .hero{min-height:300px} .g .spark svg{height:44px}
+  .g{grid-column:span 6} .hero .name{font-size:32px} .big{font-size:38px} .view{margin-left:0}
+  .hero::after{background:linear-gradient(0deg,var(--card) 42%,color-mix(in srgb,var(--card) 55%,transparent) 100%)}   /* 좁은 화면: 숫자 뒤가 그림으로 밝아지지 않게 */
 }
 </style>
 </head>
@@ -86,111 +95,140 @@ a{color:inherit;text-decoration:none}
 <header class="gx-bar">
   <a class="gx-brand" href="index.html" data-keep-hash><b>GRP1</b><span>대시보드</span></a>
   <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a></nav>
-  <div class="gx-right"><button class="gx-btn" id="theme" type="button">라이트</button></div>
+  <div class="gx-right"><span class="gx-gen" id="gen"></span><button class="gx-btn" id="theme" type="button">라이트</button></div>
 </header>
-
-<section class="stage" id="hero">
-  <div class="gx-wash"></div><img class="gx-art" alt=""><div class="gx-shade"></div>
-  <div class="copy" id="copy">
-    <div class="when"><span class="gx-pill" id="pill"></span><span id="hwhen"></span></div>
-    <h2 class="name gx-name" id="hname"></h2>
-    <div class="doc" id="hdoc"></div>
-    <div class="ctas">
-      <a class="play main" id="go-gen" href="general.html" data-keep-hash><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 1.8v12.4c0 .6.7 1 1.2.7l10-6.2c.5-.3.5-1.1 0-1.4l-10-6.2C3.7.8 3 1.2 3 1.8z" fill="currentColor"/></svg>일반 지표 열기</a>
-      <a class="play alt" id="go-ua" href="ua.html" data-keep-hash>UA · 마케팅 열기</a>
-    </div>
+<main class="page">
+  <div class="top">
+    <h1>GRP1 대시보드</h1><span class="when" id="when"></span>
+    <div class="view" role="group" aria-label="보기"><button type="button" data-v="bento" aria-pressed="true">벤토</button><button type="button" data-v="brief" aria-pressed="false">브리핑</button></div>
   </div>
-</section>
-
-<section class="row">
-  <h3>게임</h3>
-  <div class="rail" id="rail" role="tablist" aria-label="게임"></div>
-</section>
-
-<section class="boards">
-  <h3>보드</h3>
-  <div class="bgrid">
-    <a class="board" href="general.html" data-keep-hash style="--bc:#6f93ff">
-      <div class="kicker">GAME METRICS</div>
-      <h4>일반 지표</h4>
-      <p>게임 자체의 끊기지 않는 시계열 — 접속·잔존, 진행·난이도, 수익화, 광고, 매체 슬라이스.</p>
-      <ul>
-        <li>모집단 = Bash Fiesta · Spin the Yarn · Tail Jam 은 계측 유저(<span class="mono">af_login</span> 1회 이상), Color Crush Cannon 은 전체 유저</li>
-        <li>접속 = <span class="mono">af_login</span>(로그인 완료)</li>
-      </ul>
-      <div class="meta"><span class="icons" id="gen-icons"></span><span id="gen-at">갱신 시각 확인 중</span><span class="go">열기 →</span></div>
-    </a>
-    <a class="board" href="ua.html" data-keep-hash style="--bc:#ff6fb5">
-      <div class="kicker">MARKETING · UA</div>
-      <h4>UA · 마케팅</h4>
-      <p>광고비 대비 매출(ROAS) 중심 — 캠페인 · 광고(Creative set)별 CPI · ROAS 진행과 잔존 · 스테이지를 함께.</p>
-      <ul>
-        <li>모집단 = 논오가닉 설치(AppsFlyer 원시 설치 리포트) · 광고비 = Master API</li>
-        <li>현재 Spin the Yarn · Tail Jam (Android · AppLovin)</li>
-      </ul>
-      <div class="meta"><span class="icons" id="ua-icons"></span><span id="ua-at">갱신 시각 확인 중</span><span class="go">열기 →</span></div>
-    </a>
-  </div>
-  <div class="notice">
-    <b>두 보드의 숫자를 서로 대조하지 마세요.</b>
-    <ul>
-      <li>모집단이 다릅니다 — 일반 지표는 계측 빌드를 쓴 유저 전체, UA 는 광고로 들어온 설치만입니다.</li>
-      <li>잔존 정의가 다릅니다 — 일반 지표는 <span class="mono">af_login</span>, UA 는 그날 인앱 이벤트 1건 이상입니다.</li>
-      <li>AppsFlyer 대시보드와도 절대값을 대조하지 않습니다(집계 기준·매출 도착 시점이 다름).</li>
-    </ul>
-  </div>
-</section>
-<div class="gx-foot">AppsFlyer raw 기반 · UTC 달력일 · 공유 링크의 비밀번호(<span class="mono">#k=</span>)는 각 보드로 그대로 넘어갑니다.</div>
+  <div class="bento" id="bento"></div>
+  <div id="brief" hidden></div>
+  <div class="notice"><b>보드끼리 숫자를 대조하지 마세요.</b> 일반 지표는 계측 빌드 유저 전체·잔존 = <span style="font-family:var(--mono)">af_login</span>, UA 는 광고로 들어온 설치만·잔존 = 그날 인앱 이벤트 1건 이상. AppsFlyer 대시보드와도 절대값을 대조하지 않습니다(집계 기준·매출 도착 시점이 다름).</div>
+</main>
+<div class="gx-foot">AppsFlyer raw · Master API · UTC 달력일 · 공유 링크의 비밀번호(#k=)는 각 보드로 그대로 넘어갑니다.</div>
 
 <script src="boards.js"></script>
+<script src="summary-data.js"></script>
+<script src="summary-data.enc.js"></script>
 <script>
 (function(){
 'use strict';
-const $ = id => document.getElementById(id);
-GX.wireTheme($('theme'));
-// 보드별로 볼 수 있는 게임 — 일반 지표: general.config 의 배포 게임 · UA: ua.config.GAMES. 게임을 붙이면 여기도 추가.
-// 한쪽 보드만 있는 게임은 히어로에서 있는 쪽이 기본 버튼이 된다(UA 만 있으면 UA 가 기본, 일반 지표 버튼은 숨김).
-const HAS = {general: ['sf', 'cl', 'rr', 'tj'], ua: ['rr', 'tj']};
-const ORDER = ['rr', 'tj', 'cl', 'sf'];          // UA 진행 게임 → 최근 시작한 게임 순
-const B = window.BOARDS || {};                  // update_dashboard.ps1 이 쓰는 갱신 시각 {general, ua}
-const hash = location.hash || '';
-$('gen-at').textContent = B.general ? '갱신 ' + B.general : '';
-$('ua-at').textContent = B.ua ? '갱신 ' + B.ua : '';
-const icon = k => `<img src="${GX.GAMES[k].icon}" alt="" title="${GX.esc(GX.GAMES[k].name)}">`;
-$('gen-icons').innerHTML = HAS.general.map(icon).join('');
-$('ua-icons').innerHTML = HAS.ua.map(icon).join('');
-
-let cur = null;
-function pick(k, animate){
-  if (k === cur) return;
-  cur = k;
-  const g = GX.GAMES[k], ua = HAS.ua.includes(k), gen = HAS.general.includes(k), copy = $('copy');
-  const apply = () => {
-    GX.hero($('hero'), k);
-    $('pill').textContent = ua ? 'UA 진행 중' : '게임 지표';
-    $('hwhen').textContent = [gen && B.general ? '일반 지표 갱신 ' + B.general : '', ua && B.ua ? 'UA 갱신 ' + B.ua : ''].filter(Boolean).join(' · ');
-    $('hdoc').textContent = gen && ua ? '게임 지표 · 마케팅(ROAS) 지표' : (ua ? '마케팅(ROAS) 지표 — 일반 지표 보드는 아직 없음' : '게임 지표 — 접속·잔존 · 진행·난이도 · 수익화 · 광고');
-    const gg = $('go-gen'), gu = $('go-ua');
-    gg.href = 'general.html?game=' + k + hash; gg.hidden = !gen;
-    gu.href = ua ? 'ua.html?game=' + k + hash : '#';
-    gu.setAttribute('aria-disabled', String(!ua));
-    gu.lastChild.textContent = ua ? 'UA · 마케팅 열기' : 'UA 준비 중';
-    gu.classList.toggle('main', !gen && ua); gu.classList.toggle('alt', gen || !ua);   // 일반 지표가 없으면 UA 가 기본 버튼
-    $('rail').querySelectorAll('.poster').forEach(p => p.setAttribute('aria-selected', p.dataset.g === k));
-    copy.classList.remove('swap');
-  };
-  if (animate) { copy.classList.add('swap'); setTimeout(apply, 180); } else apply();
+const $ = id => document.getElementById(id), esc = GX.esc, hash = location.hash || '';
+GX.wireTheme($('theme')); GX.withHash();
+const usd = (v, d = 0) => v == null ? '—' : '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d});
+const pct = (v, d = 1) => v == null ? '—' : (v * 100).toFixed(d) + '%';
+const num = v => v == null ? '—' : Number(v).toLocaleString('en-US');
+const md = d => d ? d.slice(5) : '';
+const gen = k => 'general.html?game=' + k + hash, uaUrl = k => 'ua.html?game=' + k + hash;
+const B = window.BOARDS || {};
+function spark(arr, color, h) {
+  arr = arr && arr.length ? arr : [0];
+  const w = 200, mx = Math.max(...arr, 1), mn = Math.min(...arr, 0), n = arr.length;
+  const pts = arr.map((v, i) => [(i / Math.max(n - 1, 1)) * (w - 4) + 2, h - 4 - ((v - mn) / Math.max(mx - mn, 1)) * (h - 12)]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(''), last = pts[pts.length - 1];
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d} L${last[0]} ${h} L2 ${h} Z" fill="${color}" opacity=".16"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
 }
-$('rail').innerHTML = ORDER.map(k => {
-  const g = GX.GAMES[k], ua = HAS.ua.includes(k), gen = HAS.general.includes(k);
-  return `<button class="poster" type="button" role="tab" data-g="${k}" style="--c:${g.color}">
-    <span class="pic"><img src="${g.icon}" alt="">${ua ? '<span class="badge">UA</span>' : ''}</span>
-    <span class="t">${GX.esc(g.name)}</span><span class="m">${[gen ? '일반 지표' : '', ua ? 'UA' : ''].filter(Boolean).join(' · ')}</span></button>`;
-}).join('');
-$('rail').querySelectorAll('.poster').forEach(p => p.addEventListener('click', () => pick(p.dataset.g, true)));
-const qg = new URLSearchParams(location.search).get('game');   // ?game=tj 로 히어로 게임을 고른다(공유·점검용)
-pick(ORDER.includes(qg) ? qg : ORDER[0], false);
-GX.withHash();
+const dauDelta = g => { if (!g || g.dau_prev == null || !g.dau_prev) return '7일 전 없음'; const ch = g.dau / g.dau_prev - 1;
+  return `<span class="${ch >= 0 ? 'up' : 'down'}">${ch >= 0 ? '▲' : '▼'}${Math.abs(ch * 100).toFixed(0)}%</span> 7일 전 대비`; };
+
+// 보기 전환 — 기본 벤토, 고른 보기는 이 브라우저에 기억(세 화면 공유 테마 저장과 별개)
+let view = 'bento';
+try { view = localStorage.getItem('grp1:home') || 'bento'; } catch (e) {}
+const q = new URLSearchParams(location.search).get('view'); if (q === 'brief' || q === 'bento') view = q;
+function setView(v) {
+  view = v; document.querySelectorAll('.view button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
+  $('bento').hidden = v !== 'bento'; $('brief').hidden = v !== 'brief';
+  try { localStorage.setItem('grp1:home', v); } catch (e) {}
+}
+document.querySelectorAll('.view button').forEach(b => b.addEventListener('click', () => setView(b.dataset.v)));
+
+function render(S) {
+  const G = S.games || {};
+  const order = [...Object.keys(G)].sort((a, b) => ((G[b].ua || {}).cost || 0) - ((G[a].ua || {}).cost || 0) || ['rr', 'tj', 'cl', 'sf'].indexOf(a) - ['rr', 'tj', 'cl', 'sf'].indexOf(b));
+  const uaKeys = order.filter(k => G[k].ua), genKeys = order.filter(k => G[k].general);
+  const any = (G[uaKeys[0]] || G[genKeys[0]] || {}), last = (any.ua || any.general || {}).last;
+  $('when').textContent = `${last || ''} (UTC) 기준 · 갱신 ${S.generated_at || ''}`;
+  $('gen').textContent = [B.general ? '일반 ' + B.general : '', B.ua ? 'UA ' + B.ua : ''].filter(Boolean).join(' · ');
+  const cost = uaKeys.reduce((s, k) => s + G[k].ua.cost, 0), inst = uaKeys.reduce((s, k) => s + G[k].ua.installs, 0);
+  const dauSum = genKeys.reduce((s, k) => s + G[k].general.dau, 0);
+  const totals = [['광고비 · 어제', usd(cost)], ['광고 설치 · 어제', num(inst)], ['평균 CPI', usd(inst ? cost / inst : null, 2)], ['DAU 합계 · 어제', num(dauSum)]];
+  const icons = ks => ks.map(k => GX.GAMES[k] ? `<img src="${GX.GAMES[k].icon}" alt="" title="${esc(GX.GAMES[k].name)}">` : '').join('');
+  const C = k => (GX.GAMES[k] || {}).color || 'var(--accent)';
+  const I = k => (GX.GAMES[k] || {}).icon || '';
+
+  // ── 벤토 ──
+  let h = '';
+  if (uaKeys.length) {
+    const f = uaKeys[0], u = G[f].ua;
+    h += `<a class="t hero" href="${uaUrl(f)}" style="--c:${C(f)}">${GX.GAMES[f] ? `<img class="art" src="${GX.GAMES[f].art}" alt="">` : ''}<span class="pill">UA 진행 중</span>
+      <div class="name">${esc(G[f].name)}</div>
+      <div class="kv"><div><div class="k">D1 ROAS · 최근 7일</div><div class="big">${pct(u.d1)}</div><div class="s">설치 ${num(u.d1_n)}명 · 본전 100%</div></div>
+      <div><div class="k">D0 ROAS · 최근 3일</div><div class="mid">${pct(u.d0)}</div><div class="s">설치 ${num(u.d0_n)}명</div></div>
+      <div><div class="k">광고비 · ${md(u.last)}</div><div class="mid">${usd(u.cost)}</div><div class="s">CPI ${usd(u.cpi, 2)} · 설치 ${num(u.installs)}</div></div></div></a>`;
+    for (const k of uaKeys.slice(1)) { const v = G[k].ua;
+      h += `<a class="t side" href="${uaUrl(k)}" style="--c:${C(k)}"><div class="head"><img src="${I(k)}" alt=""><span class="name" style="font-size:20px">${esc(G[k].name)}</span><span class="s" style="margin-left:auto">UA</span></div>
+        <div class="row3"><div><div class="k">D1 ROAS · 7일</div><div class="mid" style="color:${C(k)}">${pct(v.d1)}</div></div><div><div class="k">광고비 · ${md(v.last)}</div><div class="mid">${usd(v.cost)}</div></div><div><div class="k">CPI</div><div class="mid">${usd(v.cpi, 2)}</div></div></div></a>`; }
+    h += `<div class="t sum"><div class="k">어제 합계 · UA ${uaKeys.length}게임 · 게임 ${genKeys.length}개</div>
+      <div class="row3">${totals.map(([k, v]) => `<div><div class="k">${k.split(' · ')[0]}</div><div class="mid">${v}</div></div>`).join('')}</div></div>`;
+  }
+  for (const k of genKeys) { const g = G[k].general;
+    h += `<a class="t g" href="${gen(k)}" style="--c:${C(k)}"><div class="head"><img src="${I(k)}" alt=""><div><div class="name" style="font-size:19px">${esc(G[k].name)}</div><div class="s">${G[k].ua ? '일반 지표 · UA' : '일반 지표'}</div></div></div>
+      <div class="row3"><div><div class="k">DAU</div><div class="mid">${num(g.dau)}</div><div class="s">${dauDelta(g)}</div></div>
+      <div><div class="k">D1 잔존</div><div class="mid">${pct(g.d1)}</div><div class="s">최근 7코호트</div></div></div>
+      <div class="spark">${spark(g.dau_spark, C(k), 56)}<div class="s">DAU 14일</div></div></a>`; }
+  h += `<a class="t board" href="general.html${hash}" style="--bc:#6f93ff"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><div class="icons">${icons(genKeys)}</div><span class="go">→</span></a>`;
+  h += `<a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
+  $('bento').innerHTML = h;
+
+  // ── 브리핑 ──
+  const who = (k, sub) => `<div class="who"><img src="${I(k)}" alt=""><div><b>${esc(G[k].name)}</b><span>${sub}</span></div></div>`;
+  const m = (k, v, s = '', cls = '') => `<div class="m"><div class="k">${k}</div><div class="v ${cls}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+  let a = `<div class="totals">${totals.map(([k, v]) => `<div class="tot"><div class="k">${k}</div><div class="mid">${v}</div></div>`).join('')}</div>`;
+  if (uaKeys.length) a += `<section class="blk"><h2>UA · 마케팅 <small>광고비 · 설치 · CPI = 마지막 설치일 · D0 ROAS = 최근 3일 · D1 ROAS = 최근 7일(매출 관측 끝 기준)</small><a href="ua.html${hash}">UA 보드 →</a></h2>`
+    + uaKeys.map(k => { const u = G[k].ua;
+      return `<a class="row" href="${uaUrl(k)}" style="--c:${C(k)}">${who(k, 'Android · AppLovin')}
+        ${m('광고비', usd(u.cost), md(u.last) + ' 설치일')}${m('설치', num(u.installs))}${m('CPI', usd(u.cpi, 2))}${m('D0 ROAS', pct(u.d0), '설치 ' + num(u.d0_n) + '명', 'hot')}
+        <div class="m"><div class="k">D1 ROAS</div><div class="v ${u.d1 >= 1 ? 'good' : 'hot'}">${pct(u.d1)}</div><div class="meter"><i style="width:${Math.min(u.d1 || 0, 1) * 100}%"></i></div><div class="s">본전 100% 대비 · 설치 ${num(u.d1_n)}명</div></div>
+        <div class="spark">${spark(u.cost_spark, C(k), 38)}<div class="s">설치일별 광고비</div></div><span class="go2">→</span></a>`; }).join('') + `</section>`;
+  if (genKeys.length) a += `<section class="blk"><h2>게임 지표 <small>DAU · 설치 = 마지막 날 · D1 잔존 = 최근 7개 성숙 코호트 · 매출 = IAP + 광고, 광고 매출이 도착한 마지막 날(보통 이틀 전)</small><a href="general.html${hash}">일반 지표 보드 →</a></h2>`
+    + genKeys.map(k => { const g = G[k].general;
+      return `<a class="row" href="${gen(k)}" style="--c:${C(k)}">${who(k, G[k].ua ? '일반 지표 · UA' : '일반 지표')}
+        ${m('DAU', num(g.dau), dauDelta(g))}${m('설치', num(g.installs))}${m('D1 잔존', pct(g.d1), '코호트 ' + num(g.d1_n) + '명')}
+        ${m('매출 · ' + md(g.rev_day), usd(g.rev), g.iaa ? 'IAP + 광고' : 'IAP (광고 없음)')}${m('', '')}
+        <div class="spark">${spark(g.dau_spark, C(k), 38)}<div class="s">DAU 14일</div></div><span class="go2">→</span></a>`; }).join('') + `</section>`;
+  $('brief').innerHTML = a;
+  setView(view);
+}
+
+// 잠금 — 숫자가 없을 때도 보드 바로가기는 보인다
+function locked(enc, err) {
+  $('gen').textContent = [B.general ? '일반 ' + B.general : '', B.ua ? 'UA ' + B.ua : ''].filter(Boolean).join(' · ');
+  $('bento').innerHTML = `<div class="t lockt"><b>GRP1 대시보드</b><div class="s" style="margin-top:6px;font-size:13px;${err ? 'color:var(--crit)' : ''}">${err || '요약 숫자는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다.'}</div>
+    ${enc ? `<form id="pwform"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password"><button type="submit">열기</button></form>` : ''}</div>
+    <a class="t board" href="general.html${hash}" style="--bc:#6f93ff"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><span class="go">→</span></a>
+    <a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><span class="go">→</span></a>`;
+  $('bento').hidden = false; $('brief').hidden = true;
+  if (enc) { $('pwform').onsubmit = async ev => { ev.preventDefault();
+    try { const p = $('pw').value; const d = await decrypt(enc, p); try { localStorage.setItem(PWKEY, p); } catch (e) {} render(d); } catch (e) { locked(enc, '비밀번호가 맞지 않습니다.'); } }; }
+}
+const PWKEY = 'genboard:pass';      // 일반·UA 보드와 같은 저장 키 — 한 번 입력하면 세 화면이 다 열린다
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function decrypt(enc, pass) {
+  const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name: 'PBKDF2', salt: b64(enc.salt), iterations: enc.iter, hash: 'SHA-256'}, km, {name: 'AES-GCM', length: 256}, false, ['decrypt']);
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name: 'AES-GCM', iv: b64(enc.iv)}, key, b64(enc.ct))));
+}
+(async function init() {
+  if (window.SUMMARY && window.SUMMARY.games) return render(window.SUMMARY);
+  const enc = window.SUMMARY_ENC;
+  if (!enc || !(window.crypto && crypto.subtle)) return locked(null, enc ? 'https 주소 또는 로컬 파일로 열어야 숫자가 보입니다.' : '요약 데이터가 아직 없습니다 — 보드에서 바로 보세요.');
+  const mk = /(?:^#|[#&])k=([^&]+)/.exec(location.hash);
+  if (mk) { try { const p = decodeURIComponent(mk[1]); const d = await decrypt(enc, p); try { localStorage.setItem(PWKEY, p); } catch (e) {} return render(d); } catch (e) {} }
+  let saved = null; try { saved = localStorage.getItem(PWKEY); } catch (e) {}
+  if (saved) { try { return render(await decrypt(enc, saved)); } catch (e) {} }
+  locked(enc, null);
+})();
 })();
 </script>
 </body>
