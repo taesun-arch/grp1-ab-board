@@ -146,7 +146,7 @@ document.querySelectorAll('.view button').forEach(b => b.addEventListener('click
 
 function render(S) {
   const G = S.games || {};
-  const order = [...Object.keys(G)].sort((a, b) => ((G[b].ua || {}).cost || 0) - ((G[a].ua || {}).cost || 0) || ['rr', 'tj', 'cl', 'sf'].indexOf(a) - ['rr', 'tj', 'cl', 'sf'].indexOf(b));
+  const order = [...Object.keys(G)].sort((a, b) => ((G[b].ua || {}).cost || 0) - ((G[a].ua || {}).cost || 0) || ['co', 'rr', 'tj', 'cl', 'sf'].indexOf(a) - ['co', 'rr', 'tj', 'cl', 'sf'].indexOf(b));
   const uaKeys = order.filter(k => G[k].ua), genKeys = order.filter(k => G[k].general);
   const any = (G[uaKeys[0]] || G[genKeys[0]] || {}), last = (any.ua || any.general || {}).last;
   $('when').textContent = `${last || ''} (UTC) 기준 · 갱신 ${S.generated_at || ''}`;
