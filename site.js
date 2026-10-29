@@ -3,9 +3,10 @@
 window.GX = (function(){
   'use strict';
   // 게임 키 = general.config.GAMES / ua.config.GAMES 의 키. 아이콘·키아트는 web/icons (sf 는 SmashFest da_default_512,
-  // cl·rr·tj·co 는 GRP1 레벨 카탈로그 사이트와 같은 파일). color = 아이콘에서 고른 강조색(히어로 배지·선택 테두리) — 게임끼리 겹치지 않게.
+  // cl·rr·tj·co 는 GRP1 레벨 카탈로그 사이트와 같은 파일, mc 는 Bash2024 da_default_1024 를 같은 규칙으로 변환). color = 아이콘에서 고른 강조색(히어로 배지·선택 테두리) — 게임끼리 겹치지 않게.
   const GAMES = {
     co: {name:'Cube Coaster',       icon:'icons/co.webp', art:'icons/co-art.webp', color:'#a58bff'},
+    mc: {name:'Merge Cube Blast',   icon:'icons/mc.webp', art:'icons/mc-art.webp', color:'#36d6c8'},
     sf: {name:'Bash Fiesta',        icon:'icons/sf.webp', art:'icons/sf-art.webp', color:'#4fa3ff'},
     cl: {name:'Color Crush Cannon', icon:'icons/cl.webp', art:'icons/cl-art.webp', color:'#ff6b5e'},
     rr: {name:'Spin the Yarn',      icon:'icons/rr.webp', art:'icons/rr-art.webp', color:'#ff6fb5'},

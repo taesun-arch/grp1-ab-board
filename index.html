@@ -146,7 +146,7 @@ document.querySelectorAll('.view button').forEach(b => b.addEventListener('click
 
 function render(S) {
   const G = S.games || {};
-  const order = [...Object.keys(G)].sort((a, b) => ((G[b].ua || {}).cost || 0) - ((G[a].ua || {}).cost || 0) || ['co', 'rr', 'tj', 'cl', 'sf'].indexOf(a) - ['co', 'rr', 'tj', 'cl', 'sf'].indexOf(b));
+  const order = [...Object.keys(G)].sort((a, b) => ((G[b].ua || {}).cost || 0) - ((G[a].ua || {}).cost || 0) || ['co', 'mc', 'rr', 'tj', 'cl', 'sf'].indexOf(a) - ['co', 'mc', 'rr', 'tj', 'cl', 'sf'].indexOf(b));
   const uaKeys = order.filter(k => G[k].ua), genKeys = order.filter(k => G[k].general);
   const any = (G[uaKeys[0]] || G[genKeys[0]] || {}), last = (any.ua || any.general || {}).last;
   $('when').textContent = `${last || ''} (UTC) 기준 · 갱신 ${S.generated_at || ''}`;
@@ -167,13 +167,16 @@ function render(S) {
       <div class="kv"><div><div class="k">D1 ROAS · 최근 7일</div><div class="big">${pct(u.d1)}</div><div class="s">설치 ${num(u.d1_n)}명 · 본전 100%</div></div>
       <div><div class="k">D0 ROAS · 최근 3일</div><div class="mid">${pct(u.d0)}</div><div class="s">설치 ${num(u.d0_n)}명</div></div>
       <div><div class="k">광고비 · ${md(u.last)}</div><div class="mid">${usd(u.cost)}</div><div class="s">CPI ${usd(u.cpi, 2)} · 설치 ${num(u.installs)}</div></div></div></a>`;
-    // 오른쪽 열(사이드 UA 타일 + 합계) 중 히어로 옆 두 자리를 넘는 것은 아래 한 줄을 나눠 쓴다
-    const rest = uaKeys.length - 2, span = rest > 0 ? Math.max(3, Math.floor(12 / rest)) : 0;
-    let slot = 0; const over = () => slot++ >= 2 && span ? [' over', `--span:${span};`] : ['', ''];
+    // 오른쪽 열(사이드 UA 타일 + 합계) 중 히어로 옆 두 자리를 넘는 것은 아래 한 줄을 나눠 쓴다.
+    // 넘친 타일이 4개 이상이면(UA 6게임, 2026-10-29) 합계까지 한 줄에 넣으면 폭이 3칸이라 합계 숫자 넷이 줄바꿈돼 타일 밖으로 밀린다
+    // → UA 타일끼리 한 줄을 나누고 합계는 다음 줄 전체 폭(solo).
+    const rest = uaKeys.length - 2, solo = rest >= 4;
+    const span = rest > 0 ? Math.max(3, Math.floor(12 / (solo ? rest - 1 : rest))) : 0;
+    let slot = 0; const over = sum => slot++ >= 2 && span ? [' over', `--span:${sum && solo ? 12 : span};`] : ['', ''];
     for (const k of uaKeys.slice(1)) { const v = G[k].ua, [oc, os] = over();
       h += `<a class="t side${oc}" href="${uaUrl(k)}" style="${os}--c:${C(k)}"><div class="head"><img src="${I(k)}" alt=""><span class="name" style="font-size:20px">${esc(G[k].name)}</span><span class="s" style="margin-left:auto">UA</span></div>
         <div class="row3"><div><div class="k">D1 ROAS · 7일</div><div class="mid" style="color:${C(k)}">${pct(v.d1)}</div></div><div><div class="k">광고비 · ${md(v.last)}</div><div class="mid">${usd(v.cost)}</div></div><div><div class="k">CPI</div><div class="mid">${usd(v.cpi, 2)}</div></div></div></a>`; }
-    const [oc, os] = over();
+    const [oc, os] = over(true);
     h += `<div class="t sum${oc}" style="${os}"><div class="k">어제 합계 · UA ${uaKeys.length}게임 · 게임 ${genKeys.length}개</div>
       <div class="row3">${totals.map(([k, v]) => `<div><div class="k">${k.split(' · ')[0]}</div><div class="mid">${v}</div></div>`).join('')}</div></div>`;
   }
