@@ -76,7 +76,6 @@
 /* ── 섹션 제목·카드 공용(UA 화면) ── */
 .gx-h2{display:flex;align-items:baseline;gap:10px;margin:30px 0 10px;font-size:16px;font-weight:600;color:var(--ink)}
 .gx-h2 small{font-weight:400;font-size:12px;color:var(--ink-3)}
-.gx-foot{padding:10px var(--gutter) 36px;color:var(--ink-3);font-size:12px}
 
 @media (max-width:720px){
   .gx-bar{flex-wrap:wrap;gap:10px}
