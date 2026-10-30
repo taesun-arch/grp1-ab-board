@@ -48,6 +48,30 @@ window.GX = (function(){
     if (art) { if (g.art) { art.src = g.art; art.hidden = false; } else art.hidden = true; }
     if (name) name.textContent = g.name || fallbackName || key;
   }
+  // 마지막으로 본 게임(탭 단위 sessionStorage) — 보드를 오갈 때 같은 게임을 유지하고, 데이터 복호 전에 히어로를 먼저 채우는 데 쓴다(2026-10-30).
+  const LAST_KEY = 'grp1:lastGame';
+  function rememberGame(key){ try { sessionStorage.setItem(LAST_KEY, key); } catch (e) {} }
+  function lastGame(){ try { return sessionStorage.getItem(LAST_KEY) || null; } catch (e) { return null; } }
+  // 데이터가 오기 전에 히어로를 게임 이름·색·키아트로 미리 채운다 — ?game= 이 있으면 그것, 없으면 마지막 게임. 둘 다 없으면 자리표시자 그대로(null).
+  // 실측(10-30): 전환마다 자리표시자 제목이 0.2~0.6초 보였다(암호문 파싱·복호·렌더가 끝나야 제목이 바뀜) → 첫 그림부터 게임 이름이 나오게.
+  function prehero(el){
+    const q = new URLSearchParams(location.search).get('game');
+    const key = GAMES[q] ? q : (GAMES[lastGame()] ? lastGame() : null);
+    if (key) hero(el, key);
+    return key;
+  }
+  // base64 → 바이트. Uint8Array.from(atob(s), cb) 는 글자마다 콜백이라 4.6MB 암호문에 120~140ms(10-30 실측) — 내장 fromBase64 는 2ms, for 루프 9ms.
+  function b64(s){
+    if (typeof Uint8Array.fromBase64 === 'function') return Uint8Array.fromBase64(s);
+    const bin = atob(s), out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  // 평문 데이터 파일(*-data.js)은 로컬 점검용 — 공개 사이트(GitHub Pages)엔 없어서 404 왕복(파서 차단, 10-30 실측 15~200ms)만 생겼다.
+  // file:·localhost 이거나 ?data= 로 명시했을 때만 읽는다.
+  function wantsPlain(){
+    return location.protocol === 'file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname) || new URLSearchParams(location.search).has('data');
+  }
   const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   // 게임 전환 포스터 버튼 — 글자는 게임 이름만(일반 보드 화면 테스트가 버튼 글자를 게임 이름과 대조한다)
   const posterBtn = (key, name, selected) => {
@@ -55,5 +79,5 @@ window.GX = (function(){
     return `<button class="gx-game" type="button" role="tab" aria-selected="${!!selected}" data-g="${esc(key)}" style="--gc:${g.color || 'var(--accent)'}">`
       + (g.icon ? `<img src="${g.icon}" alt="">` : '') + esc(name || g.name || key) + `</button>`;
   };
-  return {GAMES, wireTheme, withHash, hero, posterBtn, esc};
+  return {GAMES, wireTheme, withHash, hero, posterBtn, esc, rememberGame, lastGame, prehero, b64, wantsPlain};
 })();

@@ -147,9 +147,12 @@ table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border
   <section id="sec-slices"><h2>슬라이스 <span class="muted">핵심 지표를 차원별로</span><span class="seg" id="sliceseg"></span></h2><div class="grid wide" id="slices"></div></section>
 </main>
 <script>
+// 데이터가 오기 전에 히어로부터 게임 이름으로(?game= 또는 마지막 게임) — 복호·렌더가 끝날 때까지 자리표시자 제목이 보이던 것을 없앤다(2026-10-30).
+GX.prehero(document.getElementById('hero'));
 // 데이터 소스: 기본 general-data.js(실데이터). general.html?data=synth 는 합성 데이터(general-data.synth.js) — 배포 전 보드 점검용.
+// 평문은 로컬(file:·localhost)이나 ?data= 명시일 때만 읽는다 — 공개 사이트엔 암호문만 있어 404 왕복이 됐었다.
 (function(){ var k = new URLSearchParams(location.search).get('data'); var f = k && /^[a-z0-9_-]{1,20}$/.test(k) && k!=='real' ? 'general-data.'+k+'.js' : 'general-data.js';
-  document.write('<script src="'+f+'"><\/script>'); window.__DATA_FILE = f; })();
+  if (GX.wantsPlain()) document.write('<script src="'+f+'"><\/script>'); window.__DATA_FILE = f; })();
 </script>
 <script src="general-data.enc.js"></script>
 <script>
@@ -783,9 +786,12 @@ function boot(data){
   if(!games.length){ $('empty').hidden=false; $('empty').textContent='데이터가 비어 있음 — python -m general.build 실행'; return; }
   $('empty').hidden=true;
   // 게임 전환 = 히어로의 앱 아이콘 포스터(공용 site.js). ?game=rr 로 첫 게임을 고를 수 있다(메인 화면 포스터가 쓴다).
-  const qg = new URLSearchParams(location.search).get('game'); if(qg && games.includes(qg)) game = qg;
+  // 없으면 이 탭에서 마지막으로 본 게임(보드를 오가도 같은 게임 유지 — 복호 전에 미리 채운 히어로와도 일치), 그것도 없으면 첫 게임.
+  const qg = new URLSearchParams(location.search).get('game'), lg = GX.lastGame();
+  if(qg && games.includes(qg)) game = qg; else if(lg && games.includes(lg)) game = lg;
   $('tabs').innerHTML = games.map(g=>GX.posterBtn(g, D.games[g].meta?.game||g, g===game)).join('');
-  $('tabs').querySelectorAll('.gx-game').forEach(b=>b.onclick=()=>{game=b.dataset.g; $('tabs').querySelectorAll('.gx-game').forEach(x=>x.setAttribute('aria-selected',x===b)); GX.hero($('hero'), game, D.games[game].meta?.game); render();});
+  $('tabs').querySelectorAll('.gx-game').forEach(b=>b.onclick=()=>{game=b.dataset.g; GX.rememberGame(game); $('tabs').querySelectorAll('.gx-game').forEach(x=>x.setAttribute('aria-selected',x===b)); GX.hero($('hero'), game, D.games[game].meta?.game); render();});
+  GX.rememberGame(game);
   GX.hero($('hero'), game, D.games[game].meta?.game);
   render();
 }
@@ -797,7 +803,7 @@ GX.withHash();     // 공유 링크의 비밀번호를 메인·UA 보드 링크�
 /* ── 데이터: 평문(general-data.js) → 암호문(general-data.enc.js, 공개 URL 배포용) → 없음 ──
    A/B 보드(ab.html)와 같은 형식·같은 비밀번호. #k=비밀번호 가 있으면 입력 없이 열린다. */
 const PWKEY = 'genboard:pass';
-const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const b64 = GX.b64;   // 공용 빠른 디코드(내장 fromBase64 → for 루프) — 콜백식은 4.6MB 에 120~140ms 걸렸다(10-30 실측)
 async function decryptData(enc, pass){
   const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
   const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt:b64(enc.salt), iterations:enc.iter, hash:'SHA-256'}, km,
