@@ -98,7 +98,7 @@ table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border
 <body>
 <header class="gx-bar">
   <a class="gx-brand" id="home" href="index.html" data-keep-hash title="메인으로"><b>GRP1</b><span>대시보드</span></a>
-  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash aria-current="page">일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a></nav>
+  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash aria-current="page">일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a><a href="kpi.html" data-keep-hash>KPI</a></nav>
   <div class="gx-right"><span id="gen" class="gx-gen"></span><button class="gx-btn" id="theme" type="button">라이트</button></div>
 </header>
 <!-- 게임 히어로 — 고른 게임의 키아트·강조색. 게임 전환은 오른쪽 아이콘 포스터(#tabs, 버튼 글자 = 게임 이름) -->
@@ -392,7 +392,7 @@ function osView(J){
       imps_per_user_hist:M(J.ads.imps_per_user_hist||{}, P)}),
     ads_daily: M(J.ads_daily||{}, (d)=>M(d, (ir)=>[P(ir[0]), P(ir[1])])),
     slices: M(J.slices||{}, (dim)=>M(dim, (v)=>({users:P(v.users), d1:[P(v.d1[0]), P(v.d1[1])], d7:[P(v.d7[0]), P(v.d7[1])],
-      wins:P(v.wins), fails:P(v.fails), revenue_usd:P(v.revenue_usd), payers:P(v.payers)}))),
+      wins:P(v.wins), wins_ach:P(v.wins_ach!==undefined?v.wins_ach:v.wins), fails:P(v.fails), revenue_usd:P(v.revenue_usd), payers:P(v.payers)}))),
   };
 }
 
@@ -581,7 +581,7 @@ function renderFunnel(J){
   out.push(cohChartCard('funnel', rows, {title:'도달률', sub:`${winLabel(K)} 도달률 · ${cohOsLabel()}`, xs, agg, pct:true, curveLabel:'레벨 커브', yfmt:(v)=>fmt.p(v,0), tip:(X)=>`${fmt.n(X.num)}/${fmt.n(X.den)}`, dateTitle:(x)=>`설치일별 ${x.label} 도달률`}));
   out.push(cohTableCard({title:'설치일별 도달률', sub:`${winLabel(K)} · LV≥N 클리어 유저 / 코호트 · ${cohOsLabel()}`, rows, cols:xs, agg, fmt:v=>fmt.p(v,1),
     tip:(X,col,ctx)=>`${ctx} · ${col.label} · 도달 ${fmt.n(X.num)} / 코호트 ${fmt.n(X.den)}`,
-    foot:[`— : ${winLabel(K)} 기준으로 미성숙한 코호트`, `도달 = 첫 클리어 ≥ N(${notSent(J,'af_level_achieved')?'Level_Completed_N':'af_level_achieved'})이 창 안에 있음`, '관측 창이 같은 코호트끼리만 비교할 것']}));
+    foot:[`— : ${winLabel(K)} 기준으로 미성숙한 코호트`, `도달 = 첫 클리어 ≥ N(${notSent(J,'af_level_achieved')?'Level_Completed_N':J.meta.ach_min_version?`af_level_achieved · ${J.meta.ach_min_version} 이전 버전 행은 Level_Completed_N`:'af_level_achieved'})이 창 안에 있음`, '관측 창이 같은 코호트끼리만 비교할 것']}));
   $('funnel').innerHTML = out.join('');
 }
 // ── 플레이 강도 — 설치 후 k일째 접속 유저 1명당 레벨 클리어 수 ──
@@ -776,7 +776,7 @@ function renderSlices(J){
   const S = J.slices[sliceDim]||{}; const rows = Object.entries(S).sort((a,b)=>b[1].users-a[1].users); const umax = rows.length?rows[0][1].users:0;
   $('slices').innerHTML = card(`${dims.find(d=>d[0]===sliceDim)[1]}별 핵심 지표 <span class="muted">D1·D7 분모 = 성숙 유저</span>`+ALL(),
     rows.length?table(['값','유저','D1','D7','클리어율','결제자','매출','ARPU'], rows.map(([k,v])=>[esc(k), `${fmt.n(v.users)} ${hbar(v.users,umax)}`,
-      v.d1[1]?fmt.p(ratio(v.d1[0],v.d1[1])):'–', v.d7[1]?fmt.p(ratio(v.d7[0],v.d7[1])):'–', (!notSent(J,'level_fail') && v.wins+v.fails)?fmt.p(ratio(v.wins,v.wins+v.fails)):'–',
+      v.d1[1]?fmt.p(ratio(v.d1[0],v.d1[1])):'–', v.d7[1]?fmt.p(ratio(v.d7[0],v.d7[1])):'–', (!notSent(J,'level_fail') && v.wins_ach+v.fails)?fmt.p(ratio(v.wins_ach,v.wins_ach+v.fails)):'–',
       fmt.n(v.payers), fmt.usd(v.revenue_usd), fmt.usd(ratio(v.revenue_usd,v.users)||0)])):empty('–'),'span2');
 }
 

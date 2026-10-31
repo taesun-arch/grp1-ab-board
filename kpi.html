@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KPI · GRP1 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="site.css">
+<script src="site.js"></script>
+<style>
+/* KPI 보드 — 팀장님 KPI 표(획득·참여·플레이·수익화·시뮬레이션)를 지금 데이터로 채울 수 있는 것만(2026-11-01). 한 게임(Bash Fiesta).
+   정의는 이웃 보드를 따른다: 획득·ROAS = UA 보드, 잔존·코호트 ARPU = 일반 지표 보드. 이 탭에서 새로 센 지표는 타일에 출처 꼬리표. */
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit} button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gc,var(--accent));outline-offset:2px}
+.wrap{padding:6px var(--gutter) 40px;max-width:calc(var(--maxw) + 2 * var(--gutter));margin:0 auto}
+.muted{color:var(--ink-3)} .small{font-size:12px} .num{font-variant-numeric:tabular-nums}
+/* 상단 도구 — 섹션 바로가기 + 기간·OS */
+.toolbar{position:sticky;top:57px;z-index:15;margin:0 0 16px;padding:10px 0;background:color-mix(in srgb,var(--bg) 90%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line-soft)}
+@media (max-width:720px){ .toolbar{position:static} }
+.secnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+.secnav button{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--ink-2)}
+.secnav button[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink);border-color:transparent;font-weight:500}
+.filters{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 14px}
+.chip .lbl{font-size:12px;color:var(--ink-3)}
+.chip input[type=date]{background:var(--card-2);border:1px solid transparent;border-radius:999px;padding:3px 10px;font:12.5px var(--mono);color:var(--ink);color-scheme:inherit}
+.preset,.osb{border:1px solid transparent;background:transparent;color:var(--ink-2);font-size:12.5px;padding:4px 11px;border-radius:999px}
+.preset:hover,.osb:hover{color:var(--ink);border-color:var(--line)}
+.preset.on,.osb.on{background:var(--ink);color:var(--bg);font-weight:600}
+.range{font-size:12px;color:var(--ink-3)}
+/* 커버리지 띠 — 표 40개 중 몇 개를 채웠나 */
+.cover{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:0 0 16px;padding:12px 16px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;font-size:12.5px;color:var(--ink-2)}
+.cover b{font:600 18px/1 var(--font);color:var(--ink);margin-right:4px}
+.src{display:inline-block;font-size:10.5px;font-weight:500;padding:1px 7px;border-radius:999px;vertical-align:1px;white-space:nowrap}
+.src.ua{background:color-mix(in srgb,#ff6fb5 18%,transparent);color:var(--ink-2)}
+.src.gen{background:color-mix(in srgb,#6f93ff 20%,transparent);color:var(--ink-2)}
+.src.new{background:color-mix(in srgb,var(--c2) 20%,transparent);color:var(--ink-2)}
+.src.ref{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--ink-2)}
+/* 섹션 = 번호 판(일반 보드와 같은 모양) */
+main section{margin:0 0 22px;padding:18px 20px 22px;border:1px solid var(--line-soft);border-radius:18px;background:color-mix(in srgb,var(--card) 40%,var(--bg));scroll-margin-top:150px}
+main section[hidden]{display:none}
+main section > h2{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;font-size:19px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid var(--line)}
+main section > h2 .muted{font-weight:400;font-size:12.5px}
+main section > h2::before{content:attr(data-no);align-self:center;font:600 11.5px/1 var(--mono);padding:5px 8px;border-radius:999px;color:var(--gc,var(--accent));background:color-mix(in srgb,var(--gc,var(--accent)) 16%,transparent)}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:0 0 14px}
+.tile{position:relative;background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:11px 14px 12px;overflow:hidden;min-width:0}
+.tile .k{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;font-size:12px;color:var(--ink-3);font-weight:500}
+.tile .v{margin-top:4px;font:600 24px/1.1 var(--font);letter-spacing:-.01em}
+.tile .v.hit{color:var(--good)}
+.tile .s{margin-top:4px;font-size:11.5px;color:var(--ink-3)}
+.tile .meter{position:absolute;left:0;bottom:0;height:3px;background:var(--gc,var(--accent));opacity:.85}
+.tile .meter.hit{background:var(--good)}
+.grid{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.grid > *{flex:1 1 440px;min-width:0}
+.grid > .full{flex:1 1 100%}
+.card{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px;min-width:0}
+.card h3{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin:0 0 8px;font-size:13px;font-weight:600;color:var(--ink-2)} .card h3 .muted{font-weight:400}
+.card .foot{margin-top:6px;font-size:11.5px;color:var(--ink-3)}
+.seg{display:inline-flex;gap:2px;padding:2px;border-radius:999px;background:var(--chip);margin-left:auto}
+.seg button{border:0;background:transparent;border-radius:999px;padding:3px 11px;font-size:12px;color:var(--ink-2)}
+.seg button.on{background:var(--chip-on);color:var(--chip-on-ink);font-weight:500}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+th{color:var(--ink-3);font-weight:500;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+tr.total td{font-weight:600;background:color-mix(in srgb,var(--gc,var(--accent)) 8%,var(--card))}
+td.na{color:var(--ink-3)}
+.tscroll{overflow:auto;max-height:440px}
+.bar{display:inline-block;width:64px;height:6px;border-radius:3px;background:var(--line-soft);vertical-align:middle;margin-left:6px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:var(--c1)}
+svg{display:block;width:100%;height:auto;max-height:320px} svg text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}   /* 한 줄에 혼자 남아 넓어진 차트가 지나치게 커지지 않게 */
+svg .axis{stroke:var(--line);stroke-width:1} svg .gridl{stroke:var(--line-soft);stroke-width:1} svg .ref{stroke:var(--good);stroke-width:1;opacity:.7}
+svg .hit{fill:transparent} svg .hit:hover{fill:color-mix(in srgb,var(--ink) 6%,transparent)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);margin-top:6px} .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.empty{padding:22px;text-align:center;color:var(--ink-3);border:1px dashed var(--line);border-radius:10px;font-size:13px}
+/* 퍼널 — 가로 막대, 값은 막대 밖 */
+.fun{display:grid;grid-template-columns:minmax(150px,auto) 1fr auto;gap:8px 12px;align-items:center;font-size:12.5px}
+.fun .lb{color:var(--ink-2)} .fun .track{height:14px;border-radius:4px;background:var(--line-soft);overflow:hidden} .fun .track i{display:block;height:100%;border-radius:4px;background:var(--c1)}
+.fun .val{font-variant-numeric:tabular-nums;white-space:nowrap} .fun .drop{color:var(--ink-3);font-size:11.5px;margin-left:6px}
+/* 이 탭에 없는 KPI — 표의 항목을 빠짐없이 보이게, 흐리게 */
+.miss{margin-top:14px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;font-size:12px;color:var(--ink-3)}
+.miss b{color:var(--ink-2);font-weight:600;margin-right:6px}
+.miss ul{margin:6px 0 0;padding-left:18px} .miss li{margin:2px 0} .miss li em{font-style:normal;color:var(--ink-2)}
+details.defs{margin-top:8px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:12px 16px;color:var(--ink-2);font-size:12.5px}
+details.defs summary{cursor:pointer;font-weight:600;color:var(--ink)} details.defs li{margin:4px 0}
+.lock{max-width:420px;margin:48px auto;padding:26px;background:var(--card);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
+.lock b{font:700 20px var(--game)} .lock form{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.lock input{background:var(--card-2);border:1px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--ink);min-width:0}
+.lock button{border:0;border-radius:999px;padding:8px 18px;background:var(--ink);color:var(--bg);font-weight:600}
+.err{color:var(--crit)}
+@media (max-width:720px){
+  .tile .v{font-size:21px} .fun{grid-template-columns:1fr auto} .fun .track{grid-column:1 / -1;order:3}
+  /* 폰 폭(390px)에서 가로 넘침 제거 — 섹션 여백·타일 2열·날짜 칸 폭 */
+  main section{padding:14px 12px 16px} .tiles{grid-template-columns:repeat(2,minmax(0,1fr))} .grid > *{flex-basis:100%}
+  .chip{flex-wrap:wrap;border-radius:14px} .chip input[type=date]{width:124px;padding:3px 6px}
+}
+</style>
+</head>
+<body>
+<header class="gx-bar">
+  <a class="gx-brand" href="index.html" data-keep-hash title="메인으로"><b>GRP1</b><span>대시보드</span></a>
+  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a><a href="kpi.html" data-keep-hash aria-current="page">KPI</a></nav>
+  <div class="gx-right"><span id="gen" class="gx-gen"></span><button class="gx-btn" id="theme" type="button">라이트</button></div>
+</header>
+<section class="gx-hero" id="hero">
+  <div class="gx-wash"></div><img class="gx-art" alt="" hidden><div class="gx-shade"></div>
+  <div class="gx-copy">
+    <div class="gx-when"><span class="gx-pill">KPI</span><span>획득 · 참여 · 플레이 · 수익화 · 시뮬레이션 — 지금 데이터로 채울 수 있는 것만</span></div>
+    <h1 class="gx-name">KPI</h1>
+    <div class="gx-doc" id="hdoc"></div>
+  </div>
+  <nav class="gx-games" id="games" role="tablist" aria-label="게임"></nav>
+</section>
+<main class="wrap">
+  <div id="lock" hidden></div>
+  <div id="board" hidden>
+    <div class="toolbar"><div class="secnav" id="secnav"></div><div class="filters" id="filters"></div></div>
+    <div class="cover" id="cover"></div>
+    <section id="s1"><h2 data-no="Ⅰ">획득 <span class="muted">Acquisition · 광고로 들어온 설치(UA 보드와 같은 귀속·광고비)</span></h2><div id="b1"></div></section>
+    <section id="s2"><h2 data-no="Ⅱ">참여 · 리텐션 <span class="muted">Engagement &amp; Retention</span></h2><div id="b2"></div></section>
+    <section id="s3"><h2 data-no="Ⅲ">게임 플레이 <span class="muted">Gameplay Performance · 활동일 기준 전체 유저</span></h2><div id="b3"></div></section>
+    <section id="s4"><h2 data-no="Ⅳ">수익화 <span class="muted">Monetization</span></h2><div id="b4"></div></section>
+    <section id="s5"><h2 data-no="Ⅴ">시뮬레이션 <span class="muted">Simulation &amp; Strategy · 관측값만(예측 모델 없음)</span></h2><div id="b5"></div></section>
+    <details class="defs"><summary>정의 · 데이터 출처 · 주의</summary><ul id="defs"></ul></details>
+  </div>
+</main>
+
+<script>
+GX.prehero(document.getElementById('hero'));
+// 평문 kpi-data.js 는 로컬(file:·localhost·?data=)에서만 — 공개 사이트엔 암호문만 있다(일반·UA 보드와 같은 규칙).
+if (GX.wantsPlain()) document.write('<script src="kpi-data.js"><\/script>');
+</script>
+<script src="kpi-data.enc.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id), esc = GX.esc;
+GX.wireTheme($("theme")); GX.withHash();
+const fmt = {
+  n: v => v == null ? "–" : Math.round(v).toLocaleString("en-US"),
+  p: (v, d = 1) => v == null || !isFinite(v) ? "–" : (v * 100).toFixed(d) + "%",
+  usd: (v, d = 2) => v == null || !isFinite(v) ? "–" : "$" + Number(v).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}),
+  f: (v, d = 2) => v == null || !isFinite(v) ? "–" : Number(v).toFixed(d),
+};
+const ratio = (a, b) => b ? a / b : null;
+const shift = (d, k) => { const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + k); return t.toISOString().slice(0, 10); };
+const OSN = {ios: "iOS", aos: "Android"};
+const SRC = {ua: ["ua", "UA 보드 정의"], gen: ["gen", "일반 보드 정의"], new: ["new", "KPI 탭 계산"], ref: ["ref", "참고용"]};
+const src = k => `<span class="src ${SRC[k][0]}">${SRC[k][1]}</span>`;
+const FMTN = {rewarded: "리워드", interstitial: "전면", banner: "배너", other: "기타(단위 미상)"};
+
+const Q = new URLSearchParams(location.search);
+const st = {from: null, to: null, os: OSN[Q.get("os")] ? Q.get("os") : "all", sec: Q.get("sec") || "all", rm: "m"};
+let D = null, G = null, M = null, LO, HI, OK;
+
+// ── 공용 조각 ──
+function tile(label, value, sub, s, o = {}) {
+  const meter = o.meter != null ? `<div class="meter${o.hit ? " hit" : ""}" style="width:${Math.max(0, Math.min(1, o.meter)) * 100}%"></div>` : "";
+  return `<div class="tile"><div class="k">${label} ${s ? src(s) : ""}</div><div class="v${o.hit ? " hit" : ""}">${value}</div><div class="s">${sub || ""}</div>${meter}</div>`;
+}
+const card = (title, body, cls = "", foot = "") => `<div class="card ${cls}"><h3>${title}</h3>${body}${foot ? `<div class="foot">${foot}</div>` : ""}</div>`;
+const empty = msg => `<div class="empty">${esc(msg)}</div>`;
+const bar = (v, max) => `<span class="bar"><i style="width:${max > 0 ? Math.max(0, Math.min(100, v / max * 100)).toFixed(0) : 0}%"></i></span>`;
+function table(head, rows, total) {
+  return `<div class="tscroll"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`
+    + (total ? `<tr class="total">${total.map(c => `<td>${c}</td>`).join("")}</tr>` : "")
+    + rows.map(r => `<tr>${r.map(c => `<td${c === "–" ? ' class="na"' : ""}>${c}</td>`).join("")}</tr>`).join("") + `</tbody></table></div>`;
+}
+const missList = (items, see) => `<div class="miss"><b>이 탭에 없는 KPI</b>표의 항목 중 지금 데이터로 못 채우는 것 — 클라 계측 추가는 이번 범위 밖(팀장님 결정)<ul>${items.map(([n, why]) => `<li><em>${esc(n)}</em> — ${esc(why)}</li>`).join("")}</ul>`
+  + (see ? `<div style="margin-top:6px"><b>다른 섹션에 있는 KPI</b>${see.map(([n, where]) => `<em style="font-style:normal;color:var(--ink-2)">${esc(n)}</em> → ${esc(where)}`).join(" · ")}</div>` : "") + `</div>`;
+// 라인 차트 — x 는 같은 라벨 축, y 하나(이중 축 없음). 세로 띠 전체가 호버 영역(툴팁 = 그 x 의 모든 계열 값).
+function lineChart(series, o) {
+  const W = 560, H = 210, L = 50, R = 12, T = 12, B = 28, labels = o.labels, n = labels.length;
+  const vals = series.flatMap(s => s.points.filter(v => v != null));
+  if (!vals.length) return empty(o.none || "성숙한 코호트가 없음");
+  // y 범위 — 기본 0 부터. o.ymin/o.ymax 를 주면 그 범위(100% 근처에 붙은 비율 선이 평평하게 보이지 않게)
+  let ymax = o.ymax ?? Math.max(...vals, o.ref || 0) * 1.12; if (!(ymax > 0)) ymax = 1;
+  const ymin = o.ymin ?? 0;
+  const xs = i => L + (n <= 1 ? (W - L - R) / 2 : (W - L - R) * i / (n - 1)), ys = v => T + (H - T - B) * (1 - (v - ymin) / (ymax - ymin));
+  let g = "";
+  for (let k = 0; k <= 4; k++) { const y = T + (H - T - B) * k / 4; g += `<line class="gridl" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 3}" text-anchor="end">${o.yfmt(ymin + (ymax - ymin) * (1 - k / 4))}</text>`; }
+  if (o.ref) g += `<line class="ref" x1="${L}" x2="${W - R}" y1="${ys(o.ref)}" y2="${ys(o.ref)}"/><text x="${W - R}" y="${ys(o.ref) - 4}" text-anchor="end" style="fill:var(--good)">${esc(o.refLabel || "")}</text>`;
+  // x 라벨 — step 간격 + 마지막 점. 마지막 점과 너무 가까운 간격 라벨은 뺀다(D27·D28 이 겹쳐 보이던 것)
+  const step = Math.max(1, Math.ceil(n / 10)); let xl = "";
+  labels.forEach((lb, i) => { if (i === n - 1 || (i % step === 0 && n - 1 - i >= step)) xl +=`<text x="${xs(i)}" y="${H - 8}" text-anchor="${i === n - 1 && n > 1 ? "end" : "middle"}">${esc(lb)}</text>`; });
+  const paths = series.map(s => {
+    let d = "", pen = false;
+    s.points.forEach((v, i) => { if (v == null) { pen = false; return; } d += (pen ? "L" : "M") + xs(i).toFixed(1) + " " + ys(v).toFixed(1); pen = true; });
+    const dots = s.points.map((v, i) => v == null ? "" : `<circle cx="${xs(i).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="${n > 40 ? 0 : 2.6}" fill="${s.color}"/>`).join("");
+    return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>${dots}`;
+  }).join("");
+  const bw = (W - L - R) / Math.max(1, n - 1);
+  const hits = labels.map((lb, i) => `<rect class="hit" x="${(xs(i) - bw / 2).toFixed(1)}" y="${T}" width="${bw.toFixed(1)}" height="${H - T - B}"><title>${esc(lb)}${series.map(s => `\n${s.name}: ${s.points[i] == null ? "—" : o.yfmt(s.points[i])}${s.tips && s.tips[i] ? " · " + s.tips[i] : ""}`).join("")}</title></rect>`).join("");
+  const legend = series.length > 1 ? `<div class="legend">${series.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.title || "")}">${g}<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>${xl}${paths}${hits}</svg>${legend}`;
+}
+
+// ── 필터된 칸 ──
+const inR = d => d >= st.from && d <= st.to;
+const osOk = p => st.os === "all" || p === st.os;
+const uaRows = () => G.ua.filter(r => inR(r.d) && osOk(r.p));
+const geoRows = () => G.geo.filter(r => inR(r[0]) && osOk(r[1]));
+const masterRows = () => G.master.filter(r => inR(r[0]) && osOk(r[1]) && OK.has(r[0] + "|" + r[1]));
+const actRows = () => G.act.filter(r => inR(r.d) && osOk(r.p));
+const genRows = () => G.gen ? G.gen.rows.filter(r => inR(r.d) && osOk(r.os)) : [];
+const sum = (rows, f) => rows.reduce((a, r) => a + (f(r) || 0), 0);
+
+// UA 코호트 — ROAS·LTV 는 설치 후 k일째까지 매출 관측이 끝난 설치일만(ua.html agg 와 같은 규칙)
+function uaK(rows, k, num, den) {
+  const cut = shift(M.obs_rev, -k), mr = rows.filter(r => r.d <= cut);
+  const n = sum(mr, r => r.n), c = sum(mr, r => r.cost), x = sum(mr, num), y = sum(mr, den);
+  return {v: n && y > 0 ? x / y : null, n, cost: c};
+}
+const roasK = (rows, k) => uaK(rows, k, r => r.rev[k], r => r.cost);
+const ltvK = (rows, k) => uaK(rows, k, r => r.rev[k], r => r.n);
+function uaRet(rows, i) { const k = M.ret_ks[i], cut = shift(M.obs_ev, -k), mr = rows.filter(r => r.d <= cut); const n = sum(mr, r => r.n); return {v: ratio(sum(mr, r => r.ret[i]), n), n}; }
+// 일반 코호트 — 성숙 = 설치+k ≤ 인앱 관측 끝(광고가 들어가면 광고 관측 끝). activeAt(D0 = 전원)
+const gActive = (r, k) => k === 0 ? r.n : (r.ret[k - 1] || 0);
+function genK(rows, k, num, den, ads) {
+  if (!G.gen) return {v: null, n: 0};                 // 일반 지표 산출이 없던 회차 — 일반 정의 카드만 비운다
+  const end = ads ? G.gen.ad_last : G.gen.last; if (!end) return {v: null, n: 0};
+  const cut = shift(end, -k), mr = rows.filter(r => r.d <= cut);
+  const x = sum(mr, r => num(r, k)), y = sum(mr, r => den(r, k));
+  return {v: y ? x / y : null, n: sum(mr, r => r.n)};
+}
+const at = (a, k) => (a && k < a.length ? a[k] : 0) || 0;
+
+// ── 섹션 ──
+function renderS1() {
+  const U = uaRows(), n = sum(U, r => r.n), cost = sum(U, r => r.cost);
+  const MR = masterRows(), paid = MR.filter(r => r[2] !== "Organic");
+  const clk = sum(paid, r => r[4]), minst = sum(paid, r => r[5]), org = sum(MR.filter(r => r[2] === "Organic"), r => r[5]), allI = sum(MR, r => r[5]);
+  let h = `<div class="tiles">`
+    + tile("광고비", fmt.usd(cost, 0), `설치일 ${days(U)}일 · Master API`, "ua")
+    + tile("설치", fmt.n(n), "원시 설치 리포트(논오가닉)", "ua")
+    + tile("CPI", fmt.usd(ratio(cost, n)), "광고비 ÷ 설치", "ua")
+    + tile("CVR (클릭 → 설치)", fmt.p(ratio(minst, clk)), `Master 클릭 ${fmt.n(clk)} · AF 귀속 클릭 기준`, "ref")
+    + tile("오가닉 비중", fmt.p(ratio(org, allI)), `Master 설치 ${fmt.n(allI)} 중 Organic ${fmt.n(org)}`, "new")
+    + `</div>`;
+  // 국가별 CPI — 광고비 큰 15개국 + 기타
+  const GR = geoRows(), byC = new Map();
+  const c7 = shift(M.obs_rev, -7), c1 = shift(M.obs_ev, -1);
+  for (const r of GR) {
+    const [d, , cc, nn, c, , , , r7, a1] = r; let x = byC.get(cc); if (!x) byC.set(cc, x = {n: 0, cost: 0, n1: 0, a1: 0, c7: 0, r7: 0});
+    x.n += nn; x.cost += c; if (d <= c1) { x.n1 += nn; x.a1 += a1; } if (d <= c7) { x.c7 += c; x.r7 += r7; }
+  }
+  const all = [...byC].sort((a, b) => b[1].cost - a[1].cost), top = all.slice(0, 15), rest = all.slice(15);
+  const add = (xs) => xs.reduce((a, [, x]) => { for (const k in x) a[k] = (a[k] || 0) + x[k]; return a; }, {});
+  const tot = add(all), maxc = top.length ? top[0][1].cost : 0;
+  const crow = (name, x) => [esc(name), fmt.usd(x.cost, 0) + bar(x.cost, maxc), fmt.n(x.n), fmt.usd(ratio(x.cost, x.n)), fmt.p(ratio(x.a1, x.n1)), x.c7 > 0 ? fmt.p(x.r7 / x.c7) : "–", fmt.p(ratio(x.cost, tot.cost))];
+  const geoT = all.length ? table(["국가", "광고비", "설치", "CPI", "D1 활동", "D7 ROAS", "광고비 비중"],
+      [...top.map(([cc, x]) => crow(cc, x)), ...(rest.length ? [crow(`기타 ${rest.length}개국`, add(rest))] : [])], crow("전체", tot))
+    : empty("선택한 기간에 국가별 광고비가 없음");
+  // 매체별 — CPI·D7 ROAS(UA 칸) + Master 클릭·CVR
+  const byM = new Map();
+  for (const r of U) { let x = byM.get(r.m); if (!x) byM.set(r.m, x = {rows: []}); x.rows.push(r); }
+  const mc = new Map(); for (const r of paid) { const x = mc.get(r[2]) || [0, 0]; x[0] += r[4]; x[1] += r[5]; mc.set(r[2], x); }
+  const mrows = [...byM].map(([m, x]) => { const nn = sum(x.rows, r => r.n), cc = sum(x.rows, r => r.cost), R7 = roasK(x.rows, 7), k = mc.get(m) || [0, 0];
+    return [cc, [esc(m), fmt.usd(cc, 0), fmt.n(nn), fmt.usd(ratio(cc, nn)), fmt.p(R7.v), fmt.n(k[0]), fmt.p(ratio(k[1], k[0]))]]; }).sort((a, b) => b[0] - a[0]).map(x => x[1]);
+  h += `<div class="grid">`
+    + card(`국가별 CPI ${src("new")} <span class="muted">광고비 = Master API 국가별(geo) · 설치 = 원시 설치 리포트의 국가</span>`, geoT, "",
+        "D1 활동 = 설치 다음 날 인앱 이벤트 1건 이상(UA 보드 잔존 정의) · D7 ROAS = 설치 후 7일째까지 매출 관측이 끝난 설치일만. KR 은 광고비만 있고 설치가 0 — 설치에서 KR 을 빼는 규칙(사내 테스트) 때문이며, 그 광고비는 UA 보드 광고비에도 들어 있다.")
+    + card(`매체별 CPI · CVR ${src("ua")} <span class="muted">CVR 은 Master 설치 도착일만</span>`, mrows.length ? table(["매체", "광고비", "설치", "CPI", "D7 ROAS", "Master 클릭", "CVR(참고)"], mrows) : empty("선택한 기간에 UA 설치 없음"), "",
+        "Master 노출·클릭은 광고 네트워크가 AF 에 넘긴 귀속 이벤트라 실제 광고 노출이 아니다(CTR 이 58~105% 로 나옴) — CVR 은 참고만.")
+    + `</div>`;
+  h += missList([["CTR (노출 → 클릭)", "AF 가 받는 노출·클릭은 실제 광고 노출 수가 아니다(10-24~30 실측 CTR 58~105%, unityads 는 클릭 > 노출). AppLovin·Unity 대시보드가 필요"],
+    ["I2O (설치 → 첫 실행)", "AF 는 SDK 첫 실행을 설치로 센다 — 정의상 측정 불가. 스토어 다운로드 수(Play Console·App Store Connect) 필요"],
+    ["응답률 (소재 반응)", "CTR 과 같은 이유. 소재(Creative set)별 CPI·ROAS·잔존은 UA 보드에 있다"],
+    ["전환률 (스토어 페이지 → 설치)", "스토어 페이지 조회가 AF 에 없다 — Play Console 스토어 등록정보 전환 데이터 필요"]],
+    [["LTV 예측 변수", "Ⅴ 'LTV 입력값' 표(잔존·ARPDAU·누적 ARPU — 예측 모델은 없음)"]]);
+  $("b1").innerHTML = h;
+}
+
+function renderS2() {
+  const R = genRows(), U = uaRows(), A = actRows();
+  const ret = k => genK(R, k, (r, k) => at(r.ret, k - 1), (r) => r.n);
+  const UL = U.filter(r => r.d >= M.login_from), entry = {v: ratio(sum(UL, r => r.login0), sum(UL, r => r.n)), n: sum(UL, r => r.n)};
+  const clr0 = {v: ratio(sum(U, r => r.clr0), sum(U, r => r.n)), n: sum(U, r => r.n)};
+  const L7 = uaK(U, 7, r => r.loop7, r => r.n);
+  // 세션 분모 = af_app_opened 를 보낸 유저 — 이 이벤트는 계측 빌드(1.5.2)부터라 활동 유저로 나누면 롤아웃 초기가 0 으로 떨어진다(09-11 iOS 세션 유저 1명)
+  const ses = ratio(sum(A, r => r.ses), sum(A, r => r.ses_u));
+  const rt = A.reduce((a, r) => { for (const b in r.retry || {}) { a[0] += r.retry[b][0]; a[1] += r.retry[b][1]; } return a; }, [0, 0]);
+  const T = (k, X) => tile(`D${k} 잔존`, fmt.p(X.v), X.n ? `코호트 ${fmt.n(X.n)}명 · af_login` : "성숙한 코호트 없음", "gen");
+  let h = `<div class="tiles">` + T(1, ret(1)) + T(7, ret(7)) + T(28, ret(28))
+    + tile("인게임 진입률", fmt.p(entry.v), `UA 설치 ${fmt.n(entry.n)}명 중 설치 당일 af_login(로그인 완료)`, "new")
+    + tile("D0 첫 클리어", fmt.p(clr0.v), `UA 설치 ${fmt.n(clr0.n)}명 · 설치 당일 1레벨 이상 클리어`, "new")
+    + tile("세션 수 (일)", fmt.f(ses, 2), `유저당 하루 평균 · af_app_opened ${fmt.n(sum(A, r => r.ses))}건`, "new")
+    + tile("코어 루프 진입률", fmt.p(L7.v), `UA 설치 ${fmt.n(L7.n)}명 · D7 안에 광고 시청 또는 결제`, "new")
+    + tile("Fail → Retry", fmt.p(ratio(rt[1], rt[0])), `실패 ${fmt.n(rt[0])}건 중 같은 레벨 재도전(유저 1/${M.sample_mod} 표본)`, "new")
+    + `</div>`;
+  // 잔존 커브(일반) · 목표 레벨 도달(일반) · 세션 일별(새로 계산)
+  const ks = Array.from({length: 28}, (_, i) => i + 1), rc = ks.map(k => ret(k));
+  const curve = R.length ? lineChart([{name: "잔존", color: "var(--c1)", points: rc.map(x => x.v), tips: rc.map(x => `코호트 ${fmt.n(x.n)}명`)}], {labels: ks.map(k => "D" + k), yfmt: v => fmt.p(v, 0), title: "잔존 커브"}) : empty("일반 지표 산출이 없음");
+  const marks = (G.gen && G.gen.lv_marks) || [], LK = [0, 1, 3, 7, 14, 28];
+  const reach = (m, k) => genK(R, k, (r, k) => at((r.lv || {})[m], k), r => r.n);
+  const lvT = marks.length ? table(["도달 레벨", ...LK.map(k => "D" + k)], marks.map(m => [`LV ${m}+`, ...LK.map(k => fmt.p(reach(String(m), k).v))])) : empty("일반 지표 산출이 없음");
+  const AD = [...new Set(A.map(r => r.d))].sort(), byD = d => A.filter(r => r.d === d);
+  // 세션 유저 100명 미만인 날(계측 빌드 첫날 iOS 1명 등)은 점을 그리지 않는다 — 한 명의 값이 선을 끌어내린다
+  const sesC = AD.length ? lineChart([{name: "세션 / 유저", color: "var(--c1)", points: AD.map(d => sum(byD(d), r => r.ses_u) < 100 ? null : ratio(sum(byD(d), r => r.ses), sum(byD(d), r => r.ses_u))), tips: AD.map(d => `세션 유저 ${fmt.n(sum(byD(d), r => r.ses_u))}명`)}],
+    {labels: AD.map(d => d.slice(5)), yfmt: v => fmt.f(v, 1), title: "세션 일별"}) : empty("선택한 기간에 활동일 없음");
+  // 설치일별 진입 — 인게임 진입률(D0 af_login)·D0 첫 클리어. 진입률은 af_login 계측이 모든 새 설치에 오는 설치일부터
+  const UD = [...new Set(U.map(r => r.d))].sort(), uBy = d => U.filter(r => r.d === d);
+  const ent = UD.map(d => d >= M.login_from ? ratio(sum(uBy(d), r => r.login0), sum(uBy(d), r => r.n)) : null), cl0 = UD.map(d => ratio(sum(uBy(d), r => r.clr0), sum(uBy(d), r => r.n)));
+  const lo = Math.min(...[...ent, ...cl0].filter(v => v != null), 1);
+  const entC = UD.length ? lineChart([
+      {name: "인게임 진입률", color: "var(--c1)", points: ent, tips: UD.map(d => `설치 ${fmt.n(sum(uBy(d), r => r.n))}명`)},
+      {name: "D0 첫 클리어", color: "var(--c3)", points: cl0}],
+    {labels: UD.map(d => d.slice(5)), yfmt: v => fmt.p(v, 1), ymin:Math.max(0, Math.floor(lo * 20) / 20 - 0.05), ymax: 1, title: "설치일별 진입"}) : empty("선택한 기간에 UA 설치 없음");
+  h += `<div class="grid">`
+    + card(`잔존 커브 D1~D28 ${src("gen")} <span class="muted">코호트 = 설치 당일 af_login · Dk 마다 성숙한 설치일만</span>`, curve)
+    + card(`목표 레벨 진행률 ${src("gen")} <span class="muted">설치 후 k일 안에 LV N 이상 첫 클리어한 코호트 비율</span>`, lvT, "", "튜토리얼 이벤트가 없어 '튜토리얼 완료율' 대신 초반 레벨(LV 5·10) 도달을 본다.")
+    + card(`세션 일별 ${src("new")} <span class="muted">af_app_opened ÷ 그날 af_app_opened 를 보낸 유저</span>`, sesC, "",
+        "af_app_opened = 클라 세션: 10-26~29 연속 이틀 접속 유저-일 10,149건에서 af_login.session_n 증가분 평균 3.55 vs af_app_opened 3.52(정확 일치 76%, 나머지 대부분 ±1). 계측 빌드(1.5.2)부터 오는 이벤트라 분모도 그 유저만.")
+    + card(`설치일별 진입 ${src("new")} <span class="muted">UA 설치 중 설치 당일 af_login · 1레벨 이상 클리어</span>`, entC, "",
+        `인게임 진입률은 설치일 ${M.login_from} 부터(그 전엔 af_login 계측 빌드 롤아웃이 섞여 낮게 나온다 — 설치일별 D0 af_login 비율 09-11 21% · 09-12 91% · 09-16~ 99%대).`)
+    + `</div>`;
+  h += missList([["튜토리얼 완료율", "튜토리얼 이벤트가 없다 — 대신 위 '목표 레벨 진행률' 의 LV 5·10 도달과 'D0 첫 클리어'"],
+    ["평균 플레이 타임", "세션 길이·플레이 시간 이벤트가 없다(첫~마지막 이벤트 간격 근사만 가능해 넣지 않음)"],
+    ["메타 콘텐츠 소비율", "모드·아이템 사용 이벤트가 없다(구매 SKU·광고 배치만 있음)"],
+    ["Ad Fatigue Index", "광고 노출만 오고 '광고 제안 → 수락' 이벤트가 없다"]]);
+  $("b2").innerHTML = h;
+}
+
+const days = rows => new Set(rows.map(r => r.d)).size;
+function fmtAgg(A) {
+  const f = {}; let act = 0;
+  for (const r of A) { if (!r.fmt) continue; act += r.act; for (const k in r.fmt) { const x = f[k] || (f[k] = [0, 0, 0]); x[0] += r.fmt[k][0]; x[1] += r.fmt[k][1]; x[2] += r.fmt[k][2]; } }
+  return {f, act};
+}
+function renderS3() {
+  const A = actRows(), F = fmtAgg(A), B = M.bands;
+  const watch = (at(F.f.rewarded, 0) + at(F.f.interstitial, 0)), revAll = Object.values(F.f).reduce((a, x) => a + x[1], 0);
+  const band = {}; for (const r of A) for (const b in r.band || {}) { const x = band[b] || (band[b] = [0, 0, 0, 0, 0, 0]); r.band[b].forEach((v, i) => x[i] += v); const t = (r.retry || {})[b]; if (t) { x[4] += t[0]; x[5] += t[1]; } }
+  const tb = Object.values(band).reduce((a, x) => a.map((v, i) => v + x[i]), [0, 0, 0, 0, 0, 0]);
+  let h = `<div class="tiles">`
+    + tile("광고 시청 수", fmt.f(ratio(watch, F.act), 2), `리워드 + 전면 노출 ÷ 활동 유저-일`, "new")
+    + tile("리워드 매출 비중", fmt.p(ratio(at(F.f.rewarded, 1), revAll)), `리워드 ${fmt.usd(at(F.f.rewarded, 1), 0)} / 광고 ${fmt.usd(revAll, 0)}`, "new")
+    + tile("전면 매출 비중", fmt.p(ratio(at(F.f.interstitial, 1), revAll)), `전면 ${fmt.usd(at(F.f.interstitial, 1), 0)}`, "new")
+    + tile("배너 매출 비중", fmt.p(ratio(at(F.f.banner, 1), revAll)), `배너 ${fmt.usd(at(F.f.banner, 1), 0)} · 화면에 안 보이는 자동 갱신`, "new")
+    + tile("레벨 실패율", fmt.p(ratio(tb[3], tb[0] + tb[3])), `실패 ÷ (클리어 + 실패) · 실패 ${fmt.n(tb[3])}`, "new")
+    + tile("평균 시도 / 클리어", fmt.f(ratio(tb[1], tb[2]), 2), `클리어 때 attempt_count 평균 · 클리어 ${fmt.n(tb[2])}`, "new")
+    + `</div>`;
+  const order = ["rewarded", "interstitial", "banner", "other"].filter(k => F.f[k]);
+  const fT = order.length ? table(["형식", "노출", "노출 / 활동 유저-일", "시청 유저 비율", "매출", "eCPM", "매출 비중"],
+    order.map(k => { const x = F.f[k]; return [FMTN[k] || k, fmt.n(x[0]), fmt.f(ratio(x[0], F.act), 2), fmt.p(ratio(x[2], F.act)), fmt.usd(x[1], 0) + bar(x[1], revAll), fmt.usd(ratio(x[1] * 1000, x[0])), fmt.p(ratio(x[1], revAll))]; }))
+    : empty("선택한 기간에 광고 데이터 없음");
+  const bl = i => { const [lo, hi] = B[i]; return hi == null ? `LV ${lo}+ (루프)` : `LV ${lo}–${hi}`; };
+  const bT = Object.keys(band).length ? table(["레벨 구간", "클리어", "실패", "실패율", "평균 시도 / 클리어", "재도전율(표본)"],
+    Object.keys(band).sort((a, b) => a - b).map(b => { const x = band[b]; return [bl(+b), fmt.n(x[0]), fmt.n(x[3]), fmt.p(ratio(x[3], x[0] + x[3])), fmt.f(ratio(x[1], x[2]), 2), x[4] ? `${fmt.p(x[5] / x[4])} <span class="muted">/${fmt.n(x[4])}</span>` : "–"]; }),
+    ["전체", fmt.n(tb[0]), fmt.n(tb[3]), fmt.p(ratio(tb[3], tb[0] + tb[3])), fmt.f(ratio(tb[1], tb[2]), 2), tb[4] ? `${fmt.p(tb[5] / tb[4])} <span class="muted">/${fmt.n(tb[4])}</span>` : "–"])
+    : empty("선택한 기간에 클리어·실패 없음");
+  const AD = [...new Set(A.filter(r => r.fmt).map(r => r.d))].sort(), byD = d => A.filter(r => r.d === d && r.fmt);
+  const per = (d, k) => { const rs = byD(d); return ratio(sum(rs, r => at((r.fmt || {})[k], 0)), sum(rs, r => r.act)); };
+  const wc = AD.length ? lineChart([{name: "리워드", color: "var(--c1)", points: AD.map(d => per(d, "rewarded"))}, {name: "전면", color: "var(--c3)", points: AD.map(d => per(d, "interstitial"))}],
+    {labels: AD.map(d => d.slice(5)), yfmt: v => fmt.f(v, 2), title: "일별 광고 시청 수"}) : empty("선택한 기간에 광고 데이터 없음");
+  h += `<div class="grid">`
+    + card(`광고 종류별 ${src("new")} <span class="muted">MAX 광고 단위 ID → 형식(SmashFest 설정)</span>`, fT, "",
+        "배너는 화면에 보이지 않는데 SDK 초기화 때 생성돼 자동 갱신 노출이 잡힌다(일반 보드는 그래서 배너를 뺀다 — 이 표는 실제 매출이라 포함).")
+    + card(`일별 광고 시청 수 ${src("new")} <span class="muted">형식별 노출 ÷ 활동 유저</span>`, wc)
+    + card(`레벨 구간별 실패율 · 재도전 ${src("new")} <span class="muted">af_level_achieved · level_fail · attempt_count</span>`, bT, "full",
+        `재도전율 = 실패 뒤 같은 유저·레벨에서 더 큰 attempt_count 가 관측된 비율(유저 1/${M.sample_mod} 표본, 마지막 관측일 실패 제외) — 유실 시도가 있으면 낮게 나오는 하한.`)
+    + `</div>`;
+  h += missList([["평균 클리어 시간", "레벨 시작 이벤트를 AF 로 보내지 않는다(설계 결정) — 클리어 사이 간격은 로비·광고 시간이 섞여 넣지 않음"]]);
+  $("b3").innerHTML = h;
+}
+
+function renderS4() {
+  const U = uaRows(), A = actRows(), R = genRows(), F = fmtAgg(A);
+  const RK = [0, 1, 7, 28].map(k => [k, roasK(U, k)]);
+  const AA = A.filter(r => r.fmt), iapA = sum(AA, r => r.iap), iaaA = Object.values(F.f).reduce((a, x) => a + x[1], 0);
+  const pay7 = genK(R, 7, (r, k) => at(r.pay, k), r => r.n), arppu7 = genK(R, 7, (r, k) => at(r.iap, k), (r, k) => at(r.pay, k));
+  const sku = {}; let iapAll = 0; for (const r of A) { iapAll += r.iap; for (const k in r.sku || {}) { const x = sku[k] || (sku[k] = [0, 0]); x[0] += r.sku[k][0]; x[1] += r.sku[k][1]; } }
+  const noad = Object.entries(sku).filter(([k]) => /noad/.test(k)).reduce((a, [, x]) => a + x[1], 0);
+  let h = `<div class="tiles">`
+    + RK.map(([k, X]) => tile(`D${k} ROAS`, fmt.p(X.v), X.n ? `설치 ${fmt.n(X.n)}명 · 광고비 ${fmt.usd(X.cost, 0)}` : "매출 관측 전", "ua", {meter: X.v, hit: X.v >= 1})).join("")
+    + tile("ARPDAU", fmt.usd(ratio(iapA + iaaA, sum(AA, r => r.act)), 3), `(IAP + 광고 전 형식) ÷ 활동 유저-일`, "new")
+    + tile("일 결제율", fmt.p(ratio(sum(A, r => r.payers), sum(A, r => r.act)), 2), `결제자 ÷ 활동 유저 (하루 평균)`, "new")
+    + tile("D7 결제 전환", fmt.p(pay7.v, 2), pay7.n ? `코호트 ${fmt.n(pay7.n)}명 · 설치 후 7일 안 첫 결제` : "성숙한 코호트 없음", "gen")
+    + tile("D7 ARPPU", fmt.usd(arppu7.v), "D7 누적 IAP ÷ D7 결제자", "gen")
+    + tile("IAP 비중", fmt.p(ratio(iapA, iapA + iaaA)), `IAP ${fmt.usd(iapA, 0)} · 광고 매출 도착일만`, "new")
+    + tile("IAA 비중", fmt.p(ratio(iaaA, iapA + iaaA)), `광고 ${fmt.usd(iaaA, 0)} (배너 포함)`, "new")
+    + tile("광고제거 상품 비중", fmt.p(ratio(noad, iapAll)), `IAP 중 noad 계열 ${fmt.usd(noad, 0)}`, "new")
+    + `</div>`;
+  const K = Array.from({length: M.roas_max + 1}, (_, k) => k), rc = K.map(k => roasK(U, k));
+  const roasC = lineChart([{name: "ROAS", color: "var(--c1)", points: rc.map(x => x.v), tips: rc.map(x => `설치 ${fmt.n(x.n)}명`)}], {labels: K.map(k => "D" + k), yfmt: v => fmt.p(v, 0), ref: 1, refLabel: "본전 100%", title: "ROAS 커브", none: "매출 관측이 끝난 설치일 없음"});
+  const skus = Object.entries(sku).sort((a, b) => b[1][1] - a[1][1]), smax = skus.length ? skus[0][1][1] : 0;
+  const skuT = skus.length ? table(["상품 분류", "구매", "매출", "매출 비중"], skus.map(([k, x]) => [esc(k) + (/noad/.test(k) ? ' <span class="src ref">광고제거</span>' : ""), fmt.n(x[0]), fmt.usd(x[1], 0) + bar(x[1], smax), fmt.p(ratio(x[1], iapAll))]),
+    ["전체", fmt.n(sum(skus, ([, x]) => x[0])), fmt.usd(iapAll, 0), "100%"]) : empty("선택한 기간에 결제 없음");
+  const pl = {}, ds = {}; for (const r of AA) { for (const k in r.pl) { const x = pl[k] || (pl[k] = [0, 0]); x[0] += r.pl[k][0]; x[1] += r.pl[k][1]; } for (const k in r.dsi || {}) { const x = ds[k] || (ds[k] = [0, 0]); x[0] += r.dsi[k][0]; x[1] += r.dsi[k][1]; } }
+  const pls = Object.entries(pl).sort((a, b) => b[1][1] - a[1][1]), pmax = pls.length ? pls[0][1][1] : 0;
+  const plT = pls.length ? table(["배치(Placement)", "노출", "매출", "eCPM", "매출 비중"], pls.map(([k, x]) => [esc(k === "(빈칸)" ? "(빈칸 — 배너)" : k), fmt.n(x[0]), fmt.usd(x[1], 0) + bar(x[1], pmax), fmt.usd(ratio(x[1] * 1000, x[0])), fmt.p(ratio(x[1], iaaA))])) : empty("선택한 기간에 광고 데이터 없음");
+  const E = M.dsi_edges, dl = i => i === E.length - 1 ? `D${E[i]}+` : (E[i + 1] - 1 === E[i] ? `D${E[i]}` : `D${E[i]}–${E[i + 1] - 1}`);
+  const dsT = Object.keys(ds).length ? table(["설치 후 경과일", "노출", "매출", "eCPM", "매출 비중"], Object.keys(ds).sort((a, b) => a - b).map(k => { const x = ds[k]; return [dl(+k), fmt.n(x[0]), fmt.usd(x[1], 0), fmt.usd(ratio(x[1] * 1000, x[0])), fmt.p(ratio(x[1], iaaA))]; })) : empty("선택한 기간에 광고 데이터 없음");
+  const ap = K.map(k => genK(R, k, (r, k) => at(r.iap, k), (r, k) => at(r.pay, k)));
+  const apC = R.length ? lineChart([{name: "ARPPU", color: "var(--c4)", points: ap.map(x => x.v), tips: ap.map(x => `코호트 ${fmt.n(x.n)}명`)}], {labels: K.map(k => "D" + k), yfmt: v => fmt.usd(v, 0), title: "ARPPU 곡선"}) : empty("일반 지표 산출이 없음");
+  h += `<div class="grid">`
+    + card(`ROAS 커브 D0~D28 ${src("ua")} <span class="muted">Dk 마다 k일째까지 매출 관측이 끝난 설치일만 — 점마다 모인 설치일이 다르다</span>`, roasC)
+    + card(`구매 타이밍별 ARPPU 곡선 ${src("gen")} <span class="muted">설치 후 k일까지 누적 IAP ÷ 그때까지 결제자</span>`, apC)
+    + card(`상품별 구매 ${src("new")} <span class="muted">af_purchase 상품 ID 분류(번호 토큰 제거) · .dev. 제외</span>`, skuT)
+    + card(`광고 시청 타이밍별 매출 — 배치 ${src("new")}`, plT)
+    + card(`광고 시청 타이밍별 매출 — 설치 후 경과일 ${src("new")} <span class="muted">광고 행의 Install Time 기준</span>`, dsT)
+    + `</div>`;
+  h += missList([["구매율 / 결제율 (상점 진입 → 구매 완료)", "상점 진입·구매 시도 이벤트가 없다(af_purchase_pending·canceled 는 주 1건 수준)"],
+    ["Frequency Cap 효율", "노출 한도를 바꿔 본 실험이 있어야 한다 — 지금은 고정값(iOS 쿨다운 90초 등)이고 A/B 는 10-26 전부 종료"]]);
+  $("b4").innerHTML = h;
+}
+
+function renderS5() {
+  const U = uaRows(), R = genRows();
+  const K = Array.from({length: M.roas_max + 1}, (_, k) => k), lv = K.map(k => ltvK(U, k)), rc = K.map(k => roasK(U, k));
+  const be = rc.findIndex(x => x.v != null && x.v >= 1), lastK = (() => { for (let k = K.length - 1; k >= 0; k--) if (rc[k].v != null) return k; return -1; })();
+  const garpu = K.map(k => genK(R, k, (r, k) => at(r.iap, k) + at(r.iaa, k), r => r.n, true));
+  let h = `<div class="tiles">`
+    + tile("관측 LTV D7", fmt.usd(lv[7].v, 3), lv[7].n ? `UA 설치 ${fmt.n(lv[7].n)}명 · 누적 매출 ÷ 설치` : "매출 관측 전", "ua")
+    + tile("관측 LTV D28", fmt.usd(lv[28].v, 3), lv[28].n ? `UA 설치 ${fmt.n(lv[28].n)}명` : "D28 성숙 설치일 없음", "ua")
+    + tile("Break-even Day", be >= 0 ? `D${be}` : "미도달", be >= 0 ? `ROAS 100% 첫 도달 · 설치 ${fmt.n(rc[be].n)}명` : (lastK >= 0 ? `D${lastK} 까지 최고 ${fmt.p(Math.max(...rc.filter(x => x.v != null).map(x => x.v)))}` : "매출 관측 전"), "new", {hit: be >= 0})
+    + tile("D28 누적 ARPU (전체 신규)", fmt.usd(garpu[28].v, 3), garpu[28].n ? `일반 코호트 ${fmt.n(garpu[28].n)}명 · IAP + 광고(배너 제외)` : "D28 성숙 코호트 없음", "gen")
+    + `</div>`;
+  const ltvC = lineChart([{name: "UA 설치 (누적 매출 ÷ 설치)", color: "var(--c1)", points: lv.map(x => x.v), tips: lv.map(x => `설치 ${fmt.n(x.n)}명`)},
+    {name: "일반 코호트 (누적 ARPU)", color: "var(--c2)", points: garpu.map(x => x.v), tips: garpu.map(x => `코호트 ${fmt.n(x.n)}명`)}], {labels: K.map(k => "D" + k), yfmt: v => fmt.usd(v, 2), title: "LTV 곡선"});
+  // LTV 입력값 — ARPDAU × 유지일수 의 두 재료를 Dn 별로
+  const IK = [1, 3, 7, 14, 28];
+  const inT = R.length || U.length ? table(["Dn", "잔존(일반)", "그날 ARPDAU(일반)", "누적 ARPU(일반)", "누적 매출 / 설치(UA)", "ROAS(UA)"], IK.map(k => {
+    const r = genK(R, k, (r, k) => at(r.ret, k - 1), r => r.n), a = genK(R, k, (r, k) => at(r.iap, k) - at(r.iap, k - 1) + at(r.iaa, k) - at(r.iaa, k - 1), (r, k) => gActive(r, k), true);
+    return ["D" + k, fmt.p(r.v), fmt.usd(a.v, 3), fmt.usd(garpu[k].v, 3), fmt.usd(lv[k].v, 3), fmt.p(rc[k].v)]; })) : empty("데이터 없음");
+  // Retention × Monetization — 매체·OS 는 UA 칸, 국가는 국가 칸
+  let rmBody;
+  if (st.rm === "cc") {
+    const byC = new Map(), c1 = shift(M.obs_ev, -1), c7 = shift(M.obs_rev, -7);
+    for (const r of geoRows()) { const [d, , cc, nn, c, , , , r7, a1] = r; const x = byC.get(cc) || {n: 0, cost: 0, n1: 0, a1: 0, n7: 0, c7: 0, r7: 0}; byC.set(cc, x);
+      x.n += nn; x.cost += c; if (d <= c1) { x.n1 += nn; x.a1 += a1; } if (d <= c7) { x.n7 += nn; x.c7 += c; x.r7 += r7; } }
+    const rows = [...byC].filter(([, x]) => x.n >= 30).sort((a, b) => b[1].n - a[1].n).slice(0, 15);
+    rmBody = rows.length ? table(["국가 (설치 30명↑)", "설치", "CPI", "D1 활동", "D7 잔존", "D7 ARPU", "D7 결제율", "D7 ROAS"], rows.map(([cc, x]) => [esc(cc), fmt.n(x.n), fmt.usd(ratio(x.cost, x.n)), fmt.p(ratio(x.a1, x.n1)), "–", fmt.usd(ratio(x.r7, x.n7), 3), "–", x.c7 > 0 ? fmt.p(x.r7 / x.c7) : "–"])) : empty("설치 30명 이상인 국가 없음");
+  } else {
+    const key = st.rm === "os" ? "p" : "m", by = new Map();
+    for (const r of U) { const k = r[key]; if (!by.has(k)) by.set(k, []); by.get(k).push(r); }
+    const rows = [...by].map(([k, rs]) => { const nn = sum(rs, r => r.n), cc = sum(rs, r => r.cost);
+      return [nn, [esc(key === "p" ? OSN[k] || k : k), fmt.n(nn), fmt.usd(ratio(cc, nn)), fmt.p(uaRet(rs, 0).v), fmt.p(uaRet(rs, 2).v), fmt.usd(ltvK(rs, 7).v, 3), fmt.p(uaK(rs, 7, r => r.pay7, r => r.n).v, 2), fmt.p(roasK(rs, 7).v)]]; }).sort((a, b) => b[0] - a[0]).map(x => x[1]);
+    rmBody = rows.length ? table([key === "p" ? "OS" : "매체", "설치", "CPI", "D1 잔존", "D7 잔존", "D7 ARPU", "D7 결제율", "D7 ROAS"], rows) : empty("선택한 기간에 UA 설치 없음");
+  }
+  const seg = `<span class="seg" id="rmseg">${[["m", "매체"], ["cc", "국가"], ["os", "OS"]].map(([k, n]) => `<button type="button" data-rm="${k}" class="${st.rm === k ? "on" : ""}">${n}</button>`).join("")}</span>`;
+  // 퍼널 — UA 설치, 누적 조건(앞 단계를 모두 통과한 유저만 다음 단계)
+  const FU = U.filter(r => r.d >= M.login_from && r.d <= shift(M.obs_rev, -7)), fn = [0, 1, 2, 3, 4, 5].map(i => sum(FU, r => r.fun[i]));
+  const steps = ["설치", "D0 접속 (af_login)", "D0 첫 클리어", "D1 복귀 (af_login)", "D7 안 광고 시청", "D7 안 결제"];
+  const fun = fn[0] ? `<div class="fun">${steps.map((s, i) => `<span class="lb">${s}</span><span class="track"><i style="width:${(fn[i] / fn[0] * 100).toFixed(1)}%"></i></span><span class="val">${fmt.n(fn[i])} · ${fmt.p(fn[i] / fn[0])}${i ? `<span class="drop">이탈 ${fmt.p(1 - ratio(fn[i], fn[i - 1]))}</span>` : ""}</span>`).join("")}</div>` : empty("퍼널을 볼 성숙한 설치일이 없음(af_login 이후 · D7 관측 끝)");
+  h += `<div class="grid">`
+    + card(`LTV 곡선 D0~D28 ${src("ua")} ${src("gen")} <span class="muted">관측값 — 예측 없음</span>`, ltvC, "", "UA 설치 = 광고로 들어온 유저(배너 포함 광고 매출). 일반 코호트 = 계측 빌드 신규 전체(오가닉 포함, 배너 제외). 모집단·매출 범위가 달라 두 선의 높이 차이를 성과 차이로 읽지 말 것.")
+    + card(`LTV 입력값 ${src("gen")} ${src("ua")} <span class="muted">LTV ≈ ARPDAU × 유지일수의 재료</span>`, inT)
+    + card(`Retention × Monetization ${st.rm === "cc" ? src("new") : src("ua")} ${seg}`, rmBody, "full", "매체·OS = UA 칸(잔존 = 인앱 이벤트 1건 이상) · 국가 = 국가 칸(D7 잔존·결제율은 국가 칸에 없어 '–'). D7 값은 7일째까지 관측이 끝난 설치일만.")
+    + card(`Funnel Drop-off Map ${src("new")} <span class="muted">UA 설치 ${fmt.n(fn[0])}명 · 설치일 ${esc(M.login_from)} 이후(af_login 계측) · D7 관측이 끝난 설치일 · 누적 조건</span>`, fun, "full",
+        "각 단계는 앞 단계를 모두 통과한 유저만 센다. '이탈' = 바로 앞 단계 대비. 광고 노출 → 클릭 → 설치 앞단은 AF 노출·클릭이 실제 값이 아니라 뺐다.")
+    + `</div>`;
+  h += missList([["A/B Test Variant 별 ROAS", "진행 중인 실험이 없다(10-26 전부 종료). 실험이 돌면 군별 ARPU ÷ CPI 로 낼 수 있다"]]);
+  $("b5").innerHTML = h;
+  document.querySelectorAll("#rmseg button").forEach(b => b.addEventListener("click", () => { st.rm = b.dataset.rm; renderS5(); }));
+}
+
+// ── 필터 · 섹션 바로가기 ──
+const SECS = [["all", "전체"], ["s1", "Ⅰ 획득"], ["s2", "Ⅱ 참여·리텐션"], ["s3", "Ⅲ 게임 플레이"], ["s4", "Ⅳ 수익화"], ["s5", "Ⅴ 시뮬레이션"]];
+function drawNav() {
+  $("secnav").innerHTML = SECS.map(([k, n]) => `<button type="button" data-s="${k}" aria-pressed="${st.sec === k}">${n}</button>`).join("");
+  $("secnav").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { st.sec = b.dataset.s; drawNav(); applySec(); }));
+}
+function applySec() { SECS.slice(1).forEach(([k]) => { $(k).hidden = st.sec !== "all" && st.sec !== k; }); }
+function drawFilters() {
+  const P = [["14", "최근 14일"], ["30", "최근 30일"], ["60", "최근 60일"], ["all", "전체"]];
+  const preset = st.from === LO && st.to === HI ? "all" : (P.find(([p]) => p !== "all" && st.to === HI && st.from === shift(HI, -(+p - 1))) || [""])[0];
+  const os = `<span class="chip"><span class="lbl">OS</span>${[["all", "전체"], ...M.plats.map(p => [p, OSN[p] || p])].map(([p, n]) => `<button class="osb${st.os === p ? " on" : ""}" data-os="${p}" type="button">${n}</button>`).join("")}</span>`;
+  $("filters").innerHTML = `<span class="chip"><span class="lbl">기간</span><input type="date" id="dfrom" min="${LO}" max="${HI}" value="${st.from}"> <span class="lbl">~</span> <input type="date" id="dto" min="${LO}" max="${HI}" value="${st.to}"></span>
+    ${P.map(([p, n]) => `<button class="preset${preset === p ? " on" : ""}" data-p="${p}" type="button">${n}</button>`).join("")}${os}
+    <span class="range">코호트 지표(획득·잔존·ROAS·LTV) = 이 기간의 설치일 · 활동 지표(세션·광고·실패·결제율) = 이 기간의 활동일</span>`;
+  $("dfrom").addEventListener("change", e => { st.from = e.target.value || LO; if (st.from > st.to) st.to = st.from; render(); });
+  $("dto").addEventListener("change", e => { st.to = e.target.value || HI; if (st.to < st.from) st.from = st.to; render(); });
+  document.querySelectorAll(".preset").forEach(b => b.addEventListener("click", () => { const p = b.dataset.p; st.to = HI; st.from = p === "all" ? LO : (shift(HI, -(+p - 1)) < LO ? LO : shift(HI, -(+p - 1))); render(); }));
+  document.querySelectorAll(".osb").forEach(b => b.addEventListener("click", () => { st.os = b.dataset.os; render(); }));
+}
+function render() {
+  drawFilters();
+  renderS1(); renderS2(); renderS3(); renderS4(); renderS5();
+  applySec();
+}
+
+function boot(data) {
+  D = data; const keys = Object.keys(D.games || {});
+  if (!keys.length) { $("lock").hidden = false; $("lock").innerHTML = `<div class="empty">KPI 데이터가 비어 있음 — python -m kpi.build</div>`; return; }
+  const key = keys.includes(Q.get("game")) ? Q.get("game") : keys[0];
+  G = D.games[key]; M = G.meta; OK = new Set(M.master_ok || []);
+  $("lock").hidden = true; $("board").hidden = false;
+  $("gen").textContent = `산출 ${D.generated_at || ""}`;
+  $("games").innerHTML = keys.map(k => GX.posterBtn(k, D.games[k].meta.game, k === key)).join("");
+  GX.hero($("hero"), key, M.game);
+  const dates = [...G.ua.map(r => r.d), ...G.act.map(r => r.d)].sort();
+  LO = dates[0] || M.ua_start; HI = M.obs_ev || dates[dates.length - 1];
+  st.to = Q.get("to") && Q.get("to") <= HI ? Q.get("to") : HI;
+  st.from = Q.get("from") && Q.get("from") >= LO ? Q.get("from") : (shift(HI, -59) < LO ? LO : shift(HI, -59));   // 기본 최근 60일 — D28 성숙 설치일이 들어오게
+  $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · UA 설치일 ${M.ua_start}~ · 활동 지표 ${M.act_from}~ · 이벤트 관측 끝 ${M.obs_ev} · 매출 관측 끝 ${M.obs_rev}`;
+  $("cover").innerHTML = `<span><b>28</b>/ 40 KPI 를 이 탭에 표시</span><span><b>3</b>근사만 가능 — 표시 안 함</span><span><b>9</b>지금 데이터로 불가</span>
+    <span class="muted">출처 꼬리표:</span>${src("ua")}${src("gen")}${src("new")}${src("ref")}<span class="muted">— 같은 꼬리표끼리만 숫자를 대조할 것</span>`;
+  $("defs").innerHTML = [
+    "게임 = Bash Fiesta(sf) 하나. iOS·Android 둘 다 유료 UA(07-29~)라 D28 성숙 코호트가 있고, 계측 3종·실패·결제·광고 형식이 모두 있어 표를 가장 많이 채운다.",
+    "기간 = 위 칩. 코호트 지표(광고비·설치·CPI·ROAS·잔존·LTV·퍼널)는 그 기간의 설치일, 활동 지표(세션·광고 형식·실패·재도전·결제율·ARPDAU·SKU)는 그 기간의 활동일에 걸린다. 기본은 최근 60일.",
+    "UA 보드 정의 — 설치 = 원시 설치 리포트(논오가닉, KR·리타기팅 제외), 광고비 = Master API, 매출 = IAP(af_purchase, .dev. 제외) + 광고 매출 리포트(배너 포함). ROAS·LTV Dk 는 k일째까지 매출 관측이 끝난 설치일만. 원시에 설치 당일 이벤트가 없는 묶음(Meta 07-29~08-07 등)은 뺀다. 같은 함수(ua.build)로 계산해 UA 보드 숫자와 같다.",
+    "일반 보드 정의 — 잔존·결제 전환·ARPPU·누적 ARPU·도달은 일반 지표 보드 산출(계측 유저, 코호트 = 설치 당일 af_login, 광고 매출은 배너 제외)을 그대로 쓴다.",
+    "KPI 탭 계산 — 활동 지표는 그날 인앱 이벤트가 1건 이상 있는 전체 유저(행 국가 KR 제외, 오가닉 포함), 계측 빌드 배포일(" + M.act_from + ") 이후. 인게임 진입률·퍼널은 af_login 이 모든 새 설치에 오는 설치일(" + M.login_from + ") 이후의 UA 설치.",
+    "세션 = af_app_opened 건수 ÷ 그날 af_app_opened 를 보낸 유저. 클라 세션 카운터(af_login.session_n)의 하루 증가분과 평균이 같다(10-26~29 대조, 본문 참고). 계측 빌드(1.5.2)부터 오는 이벤트다.",
+    "광고 형식 = MAX 광고 단위 ID → 리워드·전면·배너(SmashFest RootBoxProjectSettings). 배너는 화면에 안 보이는 자동 갱신 노출이지만 실제 매출이라 이 탭에서는 포함한다(일반 보드는 제외).",
+    "국가별 CPI = Master API 국가별 광고비(2026-11-01 받기 추가) ÷ 원시 설치의 국가. 광고비 합계는 캠페인 단위 광고비와 같은 범위(논오가닉·원시 누락 묶음 제외).",
+    "CVR·오가닉 비중 = Master API 설치·클릭. Master 설치는 최근 설치일이 늦게 채워져 Master 논오가닉 설치가 원시 설치의 " + "90% 이상인 날만 쓴다. Master 노출·클릭은 실제 광고 노출이 아니라 CVR 은 참고용.",
+    "재도전율 = 실패한 (유저, 레벨)에서 그 뒤 더 큰 attempt_count 가 관측된 비율. 유저 1/" + M.sample_mod + " 표본(crc32 고정), 마지막 관측일 실패 제외. 유실 시도가 있으면 낮게 나오는 하한.",
+    "Break-even Day = ROAS 커브가 처음 100% 에 닿는 Dk. 커브의 점마다 모인 설치일이 달라(그 k 까지 성숙한 설치일만) 완만하지 않을 수 있다. 예측·외삽은 하지 않는다.",
+    "같은 이름의 지표라도 꼬리표가 다르면 절대값을 대조하지 않는다 — 모집단(UA 설치 / 계측 신규 / 전체 활동)·잔존 정의(af_login / 인앱 이벤트)·배너 포함 여부가 다르다.",
+  ].map(s => `<li>${esc(s)}</li>`).join("");
+  drawNav(); render();
+}
+
+/* ── 데이터: 평문(kpi-data.js, 로컬) → 암호문(kpi-data.enc.js, 공개 URL) — 일반·UA 보드와 같은 형식·비밀번호·저장 키 ── */
+const PWKEY = "genboard:pass", b64 = GX.b64;
+async function decryptData(enc, pass) {
+  const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({name: "PBKDF2", salt: b64(enc.salt), iterations: enc.iter, hash: "SHA-256"}, km, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name: "AES-GCM", iv: b64(enc.iv)}, key, b64(enc.ct))));
+}
+function showUnlock(enc, err) {
+  $("lock").hidden = false;
+  $("lock").innerHTML = `<div class="lock"><b>KPI</b><div class="${err ? "err" : ""}" style="margin:8px 0 0;font-size:13px;color:${err ? "" : "var(--ink-3)"}">${err || "집계 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다."}</div>
+    <form id="pwform"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password"><button type="submit">열기</button></form></div>`;
+  $("pwform").onsubmit = async ev => { ev.preventDefault();
+    try { const pass = $("pw").value; const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} boot(data); }
+    catch (e) { showUnlock(enc, "비밀번호가 맞지 않습니다."); } };
+  $("pw").focus();
+}
+(async function init() {
+  const plain = window.KPI_DATA;
+  if (plain && plain.games && Object.keys(plain.games).length) return boot(plain);
+  const enc = window.KPI_DATA_ENC;
+  if (!enc) { $("lock").hidden = false; $("lock").innerHTML = `<div class="empty">kpi-data.js 가 없거나 비어 있음 — python -m kpi.build 실행</div>`; return; }
+  if (!(window.crypto && crypto.subtle)) { $("lock").hidden = false; $("lock").innerHTML = `<div class="empty">이 환경에서는 암호를 풀 수 없습니다. https 주소 또는 로컬 파일로 열어야 합니다.</div>`; return; }
+  const m = /(?:^#|[#&])k=([^&]+)/.exec(location.hash);
+  if (m) { try { const pass = decodeURIComponent(m[1]); const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} return boot(data); } catch (e) {} }
+  let saved = null; try { saved = localStorage.getItem(PWKEY); } catch (e) {}
+  if (saved) { try { return boot(await decryptData(enc, saved)); } catch (e) {} }
+  showUnlock(enc, null);
+})();
+})();
+</script>
+</body>
+</html>
