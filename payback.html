@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>회수 예측 · GRP1 대시보드</title>
+<title>회수 예측(작업 중) · GRP1 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -27,6 +27,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 .osb{border:1px solid transparent;background:transparent;color:var(--ink-2);font-size:12.5px;padding:4px 11px;border-radius:999px}
 .osb:hover{color:var(--ink);border-color:var(--line)} .osb.on{background:var(--ink);color:var(--bg);font-weight:600}
 .range{font-size:12px;color:var(--ink-3)}
+/* 작업 중 안내(2026-11-01 팀장님 요청) — 다 만들면 이 띠와 히어로의 '작업 중' 알약을 뺀다 */
+.wip-note{margin:0 0 16px;padding:10px 14px;border:1px solid color-mix(in srgb,var(--warn) 55%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent);border-radius:12px;font-size:12.5px;color:var(--ink-2)}
+.wip-note b{color:var(--ink);margin-right:8px}
 .goal{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;color:var(--ink-2);padding:4px 12px;border-radius:999px;background:color-mix(in srgb,var(--good) 14%,transparent)}
 main section{margin:0 0 22px;padding:18px 20px 22px;border:1px solid var(--line-soft);border-radius:18px;background:color-mix(in srgb,var(--card) 40%,var(--bg))}
 main section > h2{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;font-size:19px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid var(--line)}
@@ -88,7 +91,7 @@ details.defs summary,details.more summary{cursor:pointer;font-weight:600;color:v
 <section class="gx-hero" id="hero">
   <div class="gx-wash"></div><img class="gx-art" alt="" hidden><div class="gx-shade"></div>
   <div class="gx-copy">
-    <div class="gx-when"><span class="gx-pill">회수 예측</span><span>설치 후 120일 안 ROAS 100% — 캠페인 단위 참고 숫자 · 판정 없음</span></div>
+    <div class="gx-when"><span class="gx-pill">회수 예측</span><span class="gx-pill" style="--gc:var(--warn)">작업 중</span><span>설치 후 120일 안 ROAS 100% — 캠페인 단위 참고 숫자 · 판정 없음</span></div>
     <h1 class="gx-name">회수 예측</h1>
     <div class="gx-doc" id="hdoc"></div>
   </div>
@@ -98,6 +101,7 @@ details.defs summary,details.more summary{cursor:pointer;font-weight:600;color:v
   <div id="lock" hidden></div>
   <div id="board" hidden>
     <div class="toolbar"><div class="filters" id="filters"></div></div>
+    <div class="wip-note"><b>작업 중</b>예측 방식과 화면을 다듬는 중이라 숫자와 구성이 바뀔 수 있습니다. D75 근처 이후는 아직 실측 검증 전입니다(첫 D120 채점 11-30 전후).</div>
     <section id="s1"><h2 data-no="Ⅰ">요약 <span class="muted" id="s1sub"></span></h2><div id="b1"></div></section>
     <section id="s2"><h2 data-no="Ⅱ">누적 ROAS 곡선 <span class="muted">실측 + 로그곡선 예측 + 80% 구간</span></h2><div id="b2"></div></section>
     <section id="s3"><h2 data-no="Ⅲ">캠페인 <span class="muted">행을 누르면 산술 분해와 가이드</span></h2><div id="b3"></div></section>

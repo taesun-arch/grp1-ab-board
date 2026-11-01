@@ -191,7 +191,7 @@ function render(S) {
   h += `<a class="t board" href="general.html${hash}" style="--bc:#6f93ff;--bs:${bs[0]}"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><div class="icons">${icons(genKeys)}</div><span class="go">→</span></a>`;
   h += `<a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5;--bs:${bs[1]}"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
   h += `<a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a;--bs:${bs[2]}"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
-  h += `<a class="t board" href="payback.html${hash}" style="--bc:#f0a040;--bs:${bs[3]}"><div class="k">PAYBACK · 120일 회수</div><div class="name">회수 예측</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
+  h += `<a class="t board" href="payback.html${hash}" style="--bc:#f0a040;--bs:${bs[3]}"><div class="k">PAYBACK · 120일 회수 · 작업 중</div><div class="name">회수 예측</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
   $('bento').innerHTML = h;
 
   // ── 브리핑 ──
@@ -222,7 +222,7 @@ function locked(enc, err) {
     <a class="t board" href="general.html${hash}" style="--bc:#6f93ff;--bs:3"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><span class="go">→</span></a>
     <a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5;--bs:3"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><span class="go">→</span></a>
     <a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a;--bs:3"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><span class="go">→</span></a>
-    <a class="t board" href="payback.html${hash}" style="--bc:#f0a040;--bs:3"><div class="k">PAYBACK · 120일 회수</div><div class="name">회수 예측</div><span class="go">→</span></a>`;
+    <a class="t board" href="payback.html${hash}" style="--bc:#f0a040;--bs:3"><div class="k">PAYBACK · 120일 회수 · 작업 중</div><div class="name">회수 예측</div><span class="go">→</span></a>`;
   $('bento').hidden = false; $('brief').hidden = true;
   if (enc) { $('pwform').onsubmit = async ev => { ev.preventDefault();
     try { const p = $('pw').value; const d = await decrypt(enc, p); try { localStorage.setItem(PWKEY, p); } catch (e) {} render(d); } catch (e) { locked(enc, '비밀번호가 맞지 않습니다.'); } }; }
