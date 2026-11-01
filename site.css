@@ -79,6 +79,10 @@
 
 @media (max-width:720px){
   .gx-bar{flex-wrap:wrap;gap:10px}
+  /* 보드 전환 — 'ROAS 예측(작업 중)' 으로 길어져 360px 폭에서 페이지가 가로로 넘쳤다(Opus 리뷰 11-01). 줄 폭을 넘으면 그 안에서만 밀린다 */
+  .gx-switch{max-width:100%;min-width:0;overflow-x:auto;scrollbar-width:none}
+  .gx-switch::-webkit-scrollbar{display:none}
+  .gx-switch a{padding:6px 10px}
   .gx-brand span{display:none}
   .gx-right .gx-gen{display:none}
   .gx-hero{min-height:0;padding-top:24px}

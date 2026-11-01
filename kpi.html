@@ -259,6 +259,10 @@ function uaK(rows, k, num, den) {
 }
 const roasK = (rows, k) => uaK(rows, k, r => r.rev[k], r => r.cost);
 const ltvK = (rows, k) => uaK(rows, k, r => r.rev[k], r => r.n);
+// AF 방식(오가닉 포함) — 설치일 × OS [d, p, 광고비, D0..D28 누적 매출(유저 전체 IAP × 0.7 + 광고)]. 성숙 규칙은 roasK 와 같다. 대조용 참고(11-01)
+const AFN = "AF 방식(오가닉 포함)";
+const afRows = () => (G.af || []).filter(r => inR(r[0]) && osOk(r[1]));
+function afK(rows, k) { const cut = shift(M.obs_rev, -k), mr = rows.filter(r => r[0] <= cut), c = sum(mr, r => r[2]); return {v: c > 0 ? sum(mr, r => r[3][k]) / c : null, cost: c}; }
 function uaRet(rows, i) { const k = M.ret_ks[i], cut = shift(M.obs_ev, -k), mr = rows.filter(r => r.d <= cut); const n = sum(mr, r => r.n); return {v: ratio(sum(mr, r => r.ret[i]), n), n}; }
 // 일반 코호트 — 성숙 = 설치+k ≤ 인앱 관측 끝(광고가 들어가면 광고 관측 끝). activeAt(D0 = 전원)
 const gActive = (r, k) => k === 0 ? r.n : (r.ret[k - 1] || 0);
@@ -415,14 +419,15 @@ function renderS3() {
 }
 
 function renderS4() {
-  const U = uaRows(), A = actRows(), R = genRows(), F = fmtAgg(A);
-  const RK = [0, 1, 7, 28].map(k => [k, roasK(U, k)]);
+  const U = uaRows(), A = actRows(), R = genRows(), F = fmtAgg(A), AFR = afRows();
+  const RK = [0, 1, 7, 28].map(k => [k, roasK(U, k), afK(AFR, k)]);
   const AA = A.filter(r => r.fmt), iapA = sum(AA, r => r.iap), iaaA = Object.values(F.f).reduce((a, x) => a + x[1], 0);
   const pay7 = genK(R, 7, (r, k) => at(r.pay, k), r => r.n), arppu7 = genK(R, 7, (r, k) => at(r.iap, k), (r, k) => at(r.pay, k));
   const sku = {}; let iapAll = 0; for (const r of A) { iapAll += r.iap; for (const k in r.sku || {}) { const x = sku[k] || (sku[k] = [0, 0]); x[0] += r.sku[k][0]; x[1] += r.sku[k][1]; } }
   const noad = Object.entries(sku).filter(([k]) => /noad/.test(k)).reduce((a, [, x]) => a + x[1], 0);
   let h = `<div class="tiles">`
-    + RK.map(([k, X]) => tile(`D${k} ROAS`, fmt.p(X.v), X.n ? `설치 ${fmt.n(X.n)}명 · 광고비 ${fmt.usd(X.cost, 0)}` : "매출 관측 전", "ua", {meter: X.v, hit: X.v >= 1})).join("")
+    + RK.map(([k, X, AF]) => tile(`D${k} ROAS`, fmt.p(X.v), (X.n ? `설치 ${fmt.n(X.n)}명 · 광고비 ${fmt.usd(X.cost, 0)}` : "매출 관측 전")
+        + (AF.v != null ? `<br>${AFN} ${fmt.p(AF.v)}` : ""), "ua", {meter: X.v, hit: X.v >= 1})).join("")
     + tile("ARPDAU", fmt.usd(ratio(iapA + iaaA, sum(AA, r => r.act)), 3), `(IAP + 광고 전 형식) ÷ 활동 유저-일`, "new")
     + tile("일 결제율", fmt.p(ratio(sum(A, r => r.payers), sum(A, r => r.act)), 2), `결제자 ÷ 활동 유저 (하루 평균)`, "new")
     + tile("D7 결제 전환", fmt.p(pay7.v, 2), pay7.n ? `코호트 ${fmt.n(pay7.n)}명 · 설치 후 7일 안 첫 결제` : "성숙한 코호트 없음", "gen")
@@ -431,8 +436,10 @@ function renderS4() {
     + tile("IAA 비중", fmt.p(ratio(iaaA, iapA + iaaA)), `광고 ${fmt.usd(iaaA, 0)} (배너 포함)`, "new")
     + tile("광고제거 상품 비중", fmt.p(ratio(noad, iapAll)), `IAP 중 noad 계열 ${fmt.usd(noad, 0)}`, "new")
     + `</div>`;
-  const K = Array.from({length: M.roas_max + 1}, (_, k) => k), rc = K.map(k => roasK(U, k));
-  const roasC = lineChart([{name: "ROAS", color: "var(--c1)", points: rc.map(x => x.v), tips: rc.map(x => `설치 ${fmt.n(x.n)}명`)}], {labels: K.map(k => "D" + k), yfmt: v => fmt.p(v, 0), ref: 1, refLabel: "본전 100%", title: "ROAS 커브", none: "매출 관측이 끝난 설치일 없음"});
+  const K = Array.from({length: M.roas_max + 1}, (_, k) => k), rc = K.map(k => roasK(U, k)), ac = K.map(k => afK(AFR, k));
+  const roasC = lineChart([{name: "ROAS (광고 유저)", color: "var(--c1)", points: rc.map(x => x.v), tips: rc.map(x => `설치 ${fmt.n(x.n)}명`)},
+    ...(ac.some(x => x.v != null) ? [{name: AFN + " — 참고", color: "var(--ink-3)", points: ac.map(x => x.v)}] : [])],
+    {labels: K.map(k => "D" + k), yfmt: v => fmt.p(v, 0), ref: 1, refLabel: "본전 100%", title: "ROAS 커브", none: "매출 관측이 끝난 설치일 없음"});
   const skus = Object.entries(sku).sort((a, b) => b[1][1] - a[1][1]), smax = skus.length ? skus[0][1][1] : 0;
   const skuT = skus.length ? table(["상품 분류", "구매", "매출", "매출 비중"], skus.map(([k, x]) => [esc(k) + (/noad/.test(k) ? ' <span class="src ref">광고제거</span>' : ""), fmt.n(x[0]), fmt.usd(x[1], 0) + bar(x[1], smax), fmt.p(ratio(x[1], iapAll))]),
     ["전체", fmt.n(sum(skus, ([, x]) => x[0])), fmt.usd(iapAll, 0), "100%"]) : empty("선택한 기간에 결제 없음");
@@ -444,7 +451,8 @@ function renderS4() {
   const ap = K.map(k => genK(R, k, (r, k) => at(r.iap, k), (r, k) => at(r.pay, k)));
   const apC = R.length ? lineChart([{name: "ARPPU", color: "var(--c4)", points: ap.map(x => x.v), tips: ap.map(x => `코호트 ${fmt.n(x.n)}명`)}], {labels: K.map(k => "D" + k), yfmt: v => fmt.usd(v, 0), title: "ARPPU 곡선"}) : empty("일반 지표 산출이 없음");
   h += `<div class="grid">`
-    + card(`ROAS 커브 D0~D28 ${src("ua")} <span class="muted">Dk 마다 k일째까지 매출 관측이 끝난 설치일만 — 점마다 모인 설치일이 다르다</span>`, roasC)
+    + card(`ROAS 커브 D0~D28 ${src("ua")} <span class="muted">Dk 마다 k일째까지 매출 관측이 끝난 설치일만 — 점마다 모인 설치일이 다르다</span>`, roasC, "",
+        `회색 = ${AFN}: AppsFlyer 대시보드와 같은 계산 — 그 설치일 유저 전체(광고 + 오가닉)의 IAP × 0.7 + 광고 매출 ÷ 같은 광고비. 오가닉 매출만큼 높다(대조용 참고).`)
     + card(`구매 타이밍별 ARPPU 곡선 ${src("gen")} <span class="muted">설치 후 k일까지 누적 IAP ÷ 그때까지 결제자</span>`, apC)
     + card(`상품별 구매 ${src("new")} <span class="muted">af_purchase 상품 ID 분류(번호 토큰 제거) · .dev. 제외</span>`, skuT)
     + card(`광고 시청 타이밍별 매출 — 배치 ${src("new")}`, plT)
@@ -572,7 +580,8 @@ function useGame(key, first) {
   $("defs").innerHTML = [
     `게임 = ${M.game} — ${M.plats.map(p => OSN[p] || p).join(" · ")} · UA 설치일 ${M.ua_start}~. 게임마다 계측이 달라 '이 게임엔 해당 없음' KPI 가 다르다${cap ? " — " + cap : ""}.`,
     "기간 = 위 칩. 코호트 지표(광고비·설치·CPI·ROAS·잔존·LTV·퍼널)는 그 기간의 설치일, 활동 지표(세션·광고 형식·실패·재도전·결제율·ARPDAU·SKU)는 그 기간의 활동일에 걸린다. 기본은 최근 60일.",
-    "UA 보드 정의 — 설치 = 원시 설치 리포트(논오가닉, KR·리타기팅 제외), 광고비 = Master API, 매출 = IAP(af_purchase, .dev. 제외) + 광고 매출 리포트(배너 포함). ROAS·LTV Dk 는 k일째까지 매출 관측이 끝난 설치일만. 원시에 설치 당일 이벤트가 없는 묶음은 뺀다. 같은 함수(ua.build)로 계산해 UA 보드 숫자와 같다.",
+    "UA 보드 정의 — 설치 = 원시 설치 리포트(논오가닉, KR·리타기팅 제외), 광고비 = Master API, 매출 = IAP 순매출(af_purchase × 0.7 — 스토어 수수료 30% 제외, .dev. 제외, 11-01 부터) + 광고 매출 리포트(배너 포함). ROAS·LTV Dk 는 k일째까지 매출 관측이 끝난 설치일만. 원시에 설치 당일 이벤트가 없는 묶음은 뺀다. 같은 함수(ua.build)로 계산해 UA 보드 숫자와 같다. 활동 지표의 IAP·ARPDAU·ARPPU 와 일반 보드 숫자는 IAP 총액이다.",
+    `${AFN} — AppsFlyer 'TS's UA dashboard' 와 같은 계산: 그 설치일(UTC)에 설치한 유저 전체(광고 + 오가닉, KR 포함)의 IAP × 0.7 + 광고 매출(AppsFlyer ID 없는 오가닉 행 포함) ÷ 같은 광고비. sf iOS 09-07~13 설치로 D1·D3·D7·D14·D28 이 AF 화면과 소수 둘째 자리까지 같다. 우리 ROAS(광고 유저만)보다 오가닉 매출만큼 높다 — 대조용 참고.`,
     "일반 보드 정의 — 잔존·결제 전환·ARPPU·누적 ARPU·도달은 일반 지표 보드 산출(코호트 = 설치 당일 af_login" + (G.gen && G.gen.exclude_banner ? ", 광고 매출은 배너 제외" : "") + ")을 그대로 쓴다.",
     "KPI 탭 계산 — 활동 지표는 그날 인앱 이벤트가 1건 이상 있는 전체 유저(행 국가 KR 제외, 오가닉 포함), 일반 보드 시작일(" + M.act_from + ") 이후. 인게임 진입률은 af_login 이 모든 새 설치에 오는 설치일(" + M.login_from + ") 이후의 UA 설치.",
     "Funnel Drop-off Map = 레벨 퍼널(2026-11-01 팀장님 지시로 설치→진입→광고→결제 단계 대신). UA 설치 중 설치 후 " + M.funnel_days + "일 안에 깬 최고 레벨(af_level_achieved 의 af_level · Level_Completed_N 의 N)이 LV N 이상인 비율, LV 1~" + M.funnel_lv + ". 레벨별 이탈률 = 1 − LV N 도달 ÷ LV N−1 도달(LV1 은 설치 대비).",

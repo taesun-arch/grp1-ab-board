@@ -210,26 +210,75 @@ function trendChart(ws) {
 const ivName = s => s.verified_until != null && s.verified_until >= M.target ? "80% 구간" : "참고 범위";
 const ivText = s => s.lo ? `${ivName(s)} ${pr(s.d120[1], s.d120[2]) || "계산 불가"}` : "구간 없음 — 채점 부족";
 
+// AF 방식(오가닉 포함) — AppsFlyer 대시보드와 같은 계산(그 설치일 유저 전체의 IAP × 0.7 + 광고 매출 ÷ 같은 광고비). 대조용 참고(팀장님 11-01)
+const AFN = "AF 방식(오가닉 포함)";
+const afOf = (w, k) => w.af ? w.af[String(k)] : null;
+const AF_NOTE = `${AFN} = AppsFlyer 대시보드와 같은 계산 — 그 기간에 설치한 유저 전체(광고 + 오가닉)의 IAP × 0.7 + 광고 매출 ÷ 같은 광고비. `
+  + "우리 ROAS(광고 유저만)보다 오가닉 매출만큼 높다. 대조용 참고 — 예측에는 쓰지 않는다.";
+
 // 주간 지표 전 — D3·D7 기반 ROAS 예측(팀장님 11-01: "UA 후 2주가 지나야 주간 지표가 나오니 그 전까지는 이것으로")
 const early = () => ((G.early || {})[st.os] || {});
 const earlyKeys = () => ["d7", "d3"].filter(k => early()[k] && early()[k].pt);
+// 이어 붙이기 중앙 |오차| — 이 게임·OS 채점(방법 비교 카드와 같은 값). 채점이 없으면 null
+const medOf = (T, H) => { const m = ((G.methods || {})[st.os] || []).find(m => m.method === "anch" && m.T === T); return m && m.H[H] ? m.H[H].med : null; };
 function earlyHtml() {
+  if (!G.early) return empty("이 산출에는 D3·D7 기반 예측이 없다(옛 산출) — python -m payback.build 로 다시 만들면 나온다");
   const ea = early();
   const one = (k, label) => { const e = ea[k], T = k === "d3" ? 3 : 7;
     if (!e) return tile(label, "–", `D${T} 까지 매출이 관측된 UA 설치가 아직 없다`);
-    if (e.small || !e.pt) return tile(label, "–", `${e.s_from.slice(5)}~${e.s_to.slice(5)} 설치 ${fmt.n(e.n)}명 · 관측 D${T} ROAS ${fmt.p(e.roas_T)} · 표본 적음(${M.min_camp_n}명 미만)`);
-    return tile(label, day(e.payday[0]), `D120 ${fmt.p(e.d120[0])} (${ivText(e)}) · 관측 D${T} ROAS ${fmt.p(e.roas_T)} · ${e.s_from.slice(5)}~${e.s_to.slice(5)} 설치 ${fmt.n(e.n)}명(${e.days}일) · CPI ${fmt.usd(e.cpi)}${qNote(e)}${vuNote(e)}`,
+    const head = `${e.s_from.slice(5)}~${e.s_to.slice(5)} 설치 ${fmt.n(e.n)}명`, af = e.af_T != null ? ` · ${AFN} D${T} ${fmt.p(e.af_T)}` : "";
+    if (e.none) return tile(label, "–", `${head} · ${e.none}`);
+    if (e.small || !e.pt) return tile(label, "–", `${head} · 관측 D${T} ROAS ${fmt.p(e.roas_T)}${af} · 표본 적음(${M.min_camp_n}명 미만)`);
+    return tile(label, day(e.payday[0]), `D120 ${fmt.p(e.d120[0])} (${ivText(e)}) · 관측 D${T} ROAS ${fmt.p(e.roas_T)}${af} · ${head}(${e.days}일) · CPI ${fmt.usd(e.cpi)}${qNote(e)}${vuNote(e)}`,
       e.payday[0] != null && e.payday[0] <= M.target); };
+  const m = [[3, 28], [3, 60], [7, 28], [7, 60]].map(([T, H]) => medOf(T, H));
+  const err = m.every(v => v != null) ? `D3 기반은 D7 기반보다 오차가 크다(이 게임 ${OSN[st.os] || st.os} 채점 중앙 오차 D28 ${fmt.p(m[0], 1)}·D60 ${fmt.p(m[1], 1)}, D7 기반은 ${fmt.p(m[2], 1)}·${fmt.p(m[3], 1)}). `
+    : "D3 기반은 D7 기반보다 오차가 크다(이 게임은 아직 채점할 코호트가 없어 구간을 sf 오차 폭으로 만든다). ";
   return `<div class="tiles">${one("d7", "D7 기반 ROAS 예측 · 예상 회수일")}${one("d3", "D3 기반 ROAS 예측 · 예상 회수일")}</div>`
     + `<div class="note">주간 지표는 UA 후 약 2주(설치 주 마지막 날 + 7일)부터 나온다 — 그 전까지 보는 숫자. 그 날까지 D7(또는 D3) 매출이 관측된 UA 설치 전부를 한 묶음으로 실측 끝에 이어 붙였다. `
-    + `D3 기반은 오차가 크다(sf 채점 중앙 오차 D28 9%·D60 11%, D7 기반은 6.5%·7.8%). 설치가 쌓이면 묶음이 커져 매일 바뀐다.</div>`;
+    + `${err}설치가 쌓이면 묶음이 커져 매일 바뀐다.</div>`;
 }
+
+// 주별 표 — 표본 적은 주도 관측(D7·D28 실측·AF 방식)은 보인다
+function weekTable(ws, t) {
+  const vu = (ws.find(w => !w.small) || {}).verified_until;
+  const head = ["설치 주", "설치", "CPI", "D7 실측", "D28 실측", "실측 끝", `D120 예상${vu != null && vu < M.target ? ` <span class="muted">D${vu} 뒤 참고 범위</span>` : ""}`,
+    `예상 회수일 <span class="muted">목표 D${M.target}${vu != null ? ` · D${vu} 뒤 미검증` : ""}</span>`, "필요 D7", `${AFN} <span class="muted">D7 · D28</span>`];
+  const afc = (a7, a28) => `<td>${fmt.p(a7)} · ${fmt.p(a28)}</td>`;
+  const ours28 = w => w.ours ? w.ours["28"] : null;
+  const body = ws.map(w => {
+    const sel = st.week === w.w_from ? " sel" : "";
+    const obs = `<td>${fmt.n(w.n)}</td><td>${fmt.usd(w.cpi)}</td><td>${fmt.p(w.roas7)}</td><td>${fmt.p(ours28(w))}</td><td>D${w.a} ${fmt.p(w.roas_a)}</td>`;
+    if (w.small) return `<tr class="wk${sel}" data-w="${w.w_from}"><td>${wk(w)}</td>${obs}<td colspan="3" class="na">표본 적음 — 설치 ${M.min_camp_n}명 미만</td>${afc(afOf(w, 7), afOf(w, 28))}</tr>`;
+    const warn = (qsrc() || "").includes("sf") && w.n < 300 ? ` <span class="tag">설치 ${w.n}명 — 실제 오차 더 클 수 있음</span>` : "";
+    return `<tr class="wk${sel}" data-w="${w.w_from}"><td>${wk(w)}${w.days < 7 ? ` <span class="muted">(${w.days}일)</span>` : ""}${warn}</td>${obs}`
+      + `<td>${fmt.p(w.d120[0])}${w.lo ? ` <span class="muted">${pr(w.d120[1], w.d120[2]) || ""}</span>` : ' <span class="muted">구간 없음</span>'}</td>`
+      + `<td${w.payday[0] != null && w.payday[0] <= M.target ? ' style="color:var(--good)"' : ""}>${day(w.payday[0])}${w.lo && (w.payday[1] != null || w.payday[2] != null) ? ` <span class="muted">${day(w.payday[1])}~${day(w.payday[2])}</span>` : ""}</td>`
+      + `<td>${w.need7 && w.need7[0] != null ? fmt.p(w.need7[0]) : "–"}</td>${afc(afOf(w, 7), afOf(w, 28))}</tr>`;
+  }).join("");
+  // 합산 줄의 D7·D28 = AF 방식을 잰 주들(그 Dk 관측이 끝난 주)의 우리 값 — AF 방식과 같은 주·광고비로 맞대 본다
+  const ta = k => t && t.af && t.af[String(k)] ? t.af[String(k)] : null, n28 = ta(28) ? ta(28)[2] : 0;
+  const tot = t ? `<tr class="total"><td>합산 ${t.w_from.slice(5)}~${t.w_to.slice(5)} (예측 가능한 ${t.weeks}주${t.skip_weeks ? ` · 표본 적은 ${t.skip_weeks}주 제외` : ""})</td><td>${fmt.n(t.n)}</td><td>${fmt.usd(t.cpi)}</td>`
+    + `<td>${fmt.p(ta(7) && ta(7)[1])}</td><td>${fmt.p(ta(28) && ta(28)[1])}${ta(28) && n28 < t.weeks ? ` <span class="muted">${n28}주</span>` : ""}</td><td>–</td>`
+    + `<td>${fmt.p(t.d120[0])}${t.lo ? ` <span class="muted">${pr(t.d120[1], t.d120[2]) || ""}</span>` : ""}</td><td>${day(t.payday[0])}${t.lo && (t.payday[1] != null || t.payday[2] != null) ? ` <span class="muted">${day(t.payday[1])}~${day(t.payday[2])}</span>` : ""}</td><td>–</td>`
+    + `${afc(ta(7) && ta(7)[0], ta(28) && ta(28)[0])}</tr>` : "";
+  return card(`주별 표 <span class="muted">행을 누르면 아래 곡선이 그 주로 · 필요 D7 = 그 주 곡선 모양 그대로일 때 120일 안 회수에 필요했던 D7 ROAS — 주마다 다른 참고값, 목표가 아님(D7 이 높은 주일수록 꼬리가 얇아 필요 D7 도 높게 나온다)</span>`,
+    `<div class="tscroll"><table><thead><tr>${head.map(x => `<th>${x}</th>`).join("")}</tr></thead><tbody>${tot}${body}</tbody></table></div>`,
+    (t ? "합산 = 예측 가능한 주들의 설치를 한 묶음으로 본 ROAS 예측(주별 매출 예측을 더함, 구간은 주별 구간 끝끼리 더해 넓게). 합산 줄의 D7·D28 실측은 그 Dk 관측이 끝난 주만(AF 방식과 같은 주). " : "")
+    + (vu != null ? `D${vu} 뒤는 아직 채점할 코호트가 없어 구간을 과거 오차의 로그 길이 비례로 늘린 참고 범위다(첫 D120 채점 ${M.first_d120 || "미정"}). ` : "")
+    + "'1년 넘음' = 모델상 D365 까지 100% 에 닿지 않음(그 뒤 회수를 보장한다는 뜻은 아님). (n일) = 그 주에 UA 설치가 있던 날 수. CPI 가 낮은 코호트는 꼬리가 얇은 경향(sf 실측). "
+    + AF_NOTE);
+}
+const bindWeekRows = () => document.querySelectorAll("tr.wk").forEach(tr => tr.addEventListener("click", () => { st.week = tr.dataset.w; renderS1(); renderS2(); }));
 
 function renderS1() {
   const ws = weeks(), t = (G.total || {})[st.os];
   if (!fcWeeks().length) {
-    $("s1sub").textContent = "D7 까지 관측된 설치 주가 아직 없다 — 주간 지표 전이라 D3·D7 기반 ROAS 예측";
-    $("b1").innerHTML = earlyHtml() + (ws.length ? `<div class="note">D7 이 끝난 주 ${ws.length}개는 모두 표본 적음(설치 ${M.min_camp_n}명 미만) — 주별 예측 없음.</div>` : "");
+    // 주가 하나도 없는 것과 주는 있는데 전부 표본 적은 것을 나눠 적는다(Codex·Opus 리뷰)
+    $("s1sub").textContent = ws.length ? `D7 이 끝난 주 ${ws.length}개가 모두 표본 적음(설치 ${M.min_camp_n}명 미만) — 주별 예측 대신 D3·D7 기반 ROAS 예측`
+      : "D7 까지 관측된 설치 주가 아직 없다 — 주간 지표 전이라 D3·D7 기반 ROAS 예측";
+    $("b1").innerHTML = earlyHtml() + (ws.length ? weekTable(ws, null) : "");
+    bindWeekRows();
     return;
   }
   $("s1sub").textContent = `설치 주(월~일) · 주 마지막 날 + 7일까지 매출 관측된 주만 — 최신 ${wk(ws[0])}`;
@@ -245,44 +294,29 @@ function renderS1() {
   const oldest = Math.max(...ws.map(w => w.a));
   h += card(`주별 D120 예상 ROAS 추이 <span class="muted">${OSN[st.os] || st.os} · 오래된 주 → 최신 주</span>`, trendChart(ws.slice().reverse()),
     `오래된 주일수록 실측이 길어(가장 오래된 주는 D${oldest} 까지 실측) 예측에 기대는 구간이 짧다.${qNote()}`);
-  const vu = (ws.find(w => !w.small) || {}).verified_until;
-  const head = ["설치 주", "설치", "CPI", "D7 실측", "실측 끝", `D120 예상${vu != null && vu < M.target ? ` <span class="muted">D${vu} 뒤 참고 범위</span>` : ""}`,
-    `예상 회수일 <span class="muted">목표 D${M.target}${vu != null ? ` · D${vu} 뒤 미검증` : ""}</span>`, "필요 D7"];
-  const body = ws.map(w => {
-    const sel = st.week === w.w_from ? " sel" : "";
-    if (w.small) return `<tr class="wk${sel}" data-w="${w.w_from}"><td>${wk(w)}</td><td>${fmt.n(w.n)}</td><td>${fmt.usd(w.cpi)}</td><td>${fmt.p(w.roas7)}</td><td>D${w.a} ${fmt.p(w.roas_a)}</td><td colspan="3" class="na">표본 적음 — 설치 ${M.min_camp_n}명 미만</td></tr>`;
-    const warn = (qsrc() || "").includes("sf") && w.n < 300 ? ` <span class="tag">설치 ${w.n}명 — 실제 오차 더 클 수 있음</span>` : "";
-    return `<tr class="wk${sel}" data-w="${w.w_from}"><td>${wk(w)}${w.days < 7 ? ` <span class="muted">(${w.days}일)</span>` : ""}${warn}</td>`
-      + `<td>${fmt.n(w.n)}</td><td>${fmt.usd(w.cpi)}</td><td>${fmt.p(w.roas7)}</td><td>D${w.a} ${fmt.p(w.roas_a)}</td>`
-      + `<td>${fmt.p(w.d120[0])}${w.lo ? ` <span class="muted">${pr(w.d120[1], w.d120[2]) || ""}</span>` : ' <span class="muted">구간 없음</span>'}</td>`
-      + `<td${w.payday[0] != null && w.payday[0] <= M.target ? ' style="color:var(--good)"' : ""}>${day(w.payday[0])}${w.lo && (w.payday[1] != null || w.payday[2] != null) ? ` <span class="muted">${day(w.payday[1])}~${day(w.payday[2])}</span>` : ""}</td>`
-      + `<td>${w.need7 && w.need7[0] != null ? fmt.p(w.need7[0]) : "–"}</td></tr>`;
-  }).join("");
-  const tot = t ? `<tr class="total"><td>합산 ${t.w_from.slice(5)}~${t.w_to.slice(5)} (예측 가능한 ${t.weeks}주${t.skip_weeks ? ` · 표본 적은 ${t.skip_weeks}주 제외` : ""})</td><td>${fmt.n(t.n)}</td><td>${fmt.usd(t.cpi)}</td><td>–</td><td>–</td>`
-    + `<td>${fmt.p(t.d120[0])}${t.lo ? ` <span class="muted">${pr(t.d120[1], t.d120[2]) || ""}</span>` : ""}</td><td>${day(t.payday[0])}${t.lo && (t.payday[1] != null || t.payday[2] != null) ? ` <span class="muted">${day(t.payday[1])}~${day(t.payday[2])}</span>` : ""}</td><td>–</td></tr>` : "";
-  h += card(`주별 표 <span class="muted">행을 누르면 아래 곡선이 그 주로 · 필요 D7 = 그 주 곡선 모양 그대로일 때 120일 안 회수에 필요했던 D7 ROAS — 주마다 다른 참고값, 목표가 아님(D7 이 높은 주일수록 꼬리가 얇아 필요 D7 도 높게 나온다)</span>`,
-    `<div class="tscroll"><table><thead><tr>${head.map(x => `<th>${x}</th>`).join("")}</tr></thead><tbody>${tot}${body}</tbody></table></div>`,
-    "합산 = 예측 가능한 주들의 설치를 한 묶음으로 본 ROAS 예측(주별 매출 예측을 더함, 구간은 주별 구간 끝끼리 더해 넓게). "
-    + (vu != null ? `D${vu} 뒤는 아직 채점할 코호트가 없어 구간을 과거 오차의 로그 길이 비례로 늘린 참고 범위다(첫 D120 채점 ${M.first_d120 || "미정"}). ` : "")
-    + "'1년 넘음' = 모델상 D365 까지 100% 에 닿지 않음(그 뒤 회수를 보장한다는 뜻은 아님). (n일) = 그 주에 UA 설치가 있던 날 수. CPI 가 낮은 코호트는 꼬리가 얇은 경향(sf 실측).");
+  h += weekTable(ws, t);
   $("b1").innerHTML = h;
-  document.querySelectorAll("tr.wk").forEach(tr => tr.addEventListener("click", () => { st.week = tr.dataset.w; renderS1(); renderS2(); }));
+  bindWeekRows();
 }
 
 function renderS2() {
   const ws = weeks(), done = fcWeeks(), t = (G.total || {})[st.os], ea = early(), ek = earlyKeys();
   // 주간 지표 전이면 D7·D3 기반 곡선, 아니면 주·합산 곡선
-  const pre = !done.length, cur = st.week || (pre ? ek[0] : (done[0] && done[0].w_from));
-  const pick = pre ? ea[cur] : st.week === "total" ? t : (st.week ? ws.find(w => w.w_from === st.week) : done[0]);
-  if (pick && pick.small) { $("b2").innerHTML = empty(`${pick.w_from ? wk(pick) + " 주" : "이 묶음"}는 표본 적음(설치 ${fmt.n(pick.n)}명) — 예측 곡선 없음`); return; }
-  if (!pick || !pick.pt) { $("b2").innerHTML = empty("예측 곡선 없음"); return; }
+  const pre = !done.length;
   const opts = pre ? ek.map(k => [k, k === "d3" ? "D3 기반" : "D7 기반"]) : [...(t ? [["total", `합산 ${t.weeks}주`]] : []), ...done.slice(0, 6).map(w => [w.w_from, wk(w)])];
-  const chips = `<span class="chip"><span class="lbl">곡선</span>${opts.map(([k, n]) => `<button class="osb${cur === k ? " on" : ""}" data-k="${k}" type="button">${n}</button>`).join("")}</span>`;
-  const title = pre ? `${cur === "d3" ? "D3" : "D7"} 기반 · 설치 ${pick.s_from}~${pick.s_to}` : st.week === "total" ? `합산 ${t.w_from}~${t.w_to} 설치(${t.weeks}주)` : `설치 주 ${pick.w_from}~${pick.w_to}`;
-  $("b2").innerHTML = `<div class="filters" style="margin:0 0 10px">${chips}</div>` + card(`${OSN[st.os] || st.os} · ${title}`, curveChart(pick),
-    `실선 = 실측(D0~D${pick.T}${st.week === "total" ? ", 모든 주가 실측인 구간" : ""}), 점선 = 이어 붙인 예측, 띠 = 과거 예측 오차로 만든 범위${qNote(pick)}.`
+  // 고른 곡선이 지금 OS·화면에 없으면(OS 를 바꿨거나 주간 지표가 막 생겼으면) 기본값으로 — 칩이 사라져 못 돌아오는 일 없게(Codex·Opus 리뷰)
+  const ok = k => k && (pre ? ek.includes(k) : k === "total" ? !!t : ws.some(w => w.w_from === k));
+  const cur = ok(st.week) ? st.week : (pre ? ek[0] : (done[0] && done[0].w_from));
+  const pick = !cur ? null : pre ? ea[cur] : cur === "total" ? t : ws.find(w => w.w_from === cur);
+  const chips = opts.length ? `<div class="filters" style="margin:0 0 10px"><span class="chip"><span class="lbl">곡선</span>${opts.map(([k, n]) => `<button class="osb${cur === k ? " on" : ""}" data-k="${k}" type="button">${n}</button>`).join("")}</span></div>` : "";
+  const bind = () => $("b2").querySelectorAll("button[data-k]").forEach(b => b.addEventListener("click", () => { st.week = b.dataset.k; renderS1(); renderS2(); }));
+  if (pick && pick.small) { $("b2").innerHTML = chips + empty(`${wk(pick)} 주는 표본 적음(설치 ${fmt.n(pick.n)}명) — 예측 곡선 없음`); bind(); return; }
+  if (!pick || !pick.pt) { $("b2").innerHTML = chips + empty(pre ? "D3·D7 기반 예측 곡선 없음 — 표본 적음 또는 관측 전" : "예측 곡선 없음"); bind(); return; }
+  const title = pre ? `${cur === "d3" ? "D3" : "D7"} 기반 · 설치 ${pick.s_from}~${pick.s_to}` : cur === "total" ? `합산 ${t.w_from}~${t.w_to} 설치(${t.weeks}주)` : `설치 주 ${pick.w_from}~${pick.w_to}`;
+  $("b2").innerHTML = chips + card(`${OSN[st.os] || st.os} · ${title}`, curveChart(pick),
+    `실선 = 실측(D0~D${pick.T}${cur === "total" ? ", 모든 주가 실측인 구간" : ""}), 점선 = 이어 붙인 예측, 띠 = 과거 예측 오차로 만든 범위${qNote(pick)}.`
     + (pick.verified_until != null ? ` D${pick.verified_until} 뒤는 아직 실측으로 맞춰 본 적이 없는 참고 범위다.` : ""));
-  $("b2").querySelectorAll("button[data-k]").forEach(b => b.addEventListener("click", () => { st.week = b.dataset.k; renderS1(); renderS2(); }));
+  bind();
 }
 
 function partsHtml(d) {
@@ -351,7 +385,7 @@ function renderS4() {
 function drawFilters() {
   $("filters").innerHTML = `<span class="chip"><span class="lbl">OS</span>${M.plats.map(p => `<button class="osb${st.os === p ? " on" : ""}" data-os="${p}" type="button">${OSN[p] || p}</button>`).join("")}</span>`
     + `<span class="goal">목표 = 설치 후 ${M.target}일 안 ROAS 100%</span><span class="range">주별 = 최근 ${M.weeks_max}주(D7 완료) · 캠페인 = 최근 ${M.window}일 설치 · 매출 관측 끝 ${M.obs_rev || "없음"}</span>`;
-  document.querySelectorAll(".osb[data-os]").forEach(b => b.addEventListener("click", () => { st.os = b.dataset.os; render(); }));
+  document.querySelectorAll(".osb[data-os]").forEach(b => b.addEventListener("click", () => { st.os = b.dataset.os; st.week = null; render(); }));   // 곡선 선택은 OS 마다 다르다
 }
 function render() { drawFilters(); renderS1(); renderS2(); renderS3(); renderS4(); }
 
@@ -377,6 +411,8 @@ function useGame(key, first) {
     "120일 회수 CPI · 필요 관측 ROAS 는 지금 유저 구성·수익 수준·곡선 모양이 그대로일 때의 값이다. 광고 규모를 바꾼 뒤의 CPI·유저 질 변화는 예측하지 않는다.",
     "산술 분해 = ROAS = 설치당 유저-일 × 노출/유저-일 × eCPM × (1 + IAP/광고 매출) ÷ CPI 를 기준과 로그로 나눈 것. 항등식이라 합은 맞지만 원인 추정이 아니다.",
     `설치 ${M.min_camp_n}명 미만 캠페인은 예측을 비운다(소표본 오차 20~40% — 리뷰 실측). 관측 숫자(설치·광고비·ROAS)는 UA 보드와 같은 정의·값(배너 포함, KR·리타게팅 제외, Meta 합산).`,
+    "ROAS 매출 = 광고 유저(원시 설치 리포트의 논오가닉)의 IAP 순매출(af_purchase × 0.7 — 스토어 수수료 30% 제외, .dev. 상품 제외) + 광고 매출. UA·KPI 보드와 같은 정의(11-01 부터 순매출).",
+    `${AFN} = AppsFlyer 'TS's UA dashboard' 와 같은 계산 — 그 설치일(UTC)에 설치한 유저 전체(광고 + 오가닉)의 IAP × 0.7 + 광고 매출(AppsFlyer ID 없는 오가닉 행 포함) ÷ 같은 광고비. sf iOS 09-07~13 설치로 D1·D3·D7·D14·D28 이 AF 화면과 소수 둘째 자리까지 같다(D28 AF 방식 60.4% · 우리 46.0%). 대조용 참고 — 예측·회수일에는 쓰지 않는다.`,
     "리텐션 × ARPDAU(교과서 방식)·D7 배수는 우리 데이터에서 크게 과대라 머리 숫자에 쓰지 않고 방법 비교 카드에만 둔다(설계 문서 근거 2).",
   ].map(s => `<li>${esc(s)}</li>`).join("");
   render();
