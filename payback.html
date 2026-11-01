@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>회수 예측(작업 중) · GRP1 대시보드</title>
+<title>ROAS 예측(작업 중) · GRP1 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="site.css">
 <script src="site.js"></script>
 <style>
-/* 회수 예측 — 팀장님 UA 목표 '설치 후 120일 안 ROAS 100%' 를 캠페인 단위로 판단하는 참고 화면(2026-11-01).
+/* ROAS 예측 — 팀장님 UA 목표 '설치 후 120일 안 ROAS 100%' 를 캠페인 단위로 판단하는 참고 화면(2026-11-01).
    숫자는 payback.build 산출을 그대로 그린다(다시 계산하지 않음). 판정·지시 문구는 쓰지 않는다. */
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
@@ -87,14 +87,14 @@ details.defs summary,details.more summary{cursor:pointer;font-weight:600;color:v
 <body>
 <header class="gx-bar">
   <a class="gx-brand" href="index.html" data-keep-hash title="메인으로"><b>GRP1</b><span>대시보드</span></a>
-  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a><a href="kpi.html" data-keep-hash>KPI</a><a href="payback.html" data-keep-hash aria-current="page">회수 예측</a></nav>
+  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a><a href="kpi.html" data-keep-hash>KPI</a><a href="payback.html" data-keep-hash aria-current="page">ROAS 예측<span style="font-size:10.5px;opacity:.8">(작업 중)</span></a></nav>
   <div class="gx-right"><span id="gen" class="gx-gen"></span><button class="gx-btn" id="theme" type="button">라이트</button></div>
 </header>
 <section class="gx-hero" id="hero">
   <div class="gx-wash"></div><img class="gx-art" alt="" hidden><div class="gx-shade"></div>
   <div class="gx-copy">
-    <div class="gx-when"><span class="gx-pill">회수 예측</span><span class="gx-pill" style="--gc:var(--warn)">작업 중</span><span>설치 후 120일 안 ROAS 100% — 캠페인 단위 참고 숫자 · 판정 없음</span></div>
-    <h1 class="gx-name">회수 예측</h1>
+    <div class="gx-when"><span class="gx-pill">ROAS 예측</span><span class="gx-pill" style="--gc:var(--warn)">작업 중</span><span>설치 후 120일 안 ROAS 100% — 캠페인 단위 참고 숫자 · 판정 없음</span></div>
+    <h1 class="gx-name">ROAS 예측</h1>
     <div class="gx-doc" id="hdoc"></div>
   </div>
   <nav class="gx-games" id="games" role="tablist" aria-label="게임"></nav>
@@ -104,7 +104,7 @@ details.defs summary,details.more summary{cursor:pointer;font-weight:600;color:v
   <div id="board" hidden>
     <div class="toolbar"><div class="filters" id="filters"></div></div>
     <div class="wip-note"><b>작업 중</b>예측 방식과 화면을 다듬는 중이라 숫자와 구성이 바뀔 수 있습니다. D75 근처 이후는 아직 실측 검증 전입니다(첫 D120 채점 11-30 전후).</div>
-    <section id="s1"><h2 data-no="Ⅰ">주별 UA 회수 예측 <span class="muted" id="s1sub"></span></h2><div id="b1"></div></section>
+    <section id="s1"><h2 data-no="Ⅰ">주별 UA ROAS 예측 <span class="muted" id="s1sub"></span></h2><div id="b1"></div></section>
     <section id="s2"><h2 data-no="Ⅱ">누적 ROAS 곡선 <span class="muted">실측 + 이어 붙인 예측 + 80% 구간</span></h2><div id="b2"></div></section>
     <section id="s3"><h2 data-no="Ⅲ">캠페인 <span class="muted">행을 누르면 산술 분해와 가이드</span></h2><div id="b3"></div></section>
     <section id="s4"><h2 data-no="Ⅳ">방법 비교 <span class="muted">그때 알던 데이터로 한 예측 vs 나중 실제</span></h2><div id="b4"></div></section>
@@ -210,10 +210,29 @@ function trendChart(ws) {
 const ivName = s => s.verified_until != null && s.verified_until >= M.target ? "80% 구간" : "참고 범위";
 const ivText = s => s.lo ? `${ivName(s)} ${pr(s.d120[1], s.d120[2]) || "계산 불가"}` : "구간 없음 — 채점 부족";
 
+// 주간 지표 전 — D3·D7 기반 ROAS 예측(팀장님 11-01: "UA 후 2주가 지나야 주간 지표가 나오니 그 전까지는 이것으로")
+const early = () => ((G.early || {})[st.os] || {});
+const earlyKeys = () => ["d7", "d3"].filter(k => early()[k] && early()[k].pt);
+function earlyHtml() {
+  const ea = early();
+  const one = (k, label) => { const e = ea[k], T = k === "d3" ? 3 : 7;
+    if (!e) return tile(label, "–", `D${T} 까지 매출이 관측된 UA 설치가 아직 없다`);
+    if (e.small || !e.pt) return tile(label, "–", `${e.s_from.slice(5)}~${e.s_to.slice(5)} 설치 ${fmt.n(e.n)}명 · 관측 D${T} ROAS ${fmt.p(e.roas_T)} · 표본 적음(${M.min_camp_n}명 미만)`);
+    return tile(label, day(e.payday[0]), `D120 ${fmt.p(e.d120[0])} (${ivText(e)}) · 관측 D${T} ROAS ${fmt.p(e.roas_T)} · ${e.s_from.slice(5)}~${e.s_to.slice(5)} 설치 ${fmt.n(e.n)}명(${e.days}일) · CPI ${fmt.usd(e.cpi)}${qNote(e)}${vuNote(e)}`,
+      e.payday[0] != null && e.payday[0] <= M.target); };
+  return `<div class="tiles">${one("d7", "D7 기반 ROAS 예측 · 예상 회수일")}${one("d3", "D3 기반 ROAS 예측 · 예상 회수일")}</div>`
+    + `<div class="note">주간 지표는 UA 후 약 2주(설치 주 마지막 날 + 7일)부터 나온다 — 그 전까지 보는 숫자. 그 날까지 D7(또는 D3) 매출이 관측된 UA 설치 전부를 한 묶음으로 실측 끝에 이어 붙였다. `
+    + `D3 기반은 오차가 크다(sf 채점 중앙 오차 D28 9%·D60 11%, D7 기반은 6.5%·7.8%). 설치가 쌓이면 묶음이 커져 매일 바뀐다.</div>`;
+}
+
 function renderS1() {
   const ws = weeks(), t = (G.total || {})[st.os];
-  $("s1sub").textContent = ws.length ? `설치 주(월~일) · 주 마지막 날 + 7일까지 매출 관측된 주만 — 최신 ${wk(ws[0])}` : "";
-  if (!ws.length) { $("b1").innerHTML = empty(`D7 까지 관측된 설치 주가 아직 없다 — 주 마지막 날 + 7일이 매출 관측 끝(${M.obs_rev || "없음"}) 이후`); return; }
+  if (!fcWeeks().length) {
+    $("s1sub").textContent = "D7 까지 관측된 설치 주가 아직 없다 — 주간 지표 전이라 D3·D7 기반 ROAS 예측";
+    $("b1").innerHTML = earlyHtml() + (ws.length ? `<div class="note">D7 이 끝난 주 ${ws.length}개는 모두 표본 적음(설치 ${M.min_camp_n}명 미만) — 주별 예측 없음.</div>` : "");
+    return;
+  }
+  $("s1sub").textContent = `설치 주(월~일) · 주 마지막 날 + 7일까지 매출 관측된 주만 — 최신 ${wk(ws[0])}`;
   // 타일은 달력상 최신 주·그 전 주 — 표본 적은 주를 건너뛰어 앞 주 숫자로 바꾸지 않는다(Codex 리뷰)
   const wtile = (label, w) => !w ? tile(label, "–", "그 주 없음")
     : w.small ? tile(label, "–", `${wk(w)} · 표본 적음(설치 ${fmt.n(w.n)}명 < ${M.min_camp_n}) · D7 실측 ${fmt.p(w.roas7)}`)
@@ -243,7 +262,7 @@ function renderS1() {
     + `<td>${fmt.p(t.d120[0])}${t.lo ? ` <span class="muted">${pr(t.d120[1], t.d120[2]) || ""}</span>` : ""}</td><td>${day(t.payday[0])}${t.lo && (t.payday[1] != null || t.payday[2] != null) ? ` <span class="muted">${day(t.payday[1])}~${day(t.payday[2])}</span>` : ""}</td><td>–</td></tr>` : "";
   h += card(`주별 표 <span class="muted">행을 누르면 아래 곡선이 그 주로 · 필요 D7 = 그 주 곡선 모양 그대로일 때 120일 안 회수에 필요했던 D7 ROAS — 주마다 다른 참고값, 목표가 아님(D7 이 높은 주일수록 꼬리가 얇아 필요 D7 도 높게 나온다)</span>`,
     `<div class="tscroll"><table><thead><tr>${head.map(x => `<th>${x}</th>`).join("")}</tr></thead><tbody>${tot}${body}</tbody></table></div>`,
-    "합산 = 예측 가능한 주들의 설치를 한 묶음으로 본 회수 예측(주별 매출 예측을 더함, 구간은 주별 구간 끝끼리 더해 넓게). "
+    "합산 = 예측 가능한 주들의 설치를 한 묶음으로 본 ROAS 예측(주별 매출 예측을 더함, 구간은 주별 구간 끝끼리 더해 넓게). "
     + (vu != null ? `D${vu} 뒤는 아직 채점할 코호트가 없어 구간을 과거 오차의 로그 길이 비례로 늘린 참고 범위다(첫 D120 채점 ${M.first_d120 || "미정"}). ` : "")
     + "'1년 넘음' = 모델상 D365 까지 100% 에 닿지 않음(그 뒤 회수를 보장한다는 뜻은 아님). (n일) = 그 주에 UA 설치가 있던 날 수. CPI 가 낮은 코호트는 꼬리가 얇은 경향(sf 실측).");
   $("b1").innerHTML = h;
@@ -251,13 +270,15 @@ function renderS1() {
 }
 
 function renderS2() {
-  const ws = weeks(), done = fcWeeks(), t = (G.total || {})[st.os];
-  const pick = st.week === "total" ? t : (st.week ? ws.find(w => w.w_from === st.week) : done[0]);
-  if (pick && pick.small) { $("b2").innerHTML = empty(`${wk(pick)} 주는 표본 적음(설치 ${fmt.n(pick.n)}명) — 예측 곡선 없음`); return; }
+  const ws = weeks(), done = fcWeeks(), t = (G.total || {})[st.os], ea = early(), ek = earlyKeys();
+  // 주간 지표 전이면 D7·D3 기반 곡선, 아니면 주·합산 곡선
+  const pre = !done.length, cur = st.week || (pre ? ek[0] : (done[0] && done[0].w_from));
+  const pick = pre ? ea[cur] : st.week === "total" ? t : (st.week ? ws.find(w => w.w_from === st.week) : done[0]);
+  if (pick && pick.small) { $("b2").innerHTML = empty(`${pick.w_from ? wk(pick) + " 주" : "이 묶음"}는 표본 적음(설치 ${fmt.n(pick.n)}명) — 예측 곡선 없음`); return; }
   if (!pick || !pick.pt) { $("b2").innerHTML = empty("예측 곡선 없음"); return; }
-  const chips = `<span class="chip"><span class="lbl">곡선</span>${[...(t ? [["total", `합산 ${t.weeks}주`]] : []), ...done.slice(0, 6).map(w => [w.w_from, wk(w)])]
-    .map(([k, n]) => `<button class="osb${(st.week || (done[0] && done[0].w_from)) === k ? " on" : ""}" data-k="${k}" type="button">${n}</button>`).join("")}</span>`;
-  const title = st.week === "total" ? `합산 ${t.w_from}~${t.w_to} 설치(${t.weeks}주)` : `설치 주 ${pick.w_from}~${pick.w_to}`;
+  const opts = pre ? ek.map(k => [k, k === "d3" ? "D3 기반" : "D7 기반"]) : [...(t ? [["total", `합산 ${t.weeks}주`]] : []), ...done.slice(0, 6).map(w => [w.w_from, wk(w)])];
+  const chips = `<span class="chip"><span class="lbl">곡선</span>${opts.map(([k, n]) => `<button class="osb${cur === k ? " on" : ""}" data-k="${k}" type="button">${n}</button>`).join("")}</span>`;
+  const title = pre ? `${cur === "d3" ? "D3" : "D7"} 기반 · 설치 ${pick.s_from}~${pick.s_to}` : st.week === "total" ? `합산 ${t.w_from}~${t.w_to} 설치(${t.weeks}주)` : `설치 주 ${pick.w_from}~${pick.w_to}`;
   $("b2").innerHTML = `<div class="filters" style="margin:0 0 10px">${chips}</div>` + card(`${OSN[st.os] || st.os} · ${title}`, curveChart(pick),
     `실선 = 실측(D0~D${pick.T}${st.week === "total" ? ", 모든 주가 실측인 구간" : ""}), 점선 = 이어 붙인 예측, 띠 = 과거 예측 오차로 만든 범위${qNote(pick)}.`
     + (pick.verified_until != null ? ` D${pick.verified_until} 뒤는 아직 실측으로 맞춰 본 적이 없는 참고 범위다.` : ""));
@@ -363,7 +384,7 @@ function useGame(key, first) {
 
 function boot(data) {
   D = data; const keys = Object.keys(D.games || {});
-  if (!keys.length) { $("lock").hidden = false; $("lock").innerHTML = empty("회수 예측 데이터가 비어 있음 — python -m payback.build"); return; }
+  if (!keys.length) { $("lock").hidden = false; $("lock").innerHTML = empty("ROAS 예측 데이터가 비어 있음 — python -m payback.build"); return; }
   $("lock").hidden = true; $("board").hidden = false;
   $("gen").textContent = `산출 ${D.generated_at || ""}`;
   $("games").innerHTML = keys.map(k => GX.posterBtn(k, D.games[k].meta.game, false)).join("");
@@ -381,7 +402,7 @@ async function decryptData(enc, pass) {
 }
 function showUnlock(enc, err) {
   $("lock").hidden = false;
-  $("lock").innerHTML = `<div class="lock"><b>회수 예측</b><div class="${err ? "err" : ""}" style="margin:8px 0 0;font-size:13px;color:${err ? "" : "var(--ink-3)"}">${err || "집계 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다."}</div>
+  $("lock").innerHTML = `<div class="lock"><b>ROAS 예측</b><div class="${err ? "err" : ""}" style="margin:8px 0 0;font-size:13px;color:${err ? "" : "var(--ink-3)"}">${err || "집계 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다."}</div>
     <form id="pwform"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password"><button type="submit">열기</button></form></div>`;
   $("pwform").onsubmit = async ev => { ev.preventDefault();
     try { const pass = $("pw").value; const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} boot(data); }
