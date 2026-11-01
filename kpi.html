@@ -335,7 +335,7 @@ function renderS2() {
     + card(`설치일별 진입 ${src("new")} <span class="muted">UA 설치 중 설치 당일 af_login · 1레벨 이상 클리어</span>`, entC, "",
         `인게임 진입률은 설치일 ${M.login_from} 부터(그 전엔 af_login 계측 빌드 롤아웃이 섞여 낮게 나온다 — 설치일별 D0 af_login 비율 09-11 21% · 09-12 91% · 09-16~ 99%대).`)
     + `</div>`;
-  h += missList([["평균 플레이 타임", "플레이 시간 이벤트가 없다 — 클라가 누적 플레이 초를 af_login 에 실으면 raw 로 쌓을 수 있다(미적용)"],
+  h += missList([["평균 플레이 타임", "플레이 시간 이벤트가 없다 — 신규 게임부터 af_login 에 누적 플레이 초(app_sec_total)를 싣기로 함(11-01). 이 게임엔 넣지 않음"],
     ["메타 콘텐츠 소비율", "안 하기로 함(11-01) — 모드·아이템 사용 이벤트가 없다"],
     ["Ad Fatigue Index", "안 하기로 함(11-01) — 광고 노출만 오고 '광고 제안 → 수락' 이벤트가 없다"]]);
   $("b2").innerHTML = h;
@@ -380,7 +380,7 @@ function renderS3() {
     + card(`레벨 구간별 실패율 · 재도전 ${src("new")} <span class="muted">af_level_achieved · level_fail · attempt_count</span>`, bT, "full",
         `재도전율 = 실패 뒤 같은 유저·레벨에서 더 큰 attempt_count 가 관측된 비율(유저 1/${M.sample_mod} 표본, 마지막 관측일 실패 제외) — 유실 시도가 있으면 낮게 나오는 하한.`)
     + `</div>`;
-  h += missList([["평균 클리어 시간", "레벨 시작 이벤트를 AF 로 보내지 않는다 — 클라가 클리어·실패 이벤트에 플레이 초를 실으면 raw 로 쌓을 수 있다(미적용)"]]);
+  h += missList([["평균 클리어 시간", "레벨 시작 이벤트를 AF 로 보내지 않는다 — 신규 게임부터 클리어·실패 이벤트에 플레이 초(play_sec)를 싣기로 함(11-01). 이 게임엔 넣지 않음"]]);
   $("b3").innerHTML = h;
 }
 
@@ -521,7 +521,7 @@ function boot(data) {
   st.to = Q.get("to") && Q.get("to") <= HI ? Q.get("to") : HI;
   st.from = Q.get("from") && Q.get("from") >= LO ? Q.get("from") : (shift(HI, -59) < LO ? LO : shift(HI, -59));   // 기본 최근 60일 — D28 성숙 설치일이 들어오게
   $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · UA 설치일 ${M.ua_start}~ · 활동 지표 ${M.act_from}~ · 이벤트 관측 끝 ${M.obs_ev} · 매출 관측 끝 ${M.obs_rev}`;
-  $("cover").innerHTML = `<span><b>29</b>/ 34 KPI 를 이 탭에 표시</span><span><b>2</b>클라 계측하면 가능 — 플레이 타임·클리어 시간</span><span><b>3</b>안 하기로 함</span><span class="muted">스토어·실험 KPI 6개는 표에서 뺌(11-01)</span>
+  $("cover").innerHTML = `<span><b>29</b>/ 34 KPI 를 이 탭에 표시</span><span><b>2</b>신규 게임부터 계측 — 플레이 타임·클리어 시간</span><span><b>3</b>안 하기로 함</span><span class="muted">스토어·실험 KPI 6개는 표에서 뺌(11-01)</span>
     <span class="muted">출처 꼬리표:</span>${src("ua")}${src("gen")}${src("new")}${src("ref")}<span class="muted">— 같은 꼬리표끼리만 숫자를 대조할 것</span>`;
   $("defs").innerHTML = [
     "게임 = Bash Fiesta(sf) 하나. iOS·Android 둘 다 유료 UA(07-29~)라 D28 성숙 코호트가 있고, 계측 3종·실패·결제·광고 형식이 모두 있어 표를 가장 많이 채운다.",
