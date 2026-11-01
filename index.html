@@ -189,7 +189,7 @@ function render(S) {
   const bs = ({0: [4, 4, 4], 1: [3, 3, 3], 2: [6, 3, 3], 3: [3, 3, 12]})[genKeys.length % 4];
   h += `<a class="t board" href="general.html${hash}" style="--bc:#6f93ff;--bs:${bs[0]}"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><div class="icons">${icons(genKeys)}</div><span class="go">→</span></a>`;
   h += `<a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5;--bs:${bs[1]}"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
-  h += `<a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a;--bs:${bs[2]}"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><div class="icons">${icons(['sf'])}</div><span class="go">→</span></a>`;
+  h += `<a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a;--bs:${bs[2]}"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
   $('bento').innerHTML = h;
 
   // ── 브리핑 ──

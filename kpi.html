@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="site.css">
 <script src="site.js"></script>
 <style>
-/* KPI 보드 — 팀장님 KPI 표(획득·참여·플레이·수익화·시뮬레이션)를 지금 데이터로 채울 수 있는 것만(2026-11-01). 한 게임(Bash Fiesta).
+/* KPI 보드 — 팀장님 KPI 표(획득·참여·플레이·수익화·시뮬레이션)를 지금 데이터로 채울 수 있는 것만(2026-11-01). 첫 판 Bash Fiesta → 같은 날 UA 보드 여섯 게임 전부.
    정의는 이웃 보드를 따른다: 획득·ROAS = UA 보드, 잔존·코호트 ARPU = 일반 지표 보드. 이 탭에서 새로 센 지표는 타일에 출처 꼬리표. */
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
@@ -152,7 +152,7 @@ const FMTN = {rewarded: "리워드", interstitial: "전면", banner: "배너", o
 
 const Q = new URLSearchParams(location.search);
 const st = {from: null, to: null, os: OSN[Q.get("os")] ? Q.get("os") : "all", sec: Q.get("sec") || "all", rm: "m"};
-let D = null, G = null, M = null, LO, HI, OK;
+let D = null, G = null, M = null, LO, HI, OK, CAP = {};
 
 // ── 공용 조각 ──
 function tile(label, value, sub, s, o = {}) {
@@ -167,8 +167,29 @@ function table(head, rows, total) {
     + (total ? `<tr class="total">${total.map(c => `<td>${c}</td>`).join("")}</tr>` : "")
     + rows.map(r => `<tr>${r.map(c => `<td${c === "–" ? ' class="na"' : ""}>${c}</td>`).join("")}</tr>`).join("") + `</tbody></table></div>`;
 }
-// 표의 항목 중 이 탭에 없는 것 — 스토어·실험 KPI 6개는 2026-11-01 팀장님 결정으로 표에서 뺐다(여기에도 적지 않음)
-const missList = (items, see) => `<div class="miss">`
+// KPI 표 34개(원래 40개 — 스토어·실험 6개는 2026-11-01 팀장님 결정으로 뺐다) × 게임별 상태. 상태 함수가 null 이면 표시,
+// ["na", 사유] = 이 게임엔 해당 없음(계측·설계) · ["later", 사유] = 신규 게임부터 계측 · ["skip", 사유] = 안 하기로 함(11-01).
+// 커버리지 띠와 섹션 아래 '이 탭에 없는 KPI' 가 이 표 하나에서 나온다.
+const LATER = (what) => () => ["later", `${what} — 신규 게임부터 계측하기로 함(11-01, af_login.app_sec_total · 레벨 이벤트 play_sec). 출시 게임엔 넣지 않음`];
+const SKIP = (why) => () => ["skip", why];
+const NOFAIL = c => c.fail ? null : ["na", c.failWhy];
+const KPIS = [
+  ["s1", "CPI"], ["s1", "CVR"], ["s1", "타겟별 CPI", c => c.geo ? null : ["na", "국가별 광고비(Master geo)를 아직 받지 않았다"]], ["s1", "Organic 비중"], ["s1", "LTV 예측 변수"],
+  ["s2", "D1 / D7 / D28 Retention"], ["s2", "인게임 진입률"], ["s2", "튜토리얼 완료율"], ["s2", "세션 수 (일별)"],
+  ["s2", "평균 플레이 타임", LATER("플레이 시간 이벤트가 없다")], ["s2", "목표 레벨 진행률"],
+  ["s2", "메타 콘텐츠 소비율", SKIP("모드·아이템 사용 이벤트가 없다")], ["s2", "코어 루프 진입률"], ["s2", "Fail→Retry율", NOFAIL],
+  ["s2", "Ad Fatigue Index", SKIP("광고 노출만 오고 '광고 제안 → 수락' 이벤트가 없다")],
+  ["s3", "평균 광고 시청 수"], ["s3", "광고 종류별 비율"], ["s3", "레벨별 실패율", NOFAIL],
+  ["s3", "재도전율 (Retry Rate)", c => c.ach ? null : ["na", c.achWhy]], ["s3", "평균 클리어 시간", LATER("레벨 시작 이벤트를 AF 로 보내지 않는다")],
+  ["s4", "ROAS (D0, D1, D7, D28)"], ["s4", "ARPU / ARPDAU / ARPPU"], ["s4", "Paying Rate"], ["s4", "IAP 비중"], ["s4", "IAA 비중"], ["s4", "상품별 구매 수"],
+  ["s4", "구매율 / 결제율 (상점 진입 → 구매)", SKIP("상점 진입·구매 시도 이벤트가 없다")], ["s4", "광고제거 상품 비중"], ["s4", "광고 시청 타이밍별 매출"], ["s4", "구매 타이밍별 ARPPU 곡선"],
+  ["s5", "LTV"], ["s5", "Retention × Monetization Matrix"], ["s5", "Break-even Day"], ["s5", "Funnel Drop-off Map"],
+];
+const kpiState = () => KPIS.map(([s, n, f]) => ({s, n, st: (f && f(CAP)) || null}));
+const ST_LABEL = {na: "", later: "", skip: "안 하기로 함(11-01)"};   // na 사유는 "이 게임은 …" 으로 시작해 따로 붙이지 않는다
+const missFor = (sec, see) => missList(kpiState().filter(k => k.s === sec && k.st).map(k => [k.n, (ST_LABEL[k.st[0]] ? ST_LABEL[k.st[0]] + " — " : "") + k.st[1]]), see);
+// 표의 항목 중 이 탭에 없는 것
+const missList = (items, see) => !items.length && !see ? "" : `<div class="miss">`
   + (items.length ? `<b>이 탭에 없는 KPI</b>표의 항목 중 이 탭에 없는 것<ul>${items.map(([n, why]) => `<li><em>${esc(n)}</em> — ${esc(why)}</li>`).join("")}</ul>` : "")
   + (see ? `<div${items.length ? ' style="margin-top:6px"' : ""}><b>다른 섹션에 있는 KPI</b>${see.map(([n, where]) => `<em style="font-style:normal;color:var(--ink-2)">${esc(n)}</em> → ${esc(where)}`).join(" · ")}</div>` : "") + `</div>`;
 // 라인 차트 — x 는 같은 라벨 축, y 하나(이중 축 없음). 세로 띠 전체가 호버 영역(툴팁 = 그 x 의 모든 계열 값).
@@ -273,7 +294,8 @@ function renderS1() {
   const add = (xs) => xs.reduce((a, [, x]) => { for (const k in x) a[k] = (a[k] || 0) + x[k]; return a; }, {});
   const tot = add(all), maxc = top.length ? top[0][1].cost : 0;
   const crow = (name, x) => [esc(name), fmt.usd(x.cost, 0) + bar(x.cost, maxc), fmt.n(x.n), fmt.usd(ratio(x.cost, x.n)), fmt.p(ratio(x.a1, x.n1)), x.c7 > 0 ? fmt.p(x.r7 / x.c7) : "–", fmt.p(ratio(x.cost, tot.cost))];
-  const geoT = all.length ? table(["국가", "광고비", "설치", "CPI", "D1 활동", "D7 ROAS", "광고비 비중"],
+  const geoT = !CAP.geo ? empty("이 게임은 국가별 광고비(Master geo)를 아직 받지 않았다")
+    : all.length ? table(["국가", "광고비", "설치", "CPI", "D1 활동", "D7 ROAS", "광고비 비중"],
       [...top.map(([cc, x]) => crow(cc, x)), ...(rest.length ? [crow(`기타 ${rest.length}개국`, add(rest))] : [])], crow("전체", tot))
     : empty("선택한 기간에 국가별 광고비가 없음");
   // 매체별 — CPI·D7 ROAS(UA 칸) + Master 클릭·CVR
@@ -288,7 +310,7 @@ function renderS1() {
     + card(`매체별 CPI · CVR ${src("ua")} <span class="muted">CVR 은 Master 설치 도착일만</span>`, mrows.length ? table(["매체", "광고비", "설치", "CPI", "D7 ROAS", "Master 클릭", "CVR(참고)"], mrows) : empty("선택한 기간에 UA 설치 없음"), "",
         "Master 노출·클릭은 광고 네트워크가 AF 에 넘긴 귀속 이벤트라 실제 광고 노출이 아니다(CTR 이 58~105% 로 나옴) — CVR 은 참고만.")
     + `</div>`;
-  h += missList([], [["LTV 예측 변수", "Ⅴ 'LTV 입력값' 표(잔존·ARPDAU·누적 ARPU — 예측 모델은 없음)"]]);
+  h += missFor("s1", [["LTV 예측 변수", "Ⅴ 'LTV 입력값' 표(잔존·ARPDAU·누적 ARPU — 예측 모델은 없음)"]]);
   $("b1").innerHTML = h;
 }
 
@@ -298,7 +320,7 @@ function renderS2() {
   const UL = U.filter(r => r.d >= M.login_from), entry = {v: ratio(sum(UL, r => r.login0), sum(UL, r => r.n)), n: sum(UL, r => r.n)};
   const clr0 = {v: ratio(sum(U, r => r.clr0), sum(U, r => r.n)), n: sum(U, r => r.n)};
   const L7 = uaK(U, 7, r => r.loop7, r => r.n);
-  // 세션 분모 = af_app_opened 를 보낸 유저 — 이 이벤트는 계측 빌드(1.5.2)부터라 활동 유저로 나누면 롤아웃 초기가 0 으로 떨어진다(09-11 iOS 세션 유저 1명)
+  // 세션 분모 = af_app_opened 를 보낸 유저 — sf 는 이 이벤트가 계측 빌드(1.5.2)부터라 활동 유저로 나누면 롤아웃 초기가 0 으로 떨어진다(09-11 iOS 세션 유저 1명)
   const ses = ratio(sum(A, r => r.ses), sum(A, r => r.ses_u));
   const rt = A.reduce((a, r) => { for (const b in r.retry || {}) { a[0] += r.retry[b][0]; a[1] += r.retry[b][1]; } return a; }, [0, 0]);
   const T = (k, X) => tile(`D${k} 잔존`, fmt.p(X.v), X.n ? `코호트 ${fmt.n(X.n)}명 · af_login` : "성숙한 코호트 없음", "gen");
@@ -307,7 +329,7 @@ function renderS2() {
     + tile("튜토리얼 완료율 (근사)", fmt.p(clr0.v), `D0 첫 클리어 — UA 설치 ${fmt.n(clr0.n)}명 중 설치 당일 1레벨 이상 클리어`, "new")
     + tile("세션 수 (일)", fmt.f(ses, 2), `유저당 하루 평균 · af_app_opened ${fmt.n(sum(A, r => r.ses))}건`, "new")
     + tile("코어 루프 진입률", fmt.p(L7.v), `UA 설치 ${fmt.n(L7.n)}명 · D7 안에 광고 시청 또는 결제`, "new")
-    + tile("Fail → Retry", fmt.p(ratio(rt[1], rt[0])), `실패 ${fmt.n(rt[0])}건 중 같은 레벨 재도전(유저 1/${M.sample_mod} 표본)`, "new")
+    + (CAP.fail ? tile("Fail → Retry", fmt.p(ratio(rt[1], rt[0])), `실패 ${fmt.n(rt[0])}건 중 같은 레벨 재도전(유저 1/${M.sample_mod} 표본)`, "new") : "")
     + `</div>`;
   // 잔존 커브(일반) · 목표 레벨 도달(일반) · 세션 일별(새로 계산)
   const ks = Array.from({length: 28}, (_, i) => i + 1), rc = ks.map(k => ret(k));
@@ -316,8 +338,9 @@ function renderS2() {
   const reach = (m, k) => genK(R, k, (r, k) => at((r.lv || {})[m], k), r => r.n);
   const lvT = marks.length ? table(["도달 레벨", ...LK.map(k => "D" + k)], marks.map(m => [`LV ${m}+`, ...LK.map(k => fmt.p(reach(String(m), k).v))])) : empty("일반 지표 산출이 없음");
   const AD = [...new Set(A.map(r => r.d))].sort(), byD = d => A.filter(r => r.d === d);
-  // 세션 유저 100명 미만인 날(계측 빌드 첫날 iOS 1명 등)은 점을 그리지 않는다 — 한 명의 값이 선을 끌어내린다
-  const sesC = AD.length ? lineChart([{name: "세션 / 유저", color: "var(--c1)", points: AD.map(d => sum(byD(d), r => r.ses_u) < 100 ? null : ratio(sum(byD(d), r => r.ses), sum(byD(d), r => r.ses_u))), tips: AD.map(d => `세션 유저 ${fmt.n(sum(byD(d), r => r.ses_u))}명`)}],
+  // 세션 유저 10명 미만인 날(sf 계측 빌드 첫날 iOS 1명 · cl Android 출시 전 2~4명)은 점을 그리지 않는다 — 몇 명의 값이 선을 끌어내린다.
+  // 처음엔 100명이었으나 작은 게임(co·mc 하루 25~65명)에서 날짜가 통째로 비어 10명으로(2026-11-01 실측)
+  const sesC = AD.length ? lineChart([{name: "세션 / 유저", color: "var(--c1)", points: AD.map(d => sum(byD(d), r => r.ses_u) < 10 ? null : ratio(sum(byD(d), r => r.ses), sum(byD(d), r => r.ses_u))), tips: AD.map(d => `세션 유저 ${fmt.n(sum(byD(d), r => r.ses_u))}명`)}],
     {labels: AD.map(d => d.slice(5)), yfmt: v => fmt.f(v, 1), title: "세션 일별"}) : empty("선택한 기간에 활동일 없음");
   // 설치일별 진입 — 인게임 진입률(D0 af_login)·D0 첫 클리어. 진입률은 af_login 계측이 모든 새 설치에 오는 설치일부터
   const UD = [...new Set(U.map(r => r.d))].sort(), uBy = d => U.filter(r => r.d === d);
@@ -331,13 +354,12 @@ function renderS2() {
     + card(`잔존 커브 D1~D28 ${src("gen")} <span class="muted">코호트 = 설치 당일 af_login · Dk 마다 성숙한 설치일만</span>`, curve)
     + card(`목표 레벨 진행률 ${src("gen")} <span class="muted">설치 후 k일 안에 LV N 이상 첫 클리어한 코호트 비율</span>`, lvT, "", "튜토리얼 이벤트가 없어 '튜토리얼 완료율' 대신 초반 레벨(LV 5·10) 도달을 본다.")
     + card(`세션 일별 ${src("new")} <span class="muted">af_app_opened ÷ 그날 af_app_opened 를 보낸 유저</span>`, sesC, "",
-        "af_app_opened = 클라 세션: 10-26~29 연속 이틀 접속 유저-일 10,149건에서 af_login.session_n 증가분 평균 3.55 vs af_app_opened 3.52(정확 일치 76%, 나머지 대부분 ±1). 계측 빌드(1.5.2)부터 오는 이벤트라 분모도 그 유저만.")
+        "af_app_opened = 클라 세션 — Bash Fiesta 10-26~29 연속 이틀 접속 유저-일 10,149건에서 af_login.session_n 증가분 평균 3.55 vs af_app_opened 3.52(정확 일치 76%, 나머지 대부분 ±1)로 확인. 분모 = 그날 이 이벤트를 보낸 유저(sf 는 1.5.2 부터 오는 이벤트).")
     + card(`설치일별 진입 ${src("new")} <span class="muted">UA 설치 중 설치 당일 af_login · 1레벨 이상 클리어</span>`, entC, "",
-        `인게임 진입률은 설치일 ${M.login_from} 부터(그 전엔 af_login 계측 빌드 롤아웃이 섞여 낮게 나온다 — 설치일별 D0 af_login 비율 09-11 21% · 09-12 91% · 09-16~ 99%대).`)
+        M.login_from > M.ua_start ? `인게임 진입률은 설치일 ${M.login_from} 부터(그 전엔 af_login 계측 빌드 롤아웃이 섞여 낮게 나온다 — 설치일별 D0 af_login 비율 09-11 21% · 09-12 91% · 09-16~ 99%대).`
+          : "이 게임은 UA 첫 설치일부터 af_login 이 설치 당일에 99~100% 온다(2026-11-01 실측) — 전 기간 진입률을 쓴다.")
     + `</div>`;
-  h += missList([["평균 플레이 타임", "플레이 시간 이벤트가 없다 — 신규 게임부터 af_login 에 누적 플레이 초(app_sec_total)를 싣기로 함(11-01). 이 게임엔 넣지 않음"],
-    ["메타 콘텐츠 소비율", "안 하기로 함(11-01) — 모드·아이템 사용 이벤트가 없다"],
-    ["Ad Fatigue Index", "안 하기로 함(11-01) — 광고 노출만 오고 '광고 제안 → 수락' 이벤트가 없다"]]);
+  h += missFor("s2");
   $("b2").innerHTML = h;
 }
 
@@ -356,31 +378,39 @@ function renderS3() {
     + tile("광고 시청 수", fmt.f(ratio(watch, F.act), 2), `리워드 + 전면 노출 ÷ 활동 유저-일`, "new")
     + tile("리워드 매출 비중", fmt.p(ratio(at(F.f.rewarded, 1), revAll)), `리워드 ${fmt.usd(at(F.f.rewarded, 1), 0)} / 광고 ${fmt.usd(revAll, 0)}`, "new")
     + tile("전면 매출 비중", fmt.p(ratio(at(F.f.interstitial, 1), revAll)), `전면 ${fmt.usd(at(F.f.interstitial, 1), 0)}`, "new")
-    + tile("배너 매출 비중", fmt.p(ratio(at(F.f.banner, 1), revAll)), `배너 ${fmt.usd(at(F.f.banner, 1), 0)} · 화면에 안 보이는 자동 갱신`, "new")
-    + tile("레벨 실패율", fmt.p(ratio(tb[3], tb[0] + tb[3])), `실패 ÷ (클리어 + 실패) · 실패 ${fmt.n(tb[3])}`, "new")
-    + tile("평균 시도 / 클리어", fmt.f(ratio(tb[1], tb[2]), 2), `클리어 때 attempt_count 평균 · 클리어 ${fmt.n(tb[2])}`, "new")
+    + (CAP.banner ? tile("배너 매출 비중", fmt.p(ratio(at(F.f.banner, 1), revAll)), `배너 ${fmt.usd(at(F.f.banner, 1), 0)}${CAP.hiddenBanner ? " · 화면에 안 보이는 자동 갱신" : ""}`, "new")
+        : tile("배너 매출 비중", "–", "이 게임은 배너 광고 단위가 없다", "new"))
+    + (CAP.fail ? tile("레벨 실패율", fmt.p(ratio(tb[3], tb[0] + tb[3])), `실패 ÷ (클리어 + 실패) · 실패 ${fmt.n(tb[3])}${CAP.partial}`, "new") : "")
+    + (CAP.ach ? tile("평균 시도 / 클리어", fmt.f(ratio(tb[1], tb[2]), 2), `클리어 때 attempt_count 평균 · 클리어 ${fmt.n(tb[2])}${CAP.partial}`, "new") : "")
     + `</div>`;
   const order = ["rewarded", "interstitial", "banner", "other"].filter(k => F.f[k]);
   const fT = order.length ? table(["형식", "노출", "노출 / 활동 유저-일", "시청 유저 비율", "매출", "eCPM", "매출 비중"],
     order.map(k => { const x = F.f[k]; return [FMTN[k] || k, fmt.n(x[0]), fmt.f(ratio(x[0], F.act), 2), fmt.p(ratio(x[2], F.act)), fmt.usd(x[1], 0) + bar(x[1], revAll), fmt.usd(ratio(x[1] * 1000, x[0])), fmt.p(ratio(x[1], revAll))]; }))
     : empty("선택한 기간에 광고 데이터 없음");
   const bl = i => { const [lo, hi] = B[i]; return hi == null ? `LV ${lo}+ (루프)` : `LV ${lo}–${hi}`; };
-  const bT = Object.keys(band).length ? table(["레벨 구간", "클리어", "실패", "실패율", "평균 시도 / 클리어", "재도전율(표본)"],
-    Object.keys(band).sort((a, b) => a - b).map(b => { const x = band[b]; return [bl(+b), fmt.n(x[0]), fmt.n(x[3]), fmt.p(ratio(x[3], x[0] + x[3])), fmt.f(ratio(x[1], x[2]), 2), x[4] ? `${fmt.p(x[5] / x[4])} <span class="muted">/${fmt.n(x[4])}</span>` : "–"]; }),
-    ["전체", fmt.n(tb[0]), fmt.n(tb[3]), fmt.p(ratio(tb[3], tb[0] + tb[3])), fmt.f(ratio(tb[1], tb[2]), 2), tb[4] ? `${fmt.p(tb[5] / tb[4])} <span class="muted">/${fmt.n(tb[4])}</span>` : "–"])
+  // 실패 없는 게임(rr·tj)은 실패·재도전 열을 빼고, 레벨 이벤트를 안 보내는 게임(mc)은 표 대신 사유
+  const bRow = (name, x) => [name, fmt.n(x[0]), ...(CAP.fail ? [fmt.n(x[3]), fmt.p(ratio(x[3], x[0] + x[3]))] : []), fmt.f(ratio(x[1], x[2]), 2),
+    ...(CAP.fail ? [x[4] ? `${fmt.p(x[5] / x[4])} <span class="muted">/${fmt.n(x[4])}</span>` : "–"] : [])];
+  const bT = !CAP.ach ? empty(CAP.achWhy)
+    : Object.keys(band).length ? table(["레벨 구간", "클리어", ...(CAP.fail ? ["실패", "실패율"] : []), "평균 시도 / 클리어", ...(CAP.fail ? ["재도전율(표본)"] : [])],
+      Object.keys(band).sort((a, b) => a - b).map(b => bRow(bl(+b), band[b])), bRow("전체", tb))
     : empty("선택한 기간에 클리어·실패 없음");
   const AD = [...new Set(A.filter(r => r.fmt).map(r => r.d))].sort(), byD = d => A.filter(r => r.d === d && r.fmt);
   const per = (d, k) => { const rs = byD(d); return ratio(sum(rs, r => at((r.fmt || {})[k], 0)), sum(rs, r => r.act)); };
   const wc = AD.length ? lineChart([{name: "리워드", color: "var(--c1)", points: AD.map(d => per(d, "rewarded"))}, {name: "전면", color: "var(--c3)", points: AD.map(d => per(d, "interstitial"))}],
     {labels: AD.map(d => d.slice(5)), yfmt: v => fmt.f(v, 2), title: "일별 광고 시청 수"}) : empty("선택한 기간에 광고 데이터 없음");
   h += `<div class="grid">`
-    + card(`광고 종류별 ${src("new")} <span class="muted">MAX 광고 단위 ID → 형식(SmashFest 설정)</span>`, fT, "",
-        "배너는 화면에 보이지 않는데 SDK 초기화 때 생성돼 자동 갱신 노출이 잡힌다(일반 보드는 그래서 배너를 뺀다 — 이 표는 실제 매출이라 포함).")
+    + card(`광고 종류별 ${src("new")} <span class="muted">MAX 광고 단위 ID → 형식(게임 프로젝트 설정)</span>`, fT, "",
+        !CAP.banner ? "이 게임은 배너 광고 단위가 없다(전면·리워드만)."
+          : CAP.hiddenBanner ? "배너는 화면에 보이지 않는데 SDK 초기화 때 생성돼 자동 갱신 노출이 잡힌다(일반 보드는 그래서 배너를 뺀다 — 이 표는 실제 매출이라 포함)."
+          : "배너 포함(실제 매출).")
     + card(`일별 광고 시청 수 ${src("new")} <span class="muted">형식별 노출 ÷ 활동 유저</span>`, wc)
-    + card(`레벨 구간별 실패율 · 재도전 ${src("new")} <span class="muted">af_level_achieved · level_fail · attempt_count</span>`, bT, "full",
-        `재도전율 = 실패 뒤 같은 유저·레벨에서 더 큰 attempt_count 가 관측된 비율(유저 1/${M.sample_mod} 표본, 마지막 관측일 실패 제외) — 유실 시도가 있으면 낮게 나오는 하한.`)
+    + card(`레벨 구간별 ${CAP.fail ? "실패율 · 재도전" : "클리어 · 시도"} ${src("new")} <span class="muted">af_level_achieved${CAP.fail ? " · level_fail" : ""} · attempt_count</span>`, bT, "full",
+        (CAP.fail ? `재도전율 = 실패 뒤 같은 유저·레벨에서 더 큰 attempt_count 가 관측된 비율(유저 1/${M.sample_mod} 표본, 마지막 관측일 실패 제외) — 유실 시도가 있으면 낮게 나오는 하한.`
+          : CAP.ach ? "실패가 없는 게임 — 클리어 수와 클리어 때 attempt_count(재시작 포함 시도 번호) 평균만." : "")
+        + (M.ach_min_version ? ` 레벨 파라미터는 ${M.ach_min_version} 부터 오는 이벤트라 그 버전 유저만 센다.` : ""))
     + `</div>`;
-  h += missList([["평균 클리어 시간", "레벨 시작 이벤트를 AF 로 보내지 않는다 — 신규 게임부터 클리어·실패 이벤트에 플레이 초(play_sec)를 싣기로 함(11-01). 이 게임엔 넣지 않음"]]);
+  h += missFor("s3");
   $("b3").innerHTML = h;
 }
 
@@ -420,7 +450,7 @@ function renderS4() {
     + card(`광고 시청 타이밍별 매출 — 배치 ${src("new")}`, plT)
     + card(`광고 시청 타이밍별 매출 — 설치 후 경과일 ${src("new")} <span class="muted">광고 행의 Install Time 기준</span>`, dsT)
     + `</div>`;
-  h += missList([["구매율 / 결제율 (상점 진입 → 구매 완료)", "안 하기로 함(11-01) — 상점 진입·구매 시도 이벤트가 없다(af_purchase_pending·canceled 는 주 1건 수준)"]]);
+  h += missFor("s4");
   $("b4").innerHTML = h;
 }
 
@@ -478,6 +508,7 @@ function renderS5() {
     + card(`Funnel Drop-off Map — 레벨별 이탈률 ${src("new")} <span class="muted">직전 레벨까지 온 유저 중 이 레벨을 ${FD}일 안에 못 깬 비율</span>`, dropC, "",
         top.length ? `이탈이 큰 레벨: ${top.map(([v, i]) => `LV${i + 1} ${fmt.p(v, 1)}`).join(" · ")}. LV1 이탈 = 설치하고 1레벨을 못 깬 유저(진입 실패 포함).` : "")
     + `</div>`;
+  h += missFor("s5");
   $("b5").innerHTML = h;
   document.querySelectorAll("#rmseg button").forEach(b => b.addEventListener("click", () => { st.rm = b.dataset.rm; renderS5(); }));
 }
@@ -507,38 +538,67 @@ function render() {
   applySec();
 }
 
-function boot(data) {
-  D = data; const keys = Object.keys(D.games || {});
-  if (!keys.length) { $("lock").hidden = false; $("lock").innerHTML = `<div class="empty">KPI 데이터가 비어 있음 — python -m kpi.build</div>`; return; }
-  const key = keys.includes(Q.get("game")) ? Q.get("game") : keys[0];
-  G = D.games[key]; M = G.meta; OK = new Set(M.master_ok || []);
-  $("lock").hidden = true; $("board").hidden = false;
-  $("gen").textContent = `산출 ${D.generated_at || ""}`;
-  $("games").innerHTML = keys.map(k => GX.posterBtn(k, D.games[k].meta.game, k === key)).join("");
-  GX.hero($("hero"), key, M.game);
+// 게임 능력 — 일반 보드 not_sent(계측 안 보내는 이벤트)·광고 형식·국가별 광고비 수집 여부. KPI 를 '해당 없음' 으로 돌리고 타일·표를 고른다.
+function capsOf(G) {
+  const M = G.meta, ns = M.not_sent || [], why = M.not_sent_why || {};
+  const ach = !ns.includes("af_level_achieved"), fail = ach && !ns.includes("level_fail");
+  const noLevel = "이 게임은 af_level_achieved·level_fail 을 AppsFlyer 로 보내지 않는다(클리어는 Level_Completed_N 만) — 시도 번호·실패가 없다";
+  return {
+    ach, fail, geo: (M.geo_files || 0) > 0,
+    banner: (M.ad_formats || []).includes("banner"), hiddenBanner: !!(G.gen && G.gen.exclude_banner),
+    achWhy: noLevel, failWhy: !ach ? noLevel : (why.level_fail || "이 게임은 level_fail 을 보내지 않는다"),
+    partial: M.ach_min_version ? ` · ${M.ach_min_version} 유저만` : "",
+  };
+}
+
+function useGame(key, first) {
+  G = D.games[key]; M = G.meta; OK = new Set(M.master_ok || []); CAP = capsOf(G);
+  if (!M.plats.includes(st.os)) st.os = "all";
   const dates = [...G.ua.map(r => r.d), ...G.act.map(r => r.d)].sort();
   LO = dates[0] || M.ua_start; HI = M.obs_ev || dates[dates.length - 1];
-  st.to = Q.get("to") && Q.get("to") <= HI ? Q.get("to") : HI;
-  st.from = Q.get("from") && Q.get("from") >= LO ? Q.get("from") : (shift(HI, -59) < LO ? LO : shift(HI, -59));   // 기본 최근 60일 — D28 성숙 설치일이 들어오게
+  // 기본 최근 60일 — D28 성숙 설치일이 들어오게. URL 의 기간은 첫 게임에만
+  st.to = first && Q.get("to") && Q.get("to") <= HI ? Q.get("to") : HI;
+  st.from = first && Q.get("from") && Q.get("from") >= LO ? Q.get("from") : (shift(HI, -59) < LO ? LO : shift(HI, -59));
+  GX.rememberGame(key);
+  GX.hero($("hero"), key, M.game);
+  $("games").querySelectorAll(".gx-game").forEach(b => b.setAttribute("aria-selected", b.dataset.g === key));
   $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · UA 설치일 ${M.ua_start}~ · 활동 지표 ${M.act_from}~ · 이벤트 관측 끝 ${M.obs_ev} · 매출 관측 끝 ${M.obs_rev}`;
-  $("cover").innerHTML = `<span><b>29</b>/ 34 KPI 를 이 탭에 표시</span><span><b>2</b>신규 게임부터 계측 — 플레이 타임·클리어 시간</span><span><b>3</b>안 하기로 함</span><span class="muted">스토어·실험 KPI 6개는 표에서 뺌(11-01)</span>
+  const ks = kpiState(), n = s => ks.filter(k => k.st && k.st[0] === s).length;
+  $("cover").innerHTML = `<span><b>${ks.filter(k => !k.st).length}</b>/ ${ks.length} KPI 를 이 탭에 표시</span>`
+    + (n("na") ? `<span><b>${n("na")}</b>이 게임엔 해당 없음</span>` : "")
+    + `<span><b>${n("later")}</b>신규 게임부터 계측 — 플레이 타임·클리어 시간</span><span><b>${n("skip")}</b>안 하기로 함</span><span class="muted">스토어·실험 KPI 6개는 표에서 뺌(11-01)</span>
     <span class="muted">출처 꼬리표:</span>${src("ua")}${src("gen")}${src("new")}${src("ref")}<span class="muted">— 같은 꼬리표끼리만 숫자를 대조할 것</span>`;
+  const cap = [!CAP.ach ? CAP.achWhy : !CAP.fail ? CAP.failWhy : "", M.ach_min_version ? `레벨 파라미터(af_level_achieved·level_fail)는 ${M.ach_min_version} 부터 온다 — 레벨 구간 표·실패율은 그 버전 유저만` : ""].filter(Boolean).join(" · ");
   $("defs").innerHTML = [
-    "게임 = Bash Fiesta(sf) 하나. iOS·Android 둘 다 유료 UA(07-29~)라 D28 성숙 코호트가 있고, 계측 3종·실패·결제·광고 형식이 모두 있어 표를 가장 많이 채운다.",
+    `게임 = ${M.game} — ${M.plats.map(p => OSN[p] || p).join(" · ")} · UA 설치일 ${M.ua_start}~. 게임마다 계측이 달라 '이 게임엔 해당 없음' KPI 가 다르다${cap ? " — " + cap : ""}.`,
     "기간 = 위 칩. 코호트 지표(광고비·설치·CPI·ROAS·잔존·LTV·퍼널)는 그 기간의 설치일, 활동 지표(세션·광고 형식·실패·재도전·결제율·ARPDAU·SKU)는 그 기간의 활동일에 걸린다. 기본은 최근 60일.",
-    "UA 보드 정의 — 설치 = 원시 설치 리포트(논오가닉, KR·리타기팅 제외), 광고비 = Master API, 매출 = IAP(af_purchase, .dev. 제외) + 광고 매출 리포트(배너 포함). ROAS·LTV Dk 는 k일째까지 매출 관측이 끝난 설치일만. 원시에 설치 당일 이벤트가 없는 묶음(Meta 07-29~08-07 등)은 뺀다. 같은 함수(ua.build)로 계산해 UA 보드 숫자와 같다.",
-    "일반 보드 정의 — 잔존·결제 전환·ARPPU·누적 ARPU·도달은 일반 지표 보드 산출(계측 유저, 코호트 = 설치 당일 af_login, 광고 매출은 배너 제외)을 그대로 쓴다.",
-    "KPI 탭 계산 — 활동 지표는 그날 인앱 이벤트가 1건 이상 있는 전체 유저(행 국가 KR 제외, 오가닉 포함), 계측 빌드 배포일(" + M.act_from + ") 이후. 인게임 진입률은 af_login 이 모든 새 설치에 오는 설치일(" + M.login_from + ") 이후의 UA 설치.",
+    "UA 보드 정의 — 설치 = 원시 설치 리포트(논오가닉, KR·리타기팅 제외), 광고비 = Master API, 매출 = IAP(af_purchase, .dev. 제외) + 광고 매출 리포트(배너 포함). ROAS·LTV Dk 는 k일째까지 매출 관측이 끝난 설치일만. 원시에 설치 당일 이벤트가 없는 묶음은 뺀다. 같은 함수(ua.build)로 계산해 UA 보드 숫자와 같다.",
+    "일반 보드 정의 — 잔존·결제 전환·ARPPU·누적 ARPU·도달은 일반 지표 보드 산출(코호트 = 설치 당일 af_login" + (G.gen && G.gen.exclude_banner ? ", 광고 매출은 배너 제외" : "") + ")을 그대로 쓴다.",
+    "KPI 탭 계산 — 활동 지표는 그날 인앱 이벤트가 1건 이상 있는 전체 유저(행 국가 KR 제외, 오가닉 포함), 일반 보드 시작일(" + M.act_from + ") 이후. 인게임 진입률은 af_login 이 모든 새 설치에 오는 설치일(" + M.login_from + ") 이후의 UA 설치.",
     "Funnel Drop-off Map = 레벨 퍼널(2026-11-01 팀장님 지시로 설치→진입→광고→결제 단계 대신). UA 설치 중 설치 후 " + M.funnel_days + "일 안에 깬 최고 레벨(af_level_achieved 의 af_level · Level_Completed_N 의 N)이 LV N 이상인 비율, LV 1~" + M.funnel_lv + ". 레벨별 이탈률 = 1 − LV N 도달 ÷ LV N−1 도달(LV1 은 설치 대비).",
-    "세션 = af_app_opened 건수 ÷ 그날 af_app_opened 를 보낸 유저. 클라 세션 카운터(af_login.session_n)의 하루 증가분과 평균이 같다(10-26~29 대조, 본문 참고). 계측 빌드(1.5.2)부터 오는 이벤트다.",
-    "광고 형식 = MAX 광고 단위 ID → 리워드·전면·배너(SmashFest RootBoxProjectSettings). 배너는 화면에 안 보이는 자동 갱신 노출이지만 실제 매출이라 이 탭에서는 포함한다(일반 보드는 제외).",
+    "세션 = af_app_opened 건수 ÷ 그날 af_app_opened 를 보낸 유저. 클라 세션 카운터(af_login.session_n)의 하루 증가분과 평균이 같다(Bash Fiesta 10-26~29 대조, 본문 참고).",
+    "광고 형식 = MAX 광고 단위 ID → 리워드·전면·배너(게임 프로젝트 RootBoxProjectSettings, raw 배치와 대조). "
+      + (!CAP.banner ? "이 게임은 배너 단위가 없다." : CAP.hiddenBanner ? "배너는 화면에 안 보이는 자동 갱신 노출이지만 실제 매출이라 이 탭에서는 포함한다(일반 보드는 제외)." : "배너 포함."),
     "국가별 CPI = Master API 국가별 광고비(2026-11-01 받기 추가) ÷ 원시 설치의 국가. 광고비 합계는 캠페인 단위 광고비와 같은 범위(논오가닉·원시 누락 묶음 제외).",
     "CVR·오가닉 비중 = Master API 설치·클릭. Master 설치는 최근 설치일이 늦게 채워져 Master 논오가닉 설치가 원시 설치의 " + "90% 이상인 날만 쓴다. Master 노출·클릭은 실제 광고 노출이 아니라 CVR 은 참고용.",
-    "재도전율 = 실패한 (유저, 레벨)에서 그 뒤 더 큰 attempt_count 가 관측된 비율. 유저 1/" + M.sample_mod + " 표본(crc32 고정), 마지막 관측일 실패 제외. 유실 시도가 있으면 낮게 나오는 하한.",
+    ...(CAP.fail ? ["재도전율 = 실패한 (유저, 레벨)에서 그 뒤 더 큰 attempt_count 가 관측된 비율. 유저 1/" + M.sample_mod + " 표본(crc32 고정), 마지막 관측일 실패 제외. 유실 시도가 있으면 낮게 나오는 하한."] : []),
     "Break-even Day = ROAS 커브가 처음 100% 에 닿는 Dk. 커브의 점마다 모인 설치일이 달라(그 k 까지 성숙한 설치일만) 완만하지 않을 수 있다. 예측·외삽은 하지 않는다.",
     "같은 이름의 지표라도 꼬리표가 다르면 절대값을 대조하지 않는다 — 모집단(UA 설치 / 계측 신규 / 전체 활동)·잔존 정의(af_login / 인앱 이벤트)·배너 포함 여부가 다르다.",
   ].map(s => `<li>${esc(s)}</li>`).join("");
-  drawNav(); render();
+  render();
+}
+
+function boot(data) {
+  D = data; const keys = Object.keys(D.games || {});
+  if (!keys.length) { $("lock").hidden = false; $("lock").innerHTML = `<div class="empty">KPI 데이터가 비어 있음 — python -m kpi.build</div>`; return; }
+  $("lock").hidden = true; $("board").hidden = false;
+  $("gen").textContent = `산출 ${D.generated_at || ""}`;
+  $("games").innerHTML = keys.map(k => GX.posterBtn(k, D.games[k].meta.game, false)).join("");
+  $("games").querySelectorAll(".gx-game").forEach(b => b.addEventListener("click", () => useGame(b.dataset.g)));
+  drawNav();
+  // ?game= > 이 탭에서 마지막으로 본 게임(보드를 오가도 같은 게임 — UA 보드와 같은 규칙) > 첫 게임
+  const lg = GX.lastGame();
+  useGame(keys.includes(Q.get("game")) ? Q.get("game") : (lg && keys.includes(lg) ? lg : keys[0]), true);
 }
 
 /* ── 데이터: 평문(kpi-data.js, 로컬) → 암호문(kpi-data.enc.js, 공개 URL) — 일반·UA 보드와 같은 형식·비밀번호·저장 키 ── */
