@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>회수 예측 · GRP1 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="site.css">
+<script src="site.js"></script>
+<style>
+/* 회수 예측 — 팀장님 UA 목표 '설치 후 120일 안 ROAS 100%' 를 캠페인 단위로 판단하는 참고 화면(2026-11-01).
+   숫자는 payback.build 산출을 그대로 그린다(다시 계산하지 않음). 판정·지시 문구는 쓰지 않는다. */
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--gc,var(--accent));outline-offset:2px}
+.wrap{padding:6px var(--gutter) 40px;max-width:calc(var(--maxw) + 2 * var(--gutter));margin:0 auto}
+.muted{color:var(--ink-3)}
+.toolbar{position:sticky;top:57px;z-index:15;margin:0 0 16px;padding:10px 0;background:color-mix(in srgb,var(--bg) 90%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line-soft)}
+@media (max-width:720px){ .toolbar{position:static} }
+.filters{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 14px}
+.chip .lbl{font-size:12px;color:var(--ink-3)}
+.osb{border:1px solid transparent;background:transparent;color:var(--ink-2);font-size:12.5px;padding:4px 11px;border-radius:999px}
+.osb:hover{color:var(--ink);border-color:var(--line)} .osb.on{background:var(--ink);color:var(--bg);font-weight:600}
+.range{font-size:12px;color:var(--ink-3)}
+.goal{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;color:var(--ink-2);padding:4px 12px;border-radius:999px;background:color-mix(in srgb,var(--good) 14%,transparent)}
+main section{margin:0 0 22px;padding:18px 20px 22px;border:1px solid var(--line-soft);border-radius:18px;background:color-mix(in srgb,var(--card) 40%,var(--bg))}
+main section > h2{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;font-size:19px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid var(--line)}
+main section > h2 .muted{font-weight:400;font-size:12.5px}
+main section > h2::before{content:attr(data-no);align-self:center;font:600 11.5px/1 var(--mono);padding:5px 8px;border-radius:999px;color:var(--gc,var(--accent));background:color-mix(in srgb,var(--gc,var(--accent)) 16%,transparent)}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:0 0 10px}
+.tile{position:relative;background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:11px 14px 12px;overflow:hidden;min-width:0}
+.tile .k{font-size:12px;color:var(--ink-3);font-weight:500}
+.tile .v{margin-top:4px;font:600 24px/1.1 var(--font);letter-spacing:-.01em}
+.tile .v.hit{color:var(--good)}
+.tile .s{margin-top:4px;font-size:11.5px;color:var(--ink-3)}
+.card{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px;min-width:0;margin:0 0 12px}
+.card h3{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin:0 0 8px;font-size:13px;font-weight:600;color:var(--ink-2)} .card h3 .muted{font-weight:400}
+.card .foot{margin-top:6px;font-size:11.5px;color:var(--ink-3)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+th{color:var(--ink-3);font-weight:500;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left;white-space:normal;min-width:180px}
+td.na{color:var(--ink-3)}
+.tscroll{overflow:auto}
+tr.camp{cursor:pointer} tr.camp:hover td{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+tr.camp td:first-child::before{content:"▸ ";color:var(--ink-3)} tr.camp.open td:first-child::before{content:"▾ "}
+tr.det td{white-space:normal;text-align:left;background:color-mix(in srgb,var(--card-2) 60%,transparent)}
+.parts{display:grid;grid-template-columns:minmax(120px,auto) 64px 1fr;gap:4px 10px;align-items:center;max-width:560px;margin:4px 0 8px;font-size:12px}
+.parts .r{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.pbar{position:relative;height:8px;background:var(--line-soft);border-radius:4px}
+.pbar i{position:absolute;top:0;height:100%;border-radius:4px}
+.pbar i.neg{right:50%;background:var(--c3)} .pbar i.pos{left:50%;background:var(--c1)}
+.pbar::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;border-left:1px solid var(--ink-3)}
+.guide{margin:6px 0 0;padding-left:18px;font-size:12.5px;color:var(--ink-2)} .guide li{margin:3px 0}
+.note{font-size:11.5px;color:var(--ink-3)}
+.tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--ink-2);margin-left:4px;vertical-align:1px;white-space:nowrap}
+svg{display:block;width:100%;height:auto;max-height:340px} svg text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
+svg .axis{stroke:var(--line);stroke-width:1} svg .gridl{stroke:var(--line-soft);stroke-width:1} svg .ref{stroke:var(--good);stroke-width:1;opacity:.7}
+svg .vl{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:3 3} svg .goal{stroke:var(--good);stroke-width:1.5}
+svg .hit{fill:transparent} svg .hit:hover{fill:color-mix(in srgb,var(--ink) 6%,transparent)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);margin-top:6px} .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.empty{padding:22px;text-align:center;color:var(--ink-3);border:1px dashed var(--line);border-radius:10px;font-size:13px}
+details.defs,details.more{margin-top:8px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:12px 16px;color:var(--ink-2);font-size:12.5px}
+details.defs summary,details.more summary{cursor:pointer;font-weight:600;color:var(--ink)} details.defs li{margin:4px 0}
+.lock{max-width:420px;margin:48px auto;padding:26px;background:var(--card);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
+.lock b{font:700 20px var(--game)} .lock form{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.lock input{background:var(--card-2);border:1px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--ink);min-width:0}
+.lock button{border:0;border-radius:999px;padding:8px 18px;background:var(--ink);color:var(--bg);font-weight:600}
+.err{color:var(--crit)}
+@media (max-width:720px){
+  .tile .v{font-size:21px} main section{padding:14px 12px 16px} .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chip{flex-wrap:wrap;border-radius:14px} th:first-child,td:first-child{min-width:140px}
+  .parts{grid-template-columns:minmax(96px,auto) 54px 1fr}
+}
+</style>
+</head>
+<body>
+<header class="gx-bar">
+  <a class="gx-brand" href="index.html" data-keep-hash title="메인으로"><b>GRP1</b><span>대시보드</span></a>
+  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a><a href="kpi.html" data-keep-hash>KPI</a><a href="payback.html" data-keep-hash aria-current="page">회수 예측</a></nav>
+  <div class="gx-right"><span id="gen" class="gx-gen"></span><button class="gx-btn" id="theme" type="button">라이트</button></div>
+</header>
+<section class="gx-hero" id="hero">
+  <div class="gx-wash"></div><img class="gx-art" alt="" hidden><div class="gx-shade"></div>
+  <div class="gx-copy">
+    <div class="gx-when"><span class="gx-pill">회수 예측</span><span>설치 후 120일 안 ROAS 100% — 캠페인 단위 참고 숫자 · 판정 없음</span></div>
+    <h1 class="gx-name">회수 예측</h1>
+    <div class="gx-doc" id="hdoc"></div>
+  </div>
+  <nav class="gx-games" id="games" role="tablist" aria-label="게임"></nav>
+</section>
+<main class="wrap">
+  <div id="lock" hidden></div>
+  <div id="board" hidden>
+    <div class="toolbar"><div class="filters" id="filters"></div></div>
+    <section id="s1"><h2 data-no="Ⅰ">요약 <span class="muted" id="s1sub"></span></h2><div id="b1"></div></section>
+    <section id="s2"><h2 data-no="Ⅱ">누적 ROAS 곡선 <span class="muted">실측 + 로그곡선 예측 + 80% 구간</span></h2><div id="b2"></div></section>
+    <section id="s3"><h2 data-no="Ⅲ">캠페인 <span class="muted">행을 누르면 산술 분해와 가이드</span></h2><div id="b3"></div></section>
+    <section id="s4"><h2 data-no="Ⅳ">방법 비교 <span class="muted">그때 알던 데이터로 한 예측 vs 나중 실제</span></h2><div id="b4"></div></section>
+    <details class="defs"><summary>정의 · 한계</summary><ul id="defs"></ul></details>
+  </div>
+</main>
+
+<script>
+GX.prehero(document.getElementById('hero'));
+// 평문은 로컬(file:·localhost)이나 ?data= 명시일 때만 — 공개 사이트엔 암호문만 있다(다른 보드와 같은 규칙). ?data=test → payback-data.test.js
+(function(){ var k = new URLSearchParams(location.search).get('data'); var f = k && /^[a-z0-9_-]{1,20}$/.test(k) && k!=='real' ? 'payback-data.'+k+'.js' : 'payback-data.js';
+  if (GX.wantsPlain()) document.write('<script src="'+f+'"><\/script>'); })();
+</script>
+<script src="payback-data.enc.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id), esc = GX.esc;
+GX.wireTheme($("theme")); GX.withHash();
+const fmt = {
+  n: v => v == null ? "–" : Math.round(v).toLocaleString("en-US"),
+  p: (v, d = 0) => v == null || !isFinite(v) ? "–" : (v * 100).toFixed(d) + "%",
+  usd: (v, d = 2) => v == null || !isFinite(v) ? "–" : "$" + Number(v).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}),
+  sp: v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "") + (v * 100).toFixed(0) + "%",
+};
+const pr = (a, b) => a == null || b == null ? null : `${(a * 100).toFixed(0)}~${(b * 100).toFixed(0)}%`;
+const ur = (a, b) => a == null || b == null ? null : `$${a.toFixed(2)}~${b.toFixed(2)}`;
+const day = k => k == null ? "1년 넘음" : "D" + k;
+const dayRange = (a, b) => a == null && b == null ? "80% 구간도 1년 넘음" : `80% 구간 ${day(a)}~${day(b)}`;
+const OSN = {ios: "iOS", aos: "Android"};
+const MN = {log: "로그곡선", ret: "리텐션 × ARPDAU", mult: "D7 배수", slope: "기울기 꼬리"};
+const PN = {cpi: "CPI", ud: "설치당 유저-일(리텐션)", ipu: "노출 빈도", ecpm: "eCPM", iap: "IAP 몫", rpi: "설치당 매출"};
+const Q = new URLSearchParams(location.search);
+const st = {os: null};
+let D = null, G = null, M = null;
+
+function tile(label, value, sub, hit) {
+  return `<div class="tile"><div class="k">${esc(label)}</div><div class="v${hit ? " hit" : ""}">${value}</div><div class="s">${sub || ""}</div></div>`;
+}
+const card = (title, body, foot = "") => `<div class="card"><h3>${title}</h3>${body}${foot ? `<div class="foot">${foot}</div>` : ""}</div>`;
+const empty = msg => `<div class="empty">${esc(msg)}</div>`;
+const qsrc = () => M.q_src && M.q_src[st.os];
+const qNote = s => (qsrc() || "").includes("sf") ? " · sf 오차 빌림" + (s && s.n < 300 ? ` — 설치 ${s.n}명이라 실제 오차는 이 구간보다 클 수 있음` : "") : "";
+const vuNote = s => s.verified_until != null && s.verified_until < M.target ? ` · D${s.verified_until} 이후 미검증` : "";
+
+// 곡선 — x 는 경과일에 비례(o.xv), 80% 구간 띠, 세로선(120일·미검증 경계), 100% 기준선. 축은 하나.
+function curveChart(s) {
+  const W = 560, H = 230, L = 46, R = 12, T = 12, B = 28, ks = M.ks, KM = ks[ks.length - 1];
+  const n = ks.length, Tk = s.T;
+  const vals = [...s.pt, ...(s.hi || [])].filter(v => v != null);
+  let ymax = Math.max(1.15, ...vals) * 1.05;
+  const xs = k => L + (W - L - R) * k / KM, ys = v => T + (H - T - B) * (1 - v / ymax);
+  let g = "";
+  for (let i = 0; i <= 4; i++) { const v = ymax * i / 4, y = ys(v); g += `<line class="gridl" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${y + 3}" text-anchor="end">${fmt.p(v)}</text>`; }
+  g += `<line class="ref" x1="${L}" x2="${W - R}" y1="${ys(1)}" y2="${ys(1)}"/><text x="${L + 4}" y="${ys(1) - 4}" style="fill:var(--good)">ROAS 100%</text>`;
+  [0, 30, 60, 90, 120, 180, 270, 365].forEach(k => { g += `<text x="${xs(k)}" y="${H - 8}" text-anchor="${k === 365 ? "end" : "middle"}">D${k}</text>`; });
+  g += `<line class="goal" x1="${xs(M.target)}" x2="${xs(M.target)}" y1="${T}" y2="${H - B}"/><text x="${xs(M.target) + 4}" y="${T + 10}" style="fill:var(--good)">120일</text>`;
+  if (s.verified_until != null && s.verified_until < KM) g += `<line class="vl" x1="${xs(s.verified_until)}" x2="${xs(s.verified_until)}" y1="${T}" y2="${H - B}"/><text x="${xs(s.verified_until) - 4}" y="${T + 10}" text-anchor="end">D${s.verified_until} 이후 미검증 →</text>`;
+  let band = "";
+  if (s.lo && s.hi) {
+    const up = ks.map((k, i) => `${xs(k).toFixed(1)} ${ys(s.hi[i]).toFixed(1)}`), dn = ks.map((k, i) => `${xs(k).toFixed(1)} ${ys(s.lo[i]).toFixed(1)}`).reverse();
+    band = `<path d="M${up.join("L")}L${dn.join("L")}Z" fill="var(--c1)" opacity=".16"/>`;
+  }
+  const line = (from, to, color, dash) => { let d = ""; ks.forEach((k, i) => { if (k < from || k > to) return; d += (d ? "L" : "M") + xs(k).toFixed(1) + " " + ys(s.pt[i]).toFixed(1); });
+    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2" ${dash ? 'stroke-dasharray="5 4"' : ""}/>`; };
+  const obs = line(0, Tk, "var(--ink)"), fc = line(Tk, KM, "var(--c1)", true);
+  const hits = ks.map((k, i) => { const x0 = i ? (xs(ks[i - 1]) + xs(k)) / 2 : L, x1 = i < n - 1 ? (xs(k) + xs(ks[i + 1])) / 2 : W - R;
+    return `<rect class="hit" x="${x0.toFixed(1)}" y="${T}" width="${(x1 - x0).toFixed(1)}" height="${H - T - B}"><title>D${k}${k <= Tk ? " 실측" : " 예측"}: ${fmt.p(s.pt[i], 1)}${s.lo ? ` · 80% 구간 ${pr(s.lo[i], s.hi[i])}` : ""}</title></rect>`; }).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="누적 ROAS 곡선">${g}<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>${band}${obs}${fc}${hits}</svg>`
+    + `<div class="legend"><span><i style="background:var(--ink)"></i>실측(D0~D${Tk})</span><span><i style="background:var(--c1)"></i>로그곡선 예측</span>${s.lo ? `<span><i style="background:var(--c1);opacity:.3"></i>80% 구간</span>` : ""}</div>`;
+}
+
+function renderS1() {
+  const s = G.summary[st.os];
+  $("s1sub").textContent = s && s.s_from ? `설치 ${s.s_from}~${s.s_to} (최근 ${M.window}일 중 D${s.T} 까지 매출이 관측된 날) · ${fmt.n(s.n)}명` : "";
+  if (!s || s.none) { $("b1").innerHTML = empty((s && s.none) || "데이터 없음"); return; }
+  const early = s.early ? " · D3 잠정(D7 성숙 설치가 100명 미만)" : "";
+  let h = `<div class="tiles">` + tile("설치 집합 CPI", fmt.usd(s.cpi), `광고비 ${fmt.usd(s.cost, 0)} · 설치 ${fmt.n(s.n)} · 최근 ${s.T}일 설치는 UA 보드에서`)
+    + tile(`관측 D${s.T} ROAS`, fmt.p(s.roas_T), `UA 보드와 같은 정의${early}`);
+  if (s.small) {
+    $("b1").innerHTML = h + `</div>` + empty(`표본 적음 — 최근 창 설치 ${fmt.n(s.n)}명(100명 미만). 예측을 비운다(소표본 오차 20~40%).`); return;
+  }
+  const iv = s.lo ? "" : "구간 없음 — 채점 부족";
+  // 구간 끝값이 없으면(매출 0 등) 'null' 이 아니라 계산 불가로(Codex 구현 리뷰)
+  const rng = (a, b, f) => !s.lo ? "" : (f(a, b) ? `구간 ${f(a, b)} · ` : "구간 계산 불가 · ");
+  h += tile("D120 예상 ROAS", fmt.p(s.d120[0]), s.lo ? `80% 구간 ${pr(s.d120[1], s.d120[2]) || "계산 불가"}${qNote(s)}${vuNote(s)}` : iv, s.d120[0] >= 1)
+    + tile("예상 회수일", day(s.payday[0]), (s.lo ? dayRange(s.payday[1], s.payday[2]) : iv) + ` · 목표 D${M.target}`
+        + (s.verified_until != null && (s.payday[0] == null || s.payday[0] > s.verified_until) ? ` · D${s.verified_until} 이후라 미검증` : ""), s.payday[0] != null && s.payday[0] <= M.target)
+    + tile("120일 회수 CPI", fmt.usd(s.cpi120[0]), rng(s.cpi120[1], s.cpi120[2], ur) + "지금 유저 구성·수익 수준이 그대로일 때")
+    + tile(`필요 D${s.T} ROAS`, fmt.p(s.need[0]), (s.need[0] == null ? "계산 불가(관측 매출 0) · " : rng(s.need[1], s.need[2], pr)) + "지금 곡선 모양 그대로일 때(D120 예측을 거꾸로 푼 값)")
+    + `</div>`;
+  $("b1").innerHTML = h + `<div class="note">CPI 가 낮은 코호트는 꼬리가 얇은 경향(sf 실측) — CPI 가 바뀌면 D120 ROAS 도 같이 바뀔 수 있다.</div>`;
+}
+
+function renderS2() {
+  const s = G.summary[st.os];
+  $("b2").innerHTML = !s || s.none || s.small || !s.pt ? empty("예측 곡선 없음") : card(`게임 ${OSN[st.os] || st.os} · 설치 ${s.s_from}~${s.s_to}`, curveChart(s),
+    `점선 = 로그곡선 예측, 띠 = 80% 구간(지난 예측 오차 기준)${qNote(s)}. ${s.verified_until != null ? `D${s.verified_until} 이후는 아직 실측으로 맞춰 본 적이 없다.` : ""}`);
+}
+
+function partsHtml(d) {
+  if (!d) return `<div class="note">분해할 수 없음(매출 또는 광고비 0)</div>`;
+  const mx = Math.max(...d.parts.map(p => Math.abs(p.ln)), 1e-9);
+  const rows = d.parts.map(p => { const w = Math.abs(p.ln) / mx * 50;
+    return `<div>${esc(PN[p.key] || p.key)}</div><div class="r">${fmt.sp(p.ratio - 1)}</div><div class="pbar"><i class="${p.ln < 0 ? "neg" : "pos"}" style="width:${w.toFixed(1)}%"></i></div>`; }).join("");
+  const sub = (x, nm) => x ? `${nm} 구성 몫 ${fmt.sp(Math.exp(x.mix) - 1)} · 같은 ${nm} 안 차이 ${fmt.sp(Math.exp(x.within) - 1)}` : "";
+  const ec = [sub(d.ecpm_fmt, "광고 형식"), sub(d.ecpm_cc, "국가")].filter(Boolean).join(" / ");
+  return `<div class="note">산술 분해 — 원인 추정이 아님. 기준 대비 비율, 막대 = 로그 몫(왼쪽 마이너스 · 오른쪽 플러스, 합 = ROAS 로그 비 ${fmt.sp(Math.exp(d.total) - 1)})</div>`
+    + `<div class="parts">${rows}</div>` + (ec ? `<div class="note">eCPM 세부: ${ec}</div>` : "");
+}
+
+function renderS3() {
+  const cs = G.campaigns.filter(c => c.os === st.os), s = G.summary[st.os];
+  if (!cs.length) { $("b3").innerHTML = empty("이 OS 의 최근 창 캠페인 없음"); return; }
+  const T = cs[0].T, vu = s && s.verified_until;
+  const head = ["매체 · 캠페인", "설치", "CPI", `관측 D${T}`, "D120 예상", `예상 회수일${vu != null ? ` <span class="muted">D${vu} 뒤 미검증</span>` : ""}`, "120일 회수 CPI", "가장 큰 마이너스 몫"];
+  const gsf = (qsrc() || "").includes("sf");
+  const body = cs.map((c, i) => {
+    const f = c.fc, why = c.note || (c.small ? "표본 적음" : "");
+    // 산술 분해 요약 — 가장 큰 마이너스 몫(없으면 가장 큰 플러스 몫에 + 표시)
+    const neg = c.diag ? c.diag.parts.filter(p => p.ln < 0).sort((a, b) => a.ln - b.ln)[0] : null;
+    const pos = c.diag && !neg ? c.diag.parts.filter(p => p.ln > 0).sort((a, b) => b.ln - a.ln)[0] : null;
+    // 캠페인 채점이 모자라 게임 오차 폭을 쓴 행 — 작은 캠페인이면 구간이 실제보다 좁을 수 있다(Opus 구현 리뷰: 21일 묶음 AOS 0/6)
+    const weak = f && (c.q_src === "game" || c.q_src === "camp+game");
+    const qtag = !weak ? "" : `<span class="tag">캠페인 채점 ${c.q_src === "game" ? "부족" : "일부"} · ${gsf ? "sf" : "게임"} 오차 폭</span>`
+      + (c.n < 300 ? `<div class="note">설치 ${c.n}명 — 실제 오차는 이 구간보다 클 수 있음</div>` : "");
+    const cells = [`${esc(c.m)} · ${esc(c.c)}${qtag}`, fmt.n(c.n), c.n ? fmt.usd(c.cost / c.n) : "–", fmt.p(c.roas_T),
+      f ? `${fmt.p(f.d120[0])}${f.lo ? ` <span class="muted">${pr(f.d120[1], f.d120[2]) || ""}</span>` : ""}` : why || "–",
+      f ? `${day(f.payday[0])}${f.lo && (f.payday[1] != null || f.payday[2] != null) ? ` <span class="muted">${day(f.payday[1])}~${day(f.payday[2])}</span>` : ""}` : "–",
+      f ? fmt.usd(f.cpi120[0]) : "–",
+      neg ? `${esc(PN[neg.key] || neg.key)} ${fmt.sp(neg.ratio - 1)}` : pos ? `<span class="muted">(마이너스 없음 · 플러스 ${esc(PN[pos.key] || pos.key)} ${fmt.sp(pos.ratio - 1)})</span>` : "–"];
+    const det = `<tr class="det" data-i="${i}" hidden><td colspan="${head.length}">${partsHtml(c.diag)}${c.guide.length ? `<ul class="guide">${c.guide.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : ""}</td></tr>`;
+    return `<tr class="camp" data-i="${i}" data-c="${esc(c.c)}">${cells.map(x => `<td${x === "–" ? ' class="na"' : ""}>${x}</td>`).join("")}</tr>${det}`;
+  }).join("");
+  $("b3").innerHTML = card(`캠페인 ${OSN[st.os] || st.os} <span class="muted">광고비 순 · 같은 설치일 집합(${s && s.s_from ? s.s_from + "~" + s.s_to : ""}) · 설치 ${M.min_camp_n}명 미만은 예측 없음</span>`,
+    `<div class="tscroll"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`,
+    "분해 기준 = 같은 설치일 집합의 게임 " + (OSN[st.os] || st.os) + " UA 유저 전체, 설치 경과 D0~D" + T + ". 가이드 문장은 계산값만 — 판단은 팀장님 몫.");
+  document.querySelectorAll("tr.camp").forEach(tr => tr.addEventListener("click", () => {
+    const d = document.querySelector(`tr.det[data-i="${tr.dataset.i}"]`); d.hidden = !d.hidden; tr.classList.toggle("open", !d.hidden); }));
+}
+
+function renderS4() {
+  const ms = (G.methods || {})[st.os] || [], hs = M.hs;
+  const any = ms.some(m => hs.some(H => m.H[H]));
+  if (!any) { $("b4").innerHTML = empty("채점 대상 없음 — 하루 설치 150명 이상인 설치일이 아직 없다" + (qsrc() && qsrc().includes("sf") ? ". 오차 폭은 sf 것을 빌림" : "")); return; }
+  const cell = s => s ? `${fmt.p(s.med, 1)} <span class="muted">${fmt.sp(s.bias)} · ${s.n}</span>` : "–";
+  const rows = ms.map(m => `<tr class="mrow"><td>${MN[m.method]} · D${m.T}${m.method === "log" && m.T === 7 ? '<span class="tag">머리 숫자</span>' : ""}${m.method === "ret" ? '<span class="tag">교과서</span>' : ""}</td>${hs.map(H => `<td${m.H[H] ? "" : ' class="na"'}>${H <= m.T ? "–" : cell(m.H[H])}</td>`).join("")}</tr>`).join("");
+  // 80% 구간 포함률 — 로그곡선 관측일마다(D3·D7·D14) 한 줄
+  const cov = ms.filter(m => m.method === "log" && m.cover).map(m => `<tr class="cov"><td>로그곡선 · D${m.T} 80% 구간 포함률</td>${hs.map(H => { const c = m.cover[H];
+    return `<td${c && c[1] ? "" : ' class="na"'}>${c && c[1] ? `${fmt.p(c[0] / c[1])} <span class="muted">${c[0]}/${c[1]}</span>` : "–"}</td>`; }).join("")}</tr>`).join("");
+  // 캠페인 단위 로그곡선 포함률(설치일 × 캠페인, 칸별) — 캠페인 구간이 실제로 맞는지
+  const cc = (G.camp_cover || {})[st.os], BN = {small: "설치 100~299", big: "설치 300+"};
+  const ccov = cc ? ["small", "big"].map(b => { const cv = cc.cover[b] || {};
+    return `<tr class="ccov"><td>캠페인 · 로그곡선 D${cc.T} 포함률 · ${BN[b]}</td>${hs.map(H => { const c = cv[H];
+      return `<td${c && c[1] ? "" : ' class="na"'}>${c && c[1] ? `${fmt.p(c[0] / c[1])} <span class="muted">${c[0]}/${c[1]}</span>` : "–"}</td>`; }).join("")}</tr>`; }).join("") : "";
+  const more = ms.flatMap(m => hs.filter(H => m.H[H]).map(H => { const s = m.H[H];
+    return `<tr><td>${MN[m.method]} · D${m.T} → D${H}</td><td>${fmt.p(s.p90, 1)}</td><td>${fmt.p(s.costw, 1)}</td><td>${s.weeks}</td><td style="white-space:normal">${Object.entries(s.months).map(([mo, b]) => `${mo.slice(5)}월 ${fmt.sp(b)}`).join(" · ")}</td></tr>`; })).join("");
+  $("b4").innerHTML = card(`설치일 × ${OSN[st.os] || st.os} 코호트(설치 150명+) <span class="muted">칸 = 중앙 |오차| · 중앙 편향 · 코호트 수</span>`,
+    `<div class="tscroll"><table><thead><tr><th>방법 · 관측일</th>${hs.map(H => `<th>D${H}</th>`).join("")}</tr></thead><tbody>${rows}${cov}${ccov}</tbody></table></div>`
+    + `<details class="more"><summary>자세히 — |오차| 90분위 · 광고비 가중 |오차| · 설치 주 수 · 설치 월별 편향</summary><div class="tscroll"><table><thead><tr><th>방법 → 지평</th><th>P90</th><th>광고비 가중</th><th>주</th><th>월별 편향</th></tr></thead><tbody>${more}</tbody></table></div></details>`,
+    `그때 알던 데이터 = 지금 원시를 날짜로 잘라 재구성한 것 — 매출 백필·귀속 변경은 재현 못 함. 오차 폭·포함률은 설치일 하루 코호트 기준이라 여러 날을 합친 머리 숫자에는 넉넉한 편이다(sf 21일 묶음 재현에서 D14·D28 포함 100% — 시점이 겹쳐 방향만). 이 게임 첫 D120 채점 ${M.first_d120 || "미정"}(매출 원시 1~2일 지연).`);
+}
+
+function drawFilters() {
+  $("filters").innerHTML = `<span class="chip"><span class="lbl">OS</span>${M.plats.map(p => `<button class="osb${st.os === p ? " on" : ""}" data-os="${p}" type="button">${OSN[p] || p}</button>`).join("")}</span>`
+    + `<span class="goal">목표 = 설치 후 ${M.target}일 안 ROAS 100%</span><span class="range">최근 ${M.window}일 설치 고정 · 기간 선택 없음 · 매출 관측 끝 ${M.obs_rev}</span>`;
+  document.querySelectorAll(".osb").forEach(b => b.addEventListener("click", () => { st.os = b.dataset.os; render(); }));
+}
+function render() { drawFilters(); renderS1(); renderS2(); renderS3(); renderS4(); }
+
+// 정의 문구의 검증 끝 — OS 마다 다르다(sf iOS D60 · AOS D75). 이 게임 자기 날짜로
+function vuText() {
+  const vs = M.plats.map(p => { const s = G.summary[p]; return s && s.verified_until != null ? `${OSN[p] || p} D${s.verified_until}` : null; }).filter(Boolean);
+  return (vs.length ? `${vs.join(" · ")} 이후는 아직 실측으로 맞춰 본 적이 없다` : "아직 맞춰 본 지평이 없다")
+    + `(이 게임 첫 D120 채점 ${M.first_d120 || "미정"}${(qsrc() || "").includes("sf") ? " — 지금 구간은 sf 오차 폭" : ""}).`;
+}
+
+function useGame(key, first) {
+  G = D.games[key]; M = G.meta;
+  const want = first && Q.get("os"); st.os = M.plats.includes(want) ? want : (M.plats.includes(st.os) ? st.os : M.plats[0]);
+  GX.rememberGame(key); GX.hero($("hero"), key, M.game);
+  $("games").querySelectorAll(".gx-game").forEach(b => b.setAttribute("aria-selected", b.dataset.g === key));
+  $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · 매출 관측 끝 ${M.obs_rev} · 구간 = 지난 예측 오차 ${Math.round(M.q_level * 100)}분위`;
+  $("defs").innerHTML = [
+    `예측 = 최근 ${M.window}일 설치 중 매출 관측이 T일(7, 모자라면 3) 이상 끝난 설치일(고정 집합)의 누적 ROAS 를 a + b·ln(1+경과일) 로 맞춰 늘린 값.`,
+    `80% 구간 = 같은 게임·OS 의 지난 예측 오차(그때 알던 데이터로 한 예측 vs 나중 실제) 중 최근 28개의 80분위로 위아래 대칭. 방법 비교 카드의 포함률이 실제로 몇 % 들어왔는지 보여 준다.`,
+    `${vuText()} 하루 설치 150명 미만인 게임은 채점 대상이 없어 오차 폭을 sf 것으로 빌린다.`,
+    "과거 곡선 모양이 이어진다고 가정한다 — 9월 중순 sf ARPDAU 하락 같은 변화는 방법 비교 카드의 월별 편향에 드러난다.",
+    "120일 회수 CPI · 필요 관측 ROAS 는 지금 유저 구성·수익 수준·곡선 모양이 그대로일 때의 값이다. 광고 규모를 바꾼 뒤의 CPI·유저 질 변화는 예측하지 않는다.",
+    "산술 분해 = ROAS = 설치당 유저-일 × 노출/유저-일 × eCPM × (1 + IAP/광고 매출) ÷ CPI 를 기준과 로그로 나눈 것. 항등식이라 합은 맞지만 원인 추정이 아니다.",
+    `설치 ${M.min_camp_n}명 미만 캠페인은 예측을 비운다(소표본 오차 20~40% — 리뷰 실측). 관측 숫자(설치·광고비·ROAS)는 UA 보드와 같은 정의·값(배너 포함, KR·리타게팅 제외, Meta 합산).`,
+    "리텐션 × ARPDAU(교과서 방식)·D7 배수는 우리 데이터에서 크게 과대라 머리 숫자에 쓰지 않고 방법 비교 카드에만 둔다(설계 문서 근거 2).",
+  ].map(s => `<li>${esc(s)}</li>`).join("");
+  render();
+}
+
+function boot(data) {
+  D = data; const keys = Object.keys(D.games || {});
+  if (!keys.length) { $("lock").hidden = false; $("lock").innerHTML = empty("회수 예측 데이터가 비어 있음 — python -m payback.build"); return; }
+  $("lock").hidden = true; $("board").hidden = false;
+  $("gen").textContent = `산출 ${D.generated_at || ""}`;
+  $("games").innerHTML = keys.map(k => GX.posterBtn(k, D.games[k].meta.game, false)).join("");
+  $("games").querySelectorAll(".gx-game").forEach(b => b.addEventListener("click", () => useGame(b.dataset.g)));
+  const lg = GX.lastGame();
+  useGame(keys.includes(Q.get("game")) ? Q.get("game") : (lg && keys.includes(lg) ? lg : keys[0]), true);
+}
+
+/* ── 데이터: 평문(payback-data.js, 로컬) → 암호문(payback-data.enc.js, 공개 URL) — 다른 보드와 같은 형식·비밀번호·저장 키 ── */
+const PWKEY = "genboard:pass", b64 = GX.b64;
+async function decryptData(enc, pass) {
+  const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({name: "PBKDF2", salt: b64(enc.salt), iterations: enc.iter, hash: "SHA-256"}, km, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name: "AES-GCM", iv: b64(enc.iv)}, key, b64(enc.ct))));
+}
+function showUnlock(enc, err) {
+  $("lock").hidden = false;
+  $("lock").innerHTML = `<div class="lock"><b>회수 예측</b><div class="${err ? "err" : ""}" style="margin:8px 0 0;font-size:13px;color:${err ? "" : "var(--ink-3)"}">${err || "집계 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다."}</div>
+    <form id="pwform"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password"><button type="submit">열기</button></form></div>`;
+  $("pwform").onsubmit = async ev => { ev.preventDefault();
+    try { const pass = $("pw").value; const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} boot(data); }
+    catch (e) { showUnlock(enc, "비밀번호가 맞지 않습니다."); } };
+  $("pw").focus();
+}
+(async function init() {
+  const plain = window.PAYBACK_DATA;
+  if (plain && plain.games && Object.keys(plain.games).length) return boot(plain);
+  const enc = window.PAYBACK_DATA_ENC;
+  if (!enc) { $("lock").hidden = false; $("lock").innerHTML = empty("payback-data.js 가 없거나 비어 있음 — python -m payback.build 실행"); return; }
+  if (!(window.crypto && crypto.subtle)) { $("lock").hidden = false; $("lock").innerHTML = empty("이 환경에서는 암호를 풀 수 없습니다. https 주소 또는 로컬 파일로 열어야 합니다."); return; }
+  const m = /(?:^#|[#&])k=([^&]+)/.exec(location.hash);
+  if (m) { try { const pass = decodeURIComponent(m[1]); const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} return boot(data); } catch (e) {} }
+  let saved = null; try { saved = localStorage.getItem(PWKEY); } catch (e) {}
+  if (saved) { try { return boot(await decryptData(enc, saved)); } catch (e) {} }
+  showUnlock(enc, null);
+})();
+})();
+</script>
+</body>
+</html>
