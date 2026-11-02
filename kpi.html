@@ -267,6 +267,11 @@ const mainName = () => hasAll() ? ALL : PAID;
 const afRows = os => (G.af || []).filter(r => inR(r[0]) && (os ? r[1] === os : osOk(r[1])));
 function afK(rows, k) { const cut = shift(M.obs_rev, -k), mr = rows.filter(r => r[0] <= cut), c = sum(mr, r => r[2]); return {v: c > 0 ? sum(mr, r => r[3][k]) / c : null, cost: c}; }
 const mainK = (AFR, U, k) => hasAll() ? afK(AFR, k) : roasK(U, k);
+// 오가닉 원시가 없는 설치일(meta.organic_from 전 · None = 전부)이 기간에 걸치면 안내 — 그 설치일의 오가닉 포함은 광고 유저 매출(ua.build)
+function orgNote() {
+  const of = M.organic_from || {}, ps = Object.keys(of).filter(p => osOk(p) && (of[p] == null || st.from < of[p]));
+  return ps.length ? ` 오가닉 원시가 없는 설치일(${ps.map(p => `${OSN[p] || p} ${of[p] == null ? "전체" : of[p] + " 이전"}`).join(" · ")})은 ${PAID} 매출로 셌다.` : "";
+}
 function uaRet(rows, i) { const k = M.ret_ks[i], cut = shift(M.obs_ev, -k), mr = rows.filter(r => r.d <= cut); const n = sum(mr, r => r.n); return {v: ratio(sum(mr, r => r.ret[i]), n), n}; }
 // 일반 코호트 — 성숙 = 설치+k ≤ 인앱 관측 끝(광고가 들어가면 광고 관측 끝). activeAt(D0 = 전원)
 const gActive = (r, k) => k === 0 ? r.n : (r.ret[k - 1] || 0);
@@ -458,7 +463,7 @@ function renderS4() {
   const apC = R.length ? lineChart([{name: "ARPPU", color: "var(--c4)", points: ap.map(x => x.v), tips: ap.map(x => `코호트 ${fmt.n(x.n)}명`)}], {labels: K.map(k => "D" + k), yfmt: v => fmt.usd(v, 0), title: "ARPPU 곡선"}) : empty("일반 지표 산출이 없음");
   h += `<div class="grid">`
     + card(`ROAS 커브 D0~D28 ${src("ua")} <span class="muted">Dk 마다 k일째까지 매출 관측이 끝난 설치일만 — 점마다 모인 설치일이 다르다</span>`, roasC, "",
-        hasAll() ? `${ALL} = AppsFlyer 대시보드와 같은 계산 — 그 설치일 유저 전체(광고 + 오가닉)의 IAP × 0.7 + 광고 매출 ÷ 광고비. 회색 = 참고 · ${PAID}(광고 유저 매출만 — UA 보드 캠페인 줄과 같은 정의).` : "")
+        hasAll() ? `${ALL} = AppsFlyer 대시보드와 같은 계산 — 그 설치일 유저 전체(광고 + 오가닉)의 IAP × 0.7 + 광고 매출 ÷ 광고비. 회색 = 참고 · ${PAID}(광고 유저 매출만 — UA 보드 캠페인 줄과 같은 정의).` + orgNote() : "")
     + card(`구매 타이밍별 ARPPU 곡선 ${src("gen")} <span class="muted">설치 후 k일까지 누적 IAP ÷ 그때까지 결제자</span>`, apC)
     + card(`상품별 구매 ${src("new")} <span class="muted">af_purchase 상품 ID 분류(번호 토큰 제거) · .dev. 제외</span>`, skuT)
     + card(`광고 시청 타이밍별 매출 — 배치 ${src("new")}`, plT)

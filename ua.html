@@ -98,6 +98,7 @@ details.defs li{margin:4px 0}
     <div class="filters" id="filters"></div>
     <div class="tiles" id="tiles"></div>
     <div class="note" id="dropnote" hidden></div>
+    <div class="note" id="orgnote" hidden></div>
 
     <h2 class="gx-h2">캠페인 · 광고별 ROAS <small>설치 후 k일째까지 누적 매출 ÷ 광고비</small></h2>
     <div class="seg" id="roasMode"><button type="button" data-m="camp" class="on">캠페인 → 광고</button><button type="button" data-m="ad">광고 → 캠페인</button></div>
@@ -241,7 +242,7 @@ function drawFilters() {
 
 function render() {
   const cells = G.cells.filter(c => c.d >= st.from && c.d <= st.to && (st.os === "all" || c.p === st.os));
-  const O = agg(cells), AF = afIn(st.from, st.to, st.os), OA = hasAll() ? Object.assign({}, O, {curve: allCurve(AF, O)}) : null;
+  const O = agg(cells), AF = afIn(st.from, st.to, st.os), OA = hasAll() ? Object.assign({}, O, {curve: allCurve(AF, O), allRow: true}) : null;
   drawFilters();
 
   // KPI 타일 — ROAS 는 본전(100%) 대비 막대
@@ -259,12 +260,20 @@ function render() {
       $("dropnote").innerHTML = `<b>칸에서 뺀 설치 ${dr.reduce((s, x) => s + x.n, 0).toLocaleString()}명 · 광고비 ${usd(dr.reduce((s, x) => s + x.cost, 0))}</b> — ${esc(what)}, 설치일 ${dr[0].d} ~ ${dr[dr.length - 1].d}. AppsFlyer 원시에 이 설치들의 설치 당일 이벤트가 한 명도 없어(원시 누락) ROAS·잔존을 계산할 수 없다 — 아래 '정의' 참고.`;
     }
   }
+  // 오가닉 원시가 없는 설치일(meta.organic_from 전 · None = 전부) — 그 설치일의 '오가닉 포함' 은 광고 유저 매출이다(ua.build 2'')
+  {
+    const of = M.organic_from || {}, ps = (st.os === "all" ? PLATS : [st.os]).filter(p => p in of && (of[p] == null || st.from < of[p]));
+    $("orgnote").hidden = !(hasAll() && ps.length);
+    if (hasAll() && ps.length) $("orgnote").innerHTML = `<b>오가닉 원시가 없는 설치일 포함</b> — ${ps.map(p => `${OSN[p] || p} ${of[p] == null ? "전체" : of[p] + " 이전"}`).join(" · ")} 설치일의 '${ALL}' 은 오가닉 매출 없이 ${PAID} 매출로 셌다.`;
+  }
   // 캠페인·광고별 ROAS — 보기 전환
   {
     const ad = st.mode === "ad";
     document.querySelectorAll("#roasMode button").forEach(b => b.classList.toggle("on", b.dataset.m === st.mode));
     const head = `<tr><th>${ad ? "광고 / 캠페인" : "캠페인 / 광고"}</th><th class="sep">광고비</th><th>설치</th><th>CPI</th>${M.ks.map((k, i) => `<th class="${i ? "" : "sep"}">D${k} ROAS</th>`).join("")}<th class="sep">D1 잔존</th><th class="sep">D0 평균 레벨</th></tr>`;
-    const row = (name, m, cls, attr) => `<tr class="${cls}" ${attr}>${nameCell(name, m)}<td class="sep">${usd(m.cost)}</td><td>${m.n}</td><td>${usd(m.cpi)}</td>${M.ks.map((k, i) => roasCell(m.curve[k], m.n, !i)).join("")}${sepd(retCell(m, 1))}<td class="sep">${m.lv0_mean ?? "—"}</td></tr>`;
+    // 오가닉 포함 줄은 ROAS 만 — 잔존·레벨은 광고 유저 값이라 비운다(Opus 리뷰: 두 줄이 같은 잔존을 보여 오가닉 포함 잔존처럼 읽혔다)
+    const tail = m => m.allRow ? `<td class="sep na">—</td><td class="sep na">—</td>` : `${sepd(retCell(m, 1))}<td class="sep">${m.lv0_mean ?? "—"}</td>`;
+    const row = (name, m, cls, attr) => `<tr class="${cls}" ${attr}>${nameCell(name, m)}<td class="sep">${usd(m.cost)}</td><td>${m.n}</td><td>${usd(m.cpi)}</td>${M.ks.map((k, i) => roasCell(m.curve[k], m.n, !i)).join("")}${tail(m)}</tr>`;
     // 전체 줄 — 오가닉 포함(기본) + 광고 유저만(참고, 캠페인 줄의 합과 맞는 값)
     const body = (OA ? row(`전체 · ${ALL}`, OA, "total", "") + row(`전체 · ${PAID}(참고)`, O, "total", "") : row("전체", O, "total", ""))
       + treeRows(row, null, tree(cells, ad ? "a" : "c", ad ? "c" : "a"));
@@ -333,8 +342,8 @@ function useGame(key) {
     "잔존 Dk = k일째에 인앱 이벤트가 1건 이상 있는 유저 비율. 일반 지표 보드의 리텐션(af_login 기준)과 정의가 달라 절대값 대조 금지.",
     "레벨 = 설치 당일 최고 클리어 레벨 — af_level_achieved 와 Level_Completed_N 중 큰 값(둘은 같은 번호 기준, Level_Completed 는 높은 레벨에서 띄엄띄엄 온다). 실패 지표는 이 보드에서 보지 않는다 — 게임 지표는 일반 지표 보드.",
     ...(PLATS.length > 1 ? ["OS = 위 칩. iOS·Android 는 앱이 달라 캠페인도 따로다 — 전체는 두 앱의 칸을 합친 값. 성숙 판정(관측 끝)은 두 앱 중 이른 날 기준."] : []),
-    "원시 누락 묶음 제외 — 설치일 × OS × 매체 묶음이 10명 이상인데 설치 당일 인앱 이벤트가 있는 유저가 한 명도 없으면 그 묶음의 설치·광고비를 모든 표에서 뺀다(정상 묶음의 설치 당일 활동은 97~100%). 뺀 내역은 타일 아래에 표시된다. "
-      + "첫 사례는 Bash Fiesta Android 07-29~08-03 Facebook 캠페인 — 10-27 에 받은 원시에 그 기간 이벤트·광고 매출이 0건이었다(같은 기간 AppLovin 유저는 정상, 9월에 받아 둔 원시에는 이 유저들의 9월 이벤트가 있음). 원인 미확인.",
+    "원시 누락 묶음 제외 — 설치일 × OS × 매체 묶음이 10명 이상인데 설치 당일 인앱 이벤트가 있는 유저가 절반 미만이면(10명 미만 꼬리는 같은 OS × 매체가 이미 판정됐을 때) 그 묶음의 설치·광고비를 모든 표에서 뺀다(정상 묶음의 설치 당일 활동은 대부분 97~100%, 가장 낮은 정상 묶음 70%대). 뺀 묶음의 유저 매출은 오가닉 포함 매출에서도 뺀다. 뺀 내역은 타일 아래에 표시된다. "
+      + "첫 사례는 Bash Fiesta Android 07-29~08-07 Facebook 캠페인 — 원시에 그 기간 이벤트·광고 매출이 거의 없다(11-02 오가닉 원시를 받은 뒤에도 2,836명 중 264명만 이벤트가 있고 D1 잔존·D7 매출 0). 같은 기간 AppLovin 유저는 정상. 원인 미확인.",
     `설치 ${M.min_n}명 미만은 '표본' 표시 — 숫자는 보이되 판단 근거로 쓰기 어렵다.`,
     "광고(Creative set) 이름은 캠페인마다 같은 이름이 따로 존재한다(광고 ID 는 캠페인별로 다름). 광고 → 캠페인 보기의 광고 줄은 이름 기준 합계.",
     "Meta(Facebook) 는 OS 마다 한 줄(“Facebook (Meta) · 캠페인 합산”) — 원시 설치 리포트가 Meta 유저를 restricted(캠페인·광고 비공개)로 주고 광고비는 캠페인 이름으로 와서 캠페인 단위로 맞출 수 없다.",

@@ -166,6 +166,9 @@ const refLine = (s, k) => { const r = refOf(s); if (!r) return "";
   const obs = r["roas" + k] != null ? r["roas" + k] : (k === r.a ? r.roas_T : null);
   return `<br><span class="muted">참고 · ${PAID}: D${k} ${fmt.p(obs)}${r.d120 != null ? ` · 예상 회수일 ${day(r.payday)}` : ""}</span>`; };
 const goodDay = k => k != null && k <= M.target;
+// 오가닉 원시가 없는 날(meta.organic_from 전)이 낀 주 — 그날은 광고 유저 매출로 셌다(ua.build 2'', Opus 리뷰)
+const orgTag = w => { const of = (M.organic_from || {})[st.os];
+  return isAll() && of && w.w_from < of ? ` <span class="tag">${of} 전 오가닉 원시 없음 — 그날은 ${PAID} 매출</span>` : ""; };
 const payCell = (k, cls = "") => `<td class="pay${cls}"${goodDay(k) ? ' style="color:var(--good)"' : ""}>${day(k)}</td>`;
 
 // 곡선 — x 는 경과일에 비례(o.xv), 80% 구간 띠, 세로선(120일·미검증 경계), 100% 기준선. 축은 하나.
@@ -272,7 +275,7 @@ function weekTable(ws, t) {
     const sel = st.week === w.w_from ? " sel" : "";
     const obs = `<td class="g">${fmt.n(w.n)}</td><td>${fmt.usd(w.cpi)}</td><td class="g">${fmt.p(w.roas7)}</td><td>${fmt.p(w.roas28)}</td><td>D${w.a} ${fmt.p(w.roas_a)}</td>`;
     if (w.small) return `<tr class="wk${sel}" data-w="${w.w_from}"><td>${wk(w)}</td>${obs}<td colspan="2" class="g na">표본 적음 — 설치 ${M.min_camp_n}명 미만</td>${refCells(w.paid)}</tr>`;
-    const warn = (qsrc() || "").includes("sf") && w.n < 300 ? ` <span class="tag">설치 ${w.n}명 — 실제 오차 더 클 수 있음</span>` : "";
+    const warn = ((qsrc() || "").includes("sf") && w.n < 300 ? ` <span class="tag">설치 ${w.n}명 — 실제 오차 더 클 수 있음</span>` : "") + orgTag(w);
     return `<tr class="wk${sel}" data-w="${w.w_from}"><td>${wk(w)}${w.days < 7 ? ` <span class="muted">(${w.days}일)</span>` : ""}${warn}</td>${obs}`
       + `<td class="g">${fmt.p(w.d120[0])}${w.lo ? ` <span class="muted">${pr(w.d120[1], w.d120[2]) || ""}</span>` : ' <span class="muted">구간 없음</span>'}</td>`
       + payCell(w.payday[0]) + refCells(w.paid) + `</tr>`;
@@ -426,7 +429,8 @@ function useGame(key, first) {
   const want = first && Q.get("os"); st.os = M.plats.includes(want) ? want : (M.plats.includes(st.os) ? st.os : M.plats[0]);
   GX.rememberGame(key); GX.hero($("hero"), key, M.game);
   $("games").querySelectorAll(".gx-game").forEach(b => b.setAttribute("aria-selected", b.dataset.g === key));
-  $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · ROAS = ${ALL}(${PAID}은 참고) · 매출 관측 끝 ${M.obs_rev} · 구간 = 지난 예측 오차 ${Math.round(M.q_level * 100)}분위`;
+  const allAny = Object.values(M.basis || {}).includes("all");          // OS 중 하나라도 오가닉 포함이면(옛 산출·오가닉 원시 없음은 광고 유저만)
+  $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · ROAS = ${allAny ? `${ALL}(${PAID}은 참고)` : PAID} · 매출 관측 끝 ${M.obs_rev} · 구간 = 지난 예측 오차 ${Math.round(M.q_level * 100)}분위`;
   $("defs").innerHTML = [
     `주별 예측 = 설치 주(월~일, 주 마지막 날 + 7일까지 매출 관측된 주만 — 최신 주는 대략 2주 전) 설치 전부의 누적 ROAS 를 가장 어린 날의 관측 나이까지 실측 그대로 두고, 그 뒤를 로그 증가분 b·(ln(1+k) − ln(1+실측 끝))으로 이어 붙인 값. b 는 실측 끝 직전 14일 맞춤. 합산 = 최근 ${M.weeks_max}주 중 예측 가능한(설치 ${M.min_camp_n}명 이상) 주들을 한 묶음으로(주별 매출 예측을 더함).`,
     `구간 = 같은 게임·OS 의 지난 예측 오차(그때 알던 데이터로 한 예측 vs 나중 실제, 실측 나이 3·7·14·28·45·60일별 |로그 오차| 최근 28개의 80분위). 주별 구간은 그 오차가 로그 길이 ln((1+지평)/(1+실측 나이))에 비례한다고 보고(sf 회귀 기울기 ≈0.09) 위아래 대칭으로 늘린 것 — 직접 채점된 지평 안은 '80% 구간', 그 밖(지금 D120)은 '참고 범위'. 방법 비교 카드의 포함률은 하루 코호트·원래 오차 기준이다(주별 구간의 포함률은 리뷰 재현에서 D28 100%·D45 78%·D60 60%, 표본 작음).`,
@@ -438,7 +442,8 @@ function useGame(key, first) {
     `설치 ${M.min_camp_n}명 미만 캠페인은 예측을 비운다(소표본 오차 20~40% — 리뷰 실측). 관측 숫자(설치·광고비·ROAS)는 UA 보드와 같은 정의·값(배너 포함, KR·리타게팅 제외, Meta 합산).`,
     `ROAS 기본 = ${ALL}(팀장님 11-02) — 그 설치일(UTC)에 설치한 유저 전체(광고 + 오가닉)의 IAP 순매출(af_purchase × 0.7 — 스토어 수수료 30% 제외, .dev. 제외) + 광고 매출(AppsFlyer ID 없는 오가닉 행 포함) ÷ 광고비. AppsFlyer 'TS's UA dashboard' 와 같은 계산(sf iOS 09-07~13 설치 D1·D3·D7·D14·D28 이 AF 화면과 소수 둘째 자리까지 같다 — D28 60.4%).`,
     `참고 · ${PAID} = 원시 설치 리포트의 논오가닉 유저 매출만(UA 보드 캠페인 줄과 같은 정의 — 같은 코호트 D28 46.0%). 캠페인 표·산술 분해는 캠페인으로 오가닉을 나눌 수 없어 ${PAID}. 주별·D3/D7 기반의 참고 칸은 같은 이어 붙이기의 점 예측(구간 없음).`,
-    `${ALL} 예측의 오차 폭·방법 비교는 ${ALL} 누적 ROAS 로 채점했다. 11-02 sf 설치일 코호트(150명+) D7→D60 중앙 |오차|: iOS ${ALL} 7.6% · ${PAID} 6.4%(21개), Android 7.7% · 8.0%(31개) — 비슷한 수준.`,
+    `${ALL} 예측의 오차 폭·방법 비교는 ${ALL} 누적 ROAS 로 채점했다. 11-02 sf 설치일 코호트(150명+) D7→D60 중앙 |오차|: iOS ${ALL} 6.8% · ${PAID} 6.4%(21개), Android 7.7% · 8.0%(31개) — 비슷한 수준(sf 9월 전 오가닉 원시를 11-02 에 받아 채운 뒤 값).`,
+    `오가닉 원시가 없는 설치일(산출 organic_from 전)은 ${ALL} 을 ${PAID} 매출로 센다 — 해당하는 주에는 꼬리표가 붙는다. 원시 누락으로 뺀 설치 묶음의 유저 매출은 ${ALL} 에서도 뺀다(광고비가 분모에서 빠졌으므로).`,
     "예상 회수일 = 중간값(이어 붙인 점 예측 — 구간의 가운데)이 처음 100% 에 닿는 날. 표·타일에는 이 값만 적고 범위는 D120 칸·곡선 카드의 띠로 본다(팀장님 11-02).",
     "리텐션 × ARPDAU(교과서 방식)·D7 배수는 우리 데이터에서 크게 과대라 머리 숫자에 쓰지 않고 방법 비교 카드에만 둔다(설계 문서 근거 2).",
   ].map(s => `<li>${esc(s)}</li>`).join("");

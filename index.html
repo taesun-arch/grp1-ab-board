@@ -177,7 +177,7 @@ function render(S) {
     let slot = 0; const over = sum => slot++ >= 2 && span ? [' over', `--span:${sum && solo ? 12 : span};`] : ['', ''];
     for (const k of uaKeys.slice(1)) { const v = G[k].ua, [oc, os] = over();
       h += `<a class="t side${oc}" href="${uaUrl(k)}" style="${os}--c:${C(k)}"><div class="head"><img src="${I(k)}" alt=""><span class="name" style="font-size:20px">${esc(G[k].name)}</span><span class="s" style="margin-left:auto">UA</span></div>
-        <div class="row3"><div><div class="k">D1 ROAS · 7일</div><div class="mid" style="color:${C(k)}">${pct(v.d1)}</div></div><div><div class="k">광고비 · ${md(v.last)}</div><div class="mid">${usd(v.cost)}</div></div><div><div class="k">CPI</div><div class="mid">${usd(v.cpi, 2)}</div></div></div></a>`; }
+        <div class="row3"><div><div class="k">D1 ROAS · 7일 · ${bn(v)}</div><div class="mid" style="color:${C(k)}">${pct(v.d1)}</div>${v.basis === 'all' && v.d1_paid != null ? `<div class="s">광고 유저만 ${pct(v.d1_paid)}</div>` : ''}</div><div><div class="k">광고비 · ${md(v.last)}</div><div class="mid">${usd(v.cost)}</div></div><div><div class="k">CPI</div><div class="mid">${usd(v.cpi, 2)}</div></div></div></a>`; }
     const [oc, os] = over(true);
     h += `<div class="t sum${oc}" style="${os}"><div class="k">어제 합계 · UA ${uaKeys.length}게임 · 게임 ${genKeys.length}개</div>
       <div class="row3">${totals.map(([k, v]) => `<div><div class="k">${k.split(' · ')[0]}</div><div class="mid">${v}</div></div>`).join('')}</div></div>`;
