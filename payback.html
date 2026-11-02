@@ -53,6 +53,12 @@ td.na{color:var(--ink-3)}
 tr.camp,tr.wk{cursor:pointer} tr.camp:hover td,tr.wk:hover td{background:color-mix(in srgb,var(--ink) 4%,transparent)}
 tr.wk.sel td{background:color-mix(in srgb,var(--c1) 12%,transparent)}
 tr.total td{font-weight:600;background:color-mix(in srgb,var(--c1) 6%,var(--card))}
+/* 주별 표 열 묶음(팀장님 11-02: 실측 / D120 예상 / 예상 회수일이 붙어 보이지 않게) — 묶음 머리줄 · 묶음 경계선 · 참고 묶음은 흐리게 */
+th.grp{text-align:center;font-size:11.5px;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--line-soft);padding-top:2px}
+th.grp.ref{color:var(--ink-3)} th.grp .muted{font-weight:400}
+th.g,td.g{border-left:1px solid var(--line)}
+td.ref{color:var(--ink-3)} tr.total td.ref{font-weight:500}
+td.pay{font-weight:600}
 tr.camp td:first-child::before{content:"▸ ";color:var(--ink-3)} tr.camp.open td:first-child::before{content:"▾ "}
 tr.det td{white-space:normal;text-align:left;background:color-mix(in srgb,var(--card-2) 60%,transparent)}
 .parts{display:grid;grid-template-columns:minmax(120px,auto) 64px 1fr;gap:4px 10px;align-items:center;max-width:560px;margin:4px 0 8px;font-size:12px}
@@ -149,11 +155,24 @@ const qsrc = () => M.q_src && M.q_src[st.os];
 const qNote = s => (qsrc() || "").includes("sf") ? " · sf 오차 빌림" + (s && s.n < 300 ? ` — 설치 ${s.n}명이라 실제 오차는 이 구간보다 클 수 있음` : "") : "";
 const vuNote = s => s.verified_until != null && s.verified_until < M.target ? ` · D${s.verified_until} 이후 미검증` : "";
 
+// ROAS 기본 = 오가닉 포함(그 설치일 유저 전체 매출 ÷ 광고비 — AppsFlyer 대시보드와 같은 계산), 광고 유저만은 참고(팀장님 11-02).
+// meta.basis[OS] = "all"(오가닉 포함) · "paid"(오가닉 매출이 없는 산출 — 옛 산출 포함). paid 면 참고 묶음을 숨긴다(기본과 같다)
+const ALL = "오가닉 포함", PAID = "광고 유저만";
+const isAll = () => ((M.basis || {})[st.os] || "paid") === "all";
+const mainName = () => isAll() ? ALL : PAID;
+const refOf = s => isAll() && s && s.paid ? s.paid : null;
+// 참고 한 줄 — 타일 부제 끝(광고 유저만 관측 Dk · 예상 회수일)
+const refLine = (s, k) => { const r = refOf(s); if (!r) return "";
+  const obs = r["roas" + k] != null ? r["roas" + k] : (k === r.a ? r.roas_T : null);
+  return `<br><span class="muted">참고 · ${PAID}: D${k} ${fmt.p(obs)}${r.d120 != null ? ` · 예상 회수일 ${day(r.payday)}` : ""}</span>`; };
+const goodDay = k => k != null && k <= M.target;
+const payCell = (k, cls = "") => `<td class="pay${cls}"${goodDay(k) ? ' style="color:var(--good)"' : ""}>${day(k)}</td>`;
+
 // 곡선 — x 는 경과일에 비례(o.xv), 80% 구간 띠, 세로선(120일·미검증 경계), 100% 기준선. 축은 하나.
-// AF 방식(오가닉 포함) 예상(s.af_fc)이 있으면 회색 선으로 겹친다 — 참고라 구간 없음(팀장님 11-02)
+// 참고(광고 유저만) 점 예측이 있으면 회색 선으로 겹친다 — 구간 없음
 function curveChart(s) {
   const W = 560, H = 230, L = 46, R = 12, T = 12, B = 28, ks = M.ks, KM = ks[ks.length - 1];
-  const n = ks.length, Tk = s.T, af = s.af_fc;
+  const n = ks.length, Tk = s.T, rf = refOf(s), af = rf && rf.pt ? rf : null;
   const vals = [...s.pt, ...(s.hi || []), ...(af ? af.pt : [])].filter(v => v != null);
   let ymax = Math.max(1.15, ...vals) * 1.05;
   const xs = k => L + (W - L - R) * k / KM, ys = v => T + (H - T - B) * (1 - v / ymax);
@@ -175,10 +194,10 @@ function curveChart(s) {
   const obs = line(s.pt, 0, Tk, "var(--ink)"), fc = line(s.pt, from(Tk), KM, "var(--c1)", true);   // Tk = 실측 끝(합산은 모든 주가 실측인 나이)
   const afl = af ? line(af.pt, 0, af.a, "var(--ink-3)", false, 1.5) + line(af.pt, from(af.a), KM, "var(--ink-3)", true, 1.5) : "";
   const hits = ks.map((k, i) => { const x0 = i ? (xs(ks[i - 1]) + xs(k)) / 2 : L, x1 = i < n - 1 ? (xs(k) + xs(ks[i + 1])) / 2 : W - R;
-    return `<rect class="hit" x="${x0.toFixed(1)}" y="${T}" width="${(x1 - x0).toFixed(1)}" height="${H - T - B}"><title>D${k}${k <= Tk ? " 실측" : " 예측"}: ${fmt.p(s.pt[i], 1)}${s.lo ? ` · 80% 구간 ${pr(s.lo[i], s.hi[i])}` : ""}${af ? ` · ${AFN} ${fmt.p(af.pt[i], 1)}` : ""}</title></rect>`; }).join("");
+    return `<rect class="hit" x="${x0.toFixed(1)}" y="${T}" width="${(x1 - x0).toFixed(1)}" height="${H - T - B}"><title>D${k}${k <= Tk ? " 실측" : " 예측"}: ${mainName()} ${fmt.p(s.pt[i], 1)}${s.lo ? ` · 80% 구간 ${pr(s.lo[i], s.hi[i])}` : ""}${af ? ` · ${PAID} ${fmt.p(af.pt[i], 1)}` : ""}</title></rect>`; }).join("");
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="누적 ROAS 곡선">${g}<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>${band}${afl}${obs}${fc}${hits}</svg>`
-    + `<div class="legend"><span><i style="background:var(--ink)"></i>실측(D0~D${Tk})</span><span><i style="background:var(--c1)"></i>이어 붙인 예측</span>${s.lo ? `<span><i style="background:var(--c1);opacity:.3"></i>80% 구간</span>` : ""}`
-    + `${af ? `<span><i style="background:var(--ink-3)"></i>${AFN} — 참고(실선 실측 · 점선 예측, 구간 없음) · 회수 ${day(af.payday)}</span>` : ""}</div>`;
+    + `<div class="legend"><span><i style="background:var(--ink)"></i>${mainName()} 실측(D0~D${Tk})</span><span><i style="background:var(--c1)"></i>이어 붙인 예측</span>${s.lo ? `<span><i style="background:var(--c1);opacity:.3"></i>80% 구간</span>` : ""}`
+    + `${af ? `<span><i style="background:var(--ink-3)"></i>참고 · ${PAID}(실선 실측 · 점선 예측, 구간 없음) · 회수 ${day(af.payday)}</span>` : ""}</div>`;
 }
 
 // ── 주별(월~일) UA 코호트 — 팀장님 2026-11-01: "월~일로 자르고 지난주·지지난주 UA 의 ROAS 100% 예상 회수 시점, 주마다 어떻게 변하는지".
@@ -208,20 +227,12 @@ function trendChart(ws) {
     hits += `<rect class="hit" x="${(L + cw * i).toFixed(1)}" y="${T}" width="${cw.toFixed(1)}" height="${H - T - B}"><title>${wk(w)} 설치 ${fmt.n(w.n)}명 · D7 실측 ${fmt.p(w.roas7)}${w.d120 ? ` · D120 예상 ${fmt.p(w.d120[0])}${w.lo ? ` (${pr(w.d120[1], w.d120[2])})` : ""} · 회수 ${day(w.payday[0])}` : " · 표본 적음"}</title></rect>`;
   });
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="주별 D120 예상 ROAS 추이">${g}<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>${marks}${hits}</svg>`
-    + `<div class="legend"><span><i style="background:var(--c1)"></i>D120 예상(점) · 80% 구간(막대)</span><span><i style="background:var(--ink-3)"></i>D7 실측</span></div>`;
+    + `<div class="legend"><span><i style="background:var(--c1)"></i>D120 예상(점) · 80% 구간(막대)</span><span><i style="background:var(--ink-3)"></i>D7 실측</span><span class="muted">${mainName()}</span></div>`;
 }
 
 // 구간 이름 — D120 이 직접 채점된 지평 안이면 '80% 구간', 그 밖이면 과거 오차로 늘린 '참고 범위'(Codex 주 단위 리뷰)
 const ivName = s => s.verified_until != null && s.verified_until >= M.target ? "80% 구간" : "참고 범위";
 const ivText = s => s.lo ? `${ivName(s)} ${pr(s.d120[1], s.d120[2]) || "계산 불가"}` : "구간 없음 — 채점 부족";
-
-// AF 방식(오가닉 포함) — AppsFlyer 대시보드와 같은 계산(그 설치일 유저 전체의 IAP × 0.7 + 광고 매출 ÷ 같은 광고비). 대조용 참고(팀장님 11-01)
-const AFN = "AF 방식(오가닉 포함)";
-const afOf = (w, k) => w.af ? w.af[String(k)] : null;
-const AF_NOTE = `${AFN} = AppsFlyer 대시보드와 같은 계산 — 그 기간에 설치한 유저 전체(광고 + 오가닉)의 IAP × 0.7 + 광고 매출 ÷ 같은 광고비. `
-  + `우리 ROAS(광고 유저만)보다 오가닉 매출만큼 높다. ${AFN} 예상 회수일 = 그 누적 ROAS 에 같은 이어 붙이기를 따로 한 참고값(구간 없음) — 우리 예측·구간에는 섞지 않는다.`;
-// AF 방식 예상 회수일 — 타일 부제 한 줄(팀장님 11-02: "AF 방식의 ROAS 회수 예측일도 필요")
-const afDay = s => s && s.af_fc ? `<br>${AFN} 예상 회수일 ${day(s.af_fc.payday)}` : "";
 
 // 주간 지표 전 — D3·D7 기반 ROAS 예측(팀장님 11-01: "UA 후 2주가 지나야 주간 지표가 나오니 그 전까지는 이것으로")
 const early = () => ((G.early || {})[st.os] || {});
@@ -233,50 +244,52 @@ function earlyHtml() {
   const ea = early();
   const one = (k, label) => { const e = ea[k], T = k === "d3" ? 3 : 7;
     if (!e) return tile(label, "–", `D${T} 까지 매출이 관측된 UA 설치가 아직 없다`);
-    const head = `${e.s_from.slice(5)}~${e.s_to.slice(5)} 설치 ${fmt.n(e.n)}명`, af = e.af_T != null ? ` · ${AFN} D${T} ${fmt.p(e.af_T)}` : "";
+    const head = `${e.s_from.slice(5)}~${e.s_to.slice(5)} 광고 설치 ${fmt.n(e.n)}명`;
     if (e.none) return tile(label, "–", `${head} · ${e.none}`);
-    if (e.small || !e.pt) return tile(label, "–", `${head} · 관측 D${T} ROAS ${fmt.p(e.roas_T)}${af} · 표본 적음(${M.min_camp_n}명 미만)`);
-    return tile(label, day(e.payday[0]), `D120 ${fmt.p(e.d120[0])} (${ivText(e)}) · 관측 D${T} ROAS ${fmt.p(e.roas_T)}${af} · ${head}(${e.days}일) · CPI ${fmt.usd(e.cpi)}${qNote(e)}${vuNote(e)}${afDay(e)}`,
-      e.payday[0] != null && e.payday[0] <= M.target); };
+    if (e.small || !e.pt) return tile(label, "–", `${head} · 관측 D${T} ROAS ${fmt.p(e.roas_T)} · 표본 적음(${M.min_camp_n}명 미만)${refLine(e, T)}`);
+    return tile(label, day(e.payday[0]), `D120 ${fmt.p(e.d120[0])} (${ivText(e)}) · 관측 D${T} ROAS ${fmt.p(e.roas_T)}<br>${head}(${e.days}일) · CPI ${fmt.usd(e.cpi)}${qNote(e)}${vuNote(e)}${refLine(e, T)}`,
+      goodDay(e.payday[0])); };
   const m = [[3, 28], [3, 60], [7, 28], [7, 60]].map(([T, H]) => medOf(T, H));
   const err = m.every(v => v != null) ? `D3 기반은 D7 기반보다 오차가 크다(이 게임 ${OSN[st.os] || st.os} 채점 중앙 오차 D28 ${fmt.p(m[0], 1)}·D60 ${fmt.p(m[1], 1)}, D7 기반은 ${fmt.p(m[2], 1)}·${fmt.p(m[3], 1)}). `
     : "D3 기반은 D7 기반보다 오차가 크다(이 게임은 아직 채점할 코호트가 없어 구간을 sf 오차 폭으로 만든다). ";
   return `<div class="tiles">${one("d7", "D7 기반 ROAS 예측 · 예상 회수일")}${one("d3", "D3 기반 ROAS 예측 · 예상 회수일")}</div>`
-    + `<div class="note">주간 지표는 UA 후 약 2주(설치 주 마지막 날 + 7일)부터 나온다 — 그 전까지 보는 숫자. 그 날까지 D7(또는 D3) 매출이 관측된 UA 설치 전부를 한 묶음으로 실측 끝에 이어 붙였다. `
+    + `<div class="note">ROAS = ${mainName()}. 주간 지표는 UA 후 약 2주(설치 주 마지막 날 + 7일)부터 나온다 — 그 전까지 보는 숫자. 그 날까지 D7(또는 D3) 매출이 관측된 UA 설치일 전부를 한 묶음으로 실측 끝에 이어 붙였다. `
     + `${err}설치가 쌓이면 묶음이 커져 매일 바뀐다.</div>`;
 }
 
-// 주별 표 — 표본 적은 주도 관측(D7·D28 실측·AF 방식)은 보인다. 예상 회수일 칸은 중간값(점 예측)만 — 범위는 곡선 카드 띠로(팀장님 11-02)
-const payCell = s => `<td${s.payday[0] != null && s.payday[0] <= M.target ? ' style="color:var(--good)"' : ""}>${day(s.payday[0])}</td>`;
-const afPayCell = s => `<td${s && s.af_fc ? "" : ' class="na"'}>${s && s.af_fc ? day(s.af_fc.payday) : "–"}</td>`;
+// 주별 표 — 열을 묶음으로(팀장님 11-02: 실측 / D120 예상 / 예상 회수일이 붙어 보이지 않게): 설치 · 실측 · 예측 · 참고(광고 유저만).
+// 예상 회수일 칸은 중간값(점 예측)만 — 범위는 D120 칸·곡선 카드 띠로. 표본 적은 주도 관측은 보인다
 function weekTable(ws, t) {
-  const vu = (ws.find(w => !w.small) || {}).verified_until;
-  const head = ["설치 주", "설치", "CPI", "D7 실측", "D28 실측", "실측 끝", `D120 예상${vu != null && vu < M.target ? ` <span class="muted">D${vu} 뒤 참고 범위</span>` : ""}`,
-    `예상 회수일 <span class="muted">목표 D${M.target}${vu != null ? ` · D${vu} 뒤 미검증` : ""}</span>`, "필요 D7", `${AFN} <span class="muted">D7 · D28</span>`, `${AFN} <span class="muted">예상 회수일</span>`];
-  const afc = (a7, a28) => `<td>${fmt.p(a7)} · ${fmt.p(a28)}</td>`;
-  const ours28 = w => w.ours ? w.ours["28"] : null;
+  const vu = (ws.find(w => !w.small) || {}).verified_until, ref = isAll();
+  const grp = [["", 1], ["설치", 2], [`실측 · ${mainName()}`, 3], [`예측 · ${mainName()} <span class="muted">목표 D${M.target} 회수</span>`, 2], ...(ref ? [[`참고 · ${PAID}`, 4, "ref"]] : [])];
+  const cols = [["설치 주"], ["광고 설치", "g"], ["CPI"], ["D7", "g"], ["D28"], ["실측 끝"], ['D120 <span class="muted">구간</span>', "g"], ["예상 회수일"],
+    ...(ref ? [["D7", "g"], ["D28"], ["D120"], ["예상 회수일"]] : [])];
+  const head = `<tr>${grp.map(([x, n, c], i) => `<th class="grp${i ? " g" : ""}${c ? " " + c : ""}" colspan="${n}">${x}</th>`).join("")}</tr>`
+    + `<tr>${cols.map(([x, c]) => `<th${c ? ` class="${c}"` : ""}>${x}</th>`).join("")}</tr>`;
+  const refCells = r => !ref ? "" : `<td class="g ref">${fmt.p(r && r.roas7)}</td><td class="ref">${fmt.p(r && r.roas28)}</td>`
+    + (r && r.d120 != null ? `<td class="ref">${fmt.p(r.d120)}</td>${payCell(r.payday, " ref")}` : `<td class="ref na">–</td><td class="ref na">–</td>`);
   const body = ws.map(w => {
     const sel = st.week === w.w_from ? " sel" : "";
-    const obs = `<td>${fmt.n(w.n)}</td><td>${fmt.usd(w.cpi)}</td><td>${fmt.p(w.roas7)}</td><td>${fmt.p(ours28(w))}</td><td>D${w.a} ${fmt.p(w.roas_a)}</td>`;
-    if (w.small) return `<tr class="wk${sel}" data-w="${w.w_from}"><td>${wk(w)}</td>${obs}<td colspan="3" class="na">표본 적음 — 설치 ${M.min_camp_n}명 미만</td>${afc(afOf(w, 7), afOf(w, 28))}${afPayCell(null)}</tr>`;
+    const obs = `<td class="g">${fmt.n(w.n)}</td><td>${fmt.usd(w.cpi)}</td><td class="g">${fmt.p(w.roas7)}</td><td>${fmt.p(w.roas28)}</td><td>D${w.a} ${fmt.p(w.roas_a)}</td>`;
+    if (w.small) return `<tr class="wk${sel}" data-w="${w.w_from}"><td>${wk(w)}</td>${obs}<td colspan="2" class="g na">표본 적음 — 설치 ${M.min_camp_n}명 미만</td>${refCells(w.paid)}</tr>`;
     const warn = (qsrc() || "").includes("sf") && w.n < 300 ? ` <span class="tag">설치 ${w.n}명 — 실제 오차 더 클 수 있음</span>` : "";
     return `<tr class="wk${sel}" data-w="${w.w_from}"><td>${wk(w)}${w.days < 7 ? ` <span class="muted">(${w.days}일)</span>` : ""}${warn}</td>${obs}`
-      + `<td>${fmt.p(w.d120[0])}${w.lo ? ` <span class="muted">${pr(w.d120[1], w.d120[2]) || ""}</span>` : ' <span class="muted">구간 없음</span>'}</td>`
-      + payCell(w) + `<td>${w.need7 && w.need7[0] != null ? fmt.p(w.need7[0]) : "–"}</td>${afc(afOf(w, 7), afOf(w, 28))}${afPayCell(w)}</tr>`;
+      + `<td class="g">${fmt.p(w.d120[0])}${w.lo ? ` <span class="muted">${pr(w.d120[1], w.d120[2]) || ""}</span>` : ' <span class="muted">구간 없음</span>'}</td>`
+      + payCell(w.payday[0]) + refCells(w.paid) + `</tr>`;
   }).join("");
-  // 합산 줄의 D7·D28 = AF 방식을 잰 주들(그 Dk 관측이 끝난 주)의 우리 값 — AF 방식과 같은 주·광고비로 맞대 본다
-  const ta = k => t && t.af && t.af[String(k)] ? t.af[String(k)] : null, n28 = ta(28) ? ta(28)[2] : 0;
-  const tot = t ? `<tr class="total"><td>합산 ${t.w_from.slice(5)}~${t.w_to.slice(5)} (예측 가능한 ${t.weeks}주${t.skip_weeks ? ` · 표본 적은 ${t.skip_weeks}주 제외` : ""})</td><td>${fmt.n(t.n)}</td><td>${fmt.usd(t.cpi)}</td>`
-    + `<td>${fmt.p(ta(7) && ta(7)[1])}</td><td>${fmt.p(ta(28) && ta(28)[1])}${ta(28) && n28 < t.weeks ? ` <span class="muted">${n28}주</span>` : ""}</td><td>–</td>`
-    + `<td>${fmt.p(t.d120[0])}${t.lo ? ` <span class="muted">${pr(t.d120[1], t.d120[2]) || ""}</span>` : ""}</td>${payCell(t)}<td>–</td>`
-    + `${afc(ta(7) && ta(7)[0], ta(28) && ta(28)[0])}${afPayCell(t)}</tr>` : "";
-  return card(`주별 표 <span class="muted">행을 누르면 아래 곡선이 그 주로 · 필요 D7 = 그 주 곡선 모양 그대로일 때 120일 안 회수에 필요했던 D7 ROAS — 주마다 다른 참고값, 목표가 아님(D7 이 높은 주일수록 꼬리가 얇아 필요 D7 도 높게 나온다)</span>`,
-    `<div class="tscroll"><table><thead><tr>${head.map(x => `<th>${x}</th>`).join("")}</tr></thead><tbody>${tot}${body}</tbody></table></div>`,
-    (t ? "합산 = 예측 가능한 주들의 설치를 한 묶음으로 본 ROAS 예측(주별 매출 예측을 더함, 구간은 주별 구간 끝끼리 더해 넓게). 합산 줄의 D7·D28 실측은 그 Dk 관측이 끝난 주만(AF 방식과 같은 주). " : "")
+  // 합산 줄의 D7·D28 실측 = 그 Dk 관측이 끝난 주만(산출 total.obs = [기본, 광고 유저만, 주 수])
+  const to = k => t && t.obs && t.obs[String(k)] ? t.obs[String(k)] : null, n28 = to(28) ? to(28)[2] : 0;
+  const tot = t ? `<tr class="total"><td>합산 ${t.w_from.slice(5)}~${t.w_to.slice(5)} (예측 가능한 ${t.weeks}주${t.skip_weeks ? ` · 표본 적은 ${t.skip_weeks}주 제외` : ""})</td><td class="g">${fmt.n(t.n)}</td><td>${fmt.usd(t.cpi)}</td>`
+    + `<td class="g">${fmt.p(to(7) && to(7)[0])}</td><td>${fmt.p(to(28) && to(28)[0])}${to(28) && n28 < t.weeks ? ` <span class="muted">${n28}주</span>` : ""}</td><td>–</td>`
+    + `<td class="g">${fmt.p(t.d120[0])}${t.lo ? ` <span class="muted">${pr(t.d120[1], t.d120[2]) || ""}</span>` : ""}</td>${payCell(t.payday[0])}`
+    + refCells(t.paid ? Object.assign({roas7: to(7) && to(7)[1], roas28: to(28) && to(28)[1]}, t.paid) : null) + `</tr>` : "";
+  return card(`주별 표 <span class="muted">행을 누르면 아래 곡선이 그 주로 · ROAS = ${mainName()}</span>`,
+    `<div class="tscroll"><table><thead>${head}</thead><tbody>${tot}${body}</tbody></table></div>`,
+    (t ? "합산 = 예측 가능한 주들의 설치를 한 묶음으로 본 ROAS 예측(주별 매출 예측을 더함, 구간은 주별 구간 끝끼리 더해 넓게). 합산 줄의 D7·D28 실측은 그 Dk 관측이 끝난 주만. " : "")
+    + "예상 회수일 = 중간값(이어 붙인 점 예측 — 구간의 가운데)이 처음 100% 에 닿는 날. 범위는 D120 칸과 아래 곡선 카드의 띠로 본다. "
     + (vu != null ? `D${vu} 뒤는 아직 채점할 코호트가 없어 구간을 과거 오차의 로그 길이 비례로 늘린 참고 범위다(첫 D120 채점 ${M.first_d120 || "미정"}). ` : "")
-    + "예상 회수일 = 중간값(이어 붙인 점 예측 — 구간의 가운데)이 처음 100% 에 닿는 날, 범위는 아래 곡선 카드의 띠로 본다. "
-    + "'1년 넘음' = 모델상 D365 까지 100% 에 닿지 않음(그 뒤 회수를 보장한다는 뜻은 아님). (n일) = 그 주에 UA 설치가 있던 날 수. CPI 가 낮은 코호트는 꼬리가 얇은 경향(sf 실측). "
-    + AF_NOTE);
+    + "'1년 넘음' = 모델상 D365 까지 100% 에 닿지 않음(그 뒤 회수를 보장한다는 뜻은 아님). (n일) = 그 주에 UA 설치가 있던 날 수. 광고 설치 = 원시 설치 리포트의 논오가닉 설치(CPI 의 분모). "
+    + (ref ? `${ALL} = 그 주에 설치한 유저 전체(광고 + 오가닉)의 IAP × 0.7 + 광고 매출 ÷ 광고비 — AppsFlyer 대시보드와 같은 계산. 참고 · ${PAID} = 광고 유저 매출만(같은 이어 붙이기, 구간 없음).` : ""));
 }
 const bindWeekRows = () => document.querySelectorAll("tr.wk").forEach(tr => tr.addEventListener("click", () => { st.week = tr.dataset.w; renderS1(); renderS2(); }));
 
@@ -293,13 +306,14 @@ function renderS1() {
   $("s1sub").textContent = `설치 주(월~일) · 주 마지막 날 + 7일까지 매출 관측된 주만 — 최신 ${wk(ws[0])}`;
   // 타일은 달력상 최신 주·그 전 주 — 표본 적은 주를 건너뛰어 앞 주 숫자로 바꾸지 않는다(Codex 리뷰)
   const wtile = (label, w) => !w ? tile(label, "–", "그 주 없음")
-    : w.small ? tile(label, "–", `${wk(w)} · 표본 적음(설치 ${fmt.n(w.n)}명 < ${M.min_camp_n}) · D7 실측 ${fmt.p(w.roas7)}`)
-    : tile(label, day(w.payday[0]), `${wk(w)} · D120 ${fmt.p(w.d120[0])} (${ivText(w)}) · D7 실측 ${fmt.p(w.roas7)} · 설치 ${fmt.n(w.n)} · CPI ${fmt.usd(w.cpi)}${vuNote(w)}${afDay(w)}`,
-      w.payday[0] != null && w.payday[0] <= M.target);
+    : w.small ? tile(label, "–", `${wk(w)} · 표본 적음(설치 ${fmt.n(w.n)}명 < ${M.min_camp_n}) · D7 실측 ${fmt.p(w.roas7)}${refLine(w, 7)}`)
+    : tile(label, day(w.payday[0]), `${wk(w)} · 광고 설치 ${fmt.n(w.n)} · CPI ${fmt.usd(w.cpi)}<br>D120 ${fmt.p(w.d120[0])} (${ivText(w)}) · D7 실측 ${fmt.p(w.roas7)}${vuNote(w)}${refLine(w, 7)}`,
+      goodDay(w.payday[0]));
   const skip = t && t.skip_weeks ? ` · 표본 적은 ${t.skip_weeks}주(광고비 ${fmt.usd(t.skip_cost, 0)}) 제외` : "";
   let h = `<div class="tiles">` + wtile("최근 주 예상 회수일", ws[0]) + wtile("그 전 주 예상 회수일", ws[1])
-    + (t ? tile(`예측 가능한 ${t.weeks}주 합산 예상 회수일`, day(t.payday[0]), `${t.w_from.slice(5)}~${t.w_to.slice(5)} 설치 · D120 ${fmt.p(t.d120[0])} (${ivText(t)}) · 설치 ${fmt.n(t.n)} · CPI ${fmt.usd(t.cpi)}${skip}${vuNote(t)}${afDay(t)}`,
-        t.payday[0] != null && t.payday[0] <= M.target) : "") + `</div>`;
+    + (t ? tile(`예측 가능한 ${t.weeks}주 합산 예상 회수일`, day(t.payday[0]), `${t.w_from.slice(5)}~${t.w_to.slice(5)} 설치 · 광고 설치 ${fmt.n(t.n)} · CPI ${fmt.usd(t.cpi)}${skip}<br>D120 ${fmt.p(t.d120[0])} (${ivText(t)})${vuNote(t)}`
+        + (t.paid ? refLine({paid: Object.assign({roas7: t.obs && t.obs["7"] ? t.obs["7"][1] : null}, t.paid)}, 7) : ""),
+        goodDay(t.payday[0])) : "") + `</div>`;
   const oldest = Math.max(...ws.map(w => w.a));
   h += card(`주별 D120 예상 ROAS 추이 <span class="muted">${OSN[st.os] || st.os} · 오래된 주 → 최신 주</span>`, trendChart(ws.slice().reverse()),
     `오래된 주일수록 실측이 길어(가장 오래된 주는 D${oldest} 까지 실측) 예측에 기대는 구간이 짧다.${qNote()}`);
@@ -323,7 +337,8 @@ function renderS2() {
   if (!pick || !pick.pt) { $("b2").innerHTML = chips + empty(pre ? "D3·D7 기반 예측 곡선 없음 — 표본 적음 또는 관측 전" : "예측 곡선 없음"); bind(); return; }
   const title = pre ? `${cur === "d3" ? "D3" : "D7"} 기반 · 설치 ${pick.s_from}~${pick.s_to}` : cur === "total" ? `합산 ${t.w_from}~${t.w_to} 설치(${t.weeks}주)` : `설치 주 ${pick.w_from}~${pick.w_to}`;
   $("b2").innerHTML = chips + card(`${OSN[st.os] || st.os} · ${title}`, curveChart(pick),
-    `실선 = 실측(D0~D${pick.T}${cur === "total" ? ", 모든 주가 실측인 구간" : ""}), 점선 = 이어 붙인 예측, 띠 = 과거 예측 오차로 만든 범위${qNote(pick)}.`
+    `ROAS = ${mainName()}. 실선 = 실측(D0~D${pick.T}${cur === "total" ? ", 모든 주가 실측인 구간" : ""}), 점선 = 이어 붙인 예측, 띠 = 과거 예측 오차로 만든 범위${qNote(pick)}.`
+    + (refOf(pick) && refOf(pick).pt ? ` 회색 = 참고 · ${PAID}(같은 이어 붙이기, 구간 없음).` : "")
     + (pick.verified_until != null ? ` D${pick.verified_until} 뒤는 아직 실측으로 맞춰 본 적이 없는 참고 범위다.` : ""));
   bind();
 }
@@ -362,7 +377,7 @@ function renderS3() {
     const det = `<tr class="det" data-i="${i}" hidden><td colspan="${head.length}">${partsHtml(c.diag)}${c.guide.length ? `<ul class="guide">${c.guide.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : ""}</td></tr>`;
     return `<tr class="camp" data-i="${i}" data-c="${esc(c.c)}">${cells.map(x => `<td${x === "–" ? ' class="na"' : ""}>${x}</td>`).join("")}</tr>${det}`;
   }).join("");
-  $("b3").innerHTML = card(`캠페인 ${OSN[st.os] || st.os} <span class="muted">광고비 순 · 같은 설치일 집합(${s && s.s_from ? s.s_from + "~" + s.s_to : ""}) · 설치 ${M.min_camp_n}명 미만은 예측 없음</span>`,
+  $("b3").innerHTML = card(`캠페인 ${OSN[st.os] || st.os} · ${PAID} <span class="muted">캠페인별로는 오가닉 매출을 나눌 수 없다(AppsFlyer 대시보드도 매체·캠페인으로 나누면 같다) · 광고비 순 · 같은 설치일 집합(${s && s.s_from ? s.s_from + "~" + s.s_to : ""}) · 설치 ${M.min_camp_n}명 미만은 예측 없음</span>`,
     `<div class="tscroll"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`,
     "분해 기준 = 같은 설치일 집합의 게임 " + (OSN[st.os] || st.os) + " UA 유저 전체, 설치 경과 D0~D" + T + ". 가이드 문장은 계산값만 — 판단은 팀장님 몫.");
   document.querySelectorAll("tr.camp").forEach(tr => tr.addEventListener("click", () => {
@@ -385,15 +400,16 @@ function renderS4() {
       return `<td${c && c[1] ? "" : ' class="na"'}>${c && c[1] ? `${fmt.p(c[0] / c[1])} <span class="muted">${c[0]}/${c[1]}</span>` : "–"}</td>`; }).join("")}</tr>`; }).join("") : "";
   const more = ms.flatMap(m => hs.filter(H => m.H[H]).map(H => { const s = m.H[H];
     return `<tr><td>${MN[m.method]} · D${m.T} → D${H}</td><td>${fmt.p(s.p90, 1)}</td><td>${fmt.p(s.costw, 1)}</td><td>${s.weeks}</td><td style="white-space:normal">${Object.entries(s.months).map(([mo, b]) => `${mo.slice(5)}월 ${fmt.sp(b)}`).join(" · ")}</td></tr>`; })).join("");
-  $("b4").innerHTML = card(`설치일 × ${OSN[st.os] || st.os} 코호트(설치 150명+) <span class="muted">칸 = 중앙 |오차| · 중앙 편향 · 코호트 수</span>`,
+  $("b4").innerHTML = card(`설치일 × ${OSN[st.os] || st.os} 코호트(설치 150명+) · ${mainName()} <span class="muted">칸 = 중앙 |오차| · 중앙 편향 · 코호트 수${isAll() ? ` · 캠페인 포함률 줄은 ${PAID}` : ""}</span>`,
     `<div class="tscroll"><table><thead><tr><th>방법 · 관측일</th>${hs.map(H => `<th>D${H}</th>`).join("")}</tr></thead><tbody>${rows}${cov}${ccov}</tbody></table></div>`
     + `<details class="more"><summary>자세히 — |오차| 90분위 · 광고비 가중 |오차| · 설치 주 수 · 설치 월별 편향</summary><div class="tscroll"><table><thead><tr><th>방법 → 지평</th><th>P90</th><th>광고비 가중</th><th>주</th><th>월별 편향</th></tr></thead><tbody>${more}</tbody></table></div></details>`,
-    `그때 알던 데이터 = 지금 원시를 날짜로 잘라 재구성한 것 — 매출 백필·귀속 변경은 재현 못 함. 오차 폭·포함률은 설치일 하루 코호트 기준이라 여러 날을 합친 머리 숫자에는 넉넉한 편이다(sf 21일 묶음 재현에서 D14·D28 포함 100% — 시점이 겹쳐 방향만). 이 게임 첫 D120 채점 ${M.first_d120 || "미정"}(매출 원시 1~2일 지연).`);
+    (isAll() ? `리텐션 × ARPDAU 는 오가닉 유저의 활동을 따로 세지 않아 ${ALL} 로는 채점하지 않는다(빈칸). ` : "")
+    + `그때 알던 데이터 = 지금 원시를 날짜로 잘라 재구성한 것 — 매출 백필·귀속 변경은 재현 못 함. 오차 폭·포함률은 설치일 하루 코호트 기준이라 여러 날을 합친 머리 숫자에는 넉넉한 편이다(sf 21일 묶음 재현에서 D14·D28 포함 100% — 시점이 겹쳐 방향만). 이 게임 첫 D120 채점 ${M.first_d120 || "미정"}(매출 원시 1~2일 지연).`);
 }
 
 function drawFilters() {
   $("filters").innerHTML = `<span class="chip"><span class="lbl">OS</span>${M.plats.map(p => `<button class="osb${st.os === p ? " on" : ""}" data-os="${p}" type="button">${OSN[p] || p}</button>`).join("")}</span>`
-    + `<span class="goal">목표 = 설치 후 ${M.target}일 안 ROAS 100%</span><span class="range">주별 = 최근 ${M.weeks_max}주(D7 완료) · 캠페인 = 최근 ${M.window}일 설치 · 매출 관측 끝 ${M.obs_rev || "없음"}</span>`;
+    + `<span class="goal">목표 = 설치 후 ${M.target}일 안 ROAS 100% · ROAS = ${mainName()}</span><span class="range">주별 = 최근 ${M.weeks_max}주(D7 완료) · 캠페인 = 최근 ${M.window}일 설치 · 매출 관측 끝 ${M.obs_rev || "없음"}</span>`;
   document.querySelectorAll(".osb[data-os]").forEach(b => b.addEventListener("click", () => { st.os = b.dataset.os; st.week = null; render(); }));   // 곡선 선택은 OS 마다 다르다
 }
 function render() { drawFilters(); renderS1(); renderS2(); renderS3(); renderS4(); }
@@ -410,20 +426,20 @@ function useGame(key, first) {
   const want = first && Q.get("os"); st.os = M.plats.includes(want) ? want : (M.plats.includes(st.os) ? st.os : M.plats[0]);
   GX.rememberGame(key); GX.hero($("hero"), key, M.game);
   $("games").querySelectorAll(".gx-game").forEach(b => b.setAttribute("aria-selected", b.dataset.g === key));
-  $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · 매출 관측 끝 ${M.obs_rev} · 구간 = 지난 예측 오차 ${Math.round(M.q_level * 100)}분위`;
+  $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · ROAS = ${ALL}(${PAID}은 참고) · 매출 관측 끝 ${M.obs_rev} · 구간 = 지난 예측 오차 ${Math.round(M.q_level * 100)}분위`;
   $("defs").innerHTML = [
     `주별 예측 = 설치 주(월~일, 주 마지막 날 + 7일까지 매출 관측된 주만 — 최신 주는 대략 2주 전) 설치 전부의 누적 ROAS 를 가장 어린 날의 관측 나이까지 실측 그대로 두고, 그 뒤를 로그 증가분 b·(ln(1+k) − ln(1+실측 끝))으로 이어 붙인 값. b 는 실측 끝 직전 14일 맞춤. 합산 = 최근 ${M.weeks_max}주 중 예측 가능한(설치 ${M.min_camp_n}명 이상) 주들을 한 묶음으로(주별 매출 예측을 더함).`,
     `구간 = 같은 게임·OS 의 지난 예측 오차(그때 알던 데이터로 한 예측 vs 나중 실제, 실측 나이 3·7·14·28·45·60일별 |로그 오차| 최근 28개의 80분위). 주별 구간은 그 오차가 로그 길이 ln((1+지평)/(1+실측 나이))에 비례한다고 보고(sf 회귀 기울기 ≈0.09) 위아래 대칭으로 늘린 것 — 직접 채점된 지평 안은 '80% 구간', 그 밖(지금 D120)은 '참고 범위'. 방법 비교 카드의 포함률은 하루 코호트·원래 오차 기준이다(주별 구간의 포함률은 리뷰 재현에서 D28 100%·D45 78%·D60 60%, 표본 작음).`,
     `캠페인 표 = 최근 ${M.window}일 설치 중 D7(모자라면 D3) 까지 관측된 설치일 집합 — 같은 이어 붙이기 방법.`,
     `${vuText()} 하루 설치 150명 미만인 게임은 채점 대상이 없어 오차 폭을 sf 것으로 빌린다.`,
     "과거 곡선 모양이 이어진다고 가정한다 — 9월 중순 sf ARPDAU 하락 같은 변화는 방법 비교 카드의 월별 편향에 드러난다.",
-    "120일 회수 CPI · 필요 관측 ROAS 는 지금 유저 구성·수익 수준·곡선 모양이 그대로일 때의 값이다. 광고 규모를 바꾼 뒤의 CPI·유저 질 변화는 예측하지 않는다.",
+    "120일 회수 CPI 는 지금 유저 구성·수익 수준·곡선 모양이 그대로일 때의 값이다. 광고 규모를 바꾼 뒤의 CPI·유저 질 변화는 예측하지 않는다.",
     "산술 분해 = ROAS = 설치당 유저-일 × 노출/유저-일 × eCPM × (1 + IAP/광고 매출) ÷ CPI 를 기준과 로그로 나눈 것. 항등식이라 합은 맞지만 원인 추정이 아니다.",
     `설치 ${M.min_camp_n}명 미만 캠페인은 예측을 비운다(소표본 오차 20~40% — 리뷰 실측). 관측 숫자(설치·광고비·ROAS)는 UA 보드와 같은 정의·값(배너 포함, KR·리타게팅 제외, Meta 합산).`,
-    "ROAS 매출 = 광고 유저(원시 설치 리포트의 논오가닉)의 IAP 순매출(af_purchase × 0.7 — 스토어 수수료 30% 제외, .dev. 상품 제외) + 광고 매출. UA·KPI 보드와 같은 정의(11-01 부터 순매출).",
-    `${AFN} = AppsFlyer 'TS's UA dashboard' 와 같은 계산 — 그 설치일(UTC)에 설치한 유저 전체(광고 + 오가닉)의 IAP × 0.7 + 광고 매출(AppsFlyer ID 없는 오가닉 행 포함) ÷ 같은 광고비. sf iOS 09-07~13 설치로 D1·D3·D7·D14·D28 이 AF 화면과 소수 둘째 자리까지 같다(D28 AF 방식 60.4% · 우리 46.0%).`,
-    `${AFN} 예상 회수일 = ${AFN} 누적 ROAS 에 같은 이어 붙이기(실측 끝 = 그 주 일요일까지 관측된 나이)를 따로 한 참고값 — 우리 예측·구간에는 섞지 않고, 오차 폭은 우리 ROAS 채점값이라 구간을 그리지 않는다. sf 설치일 코호트(150명+) 채점(11-02): D7→D60 중앙 |오차| iOS 7.6%(우리 6.4%, 21개) · Android 7.7%(우리 8.0%, 31개) — 우리 예측과 비슷한 수준.`,
-    "예상 회수일 = 중간값(이어 붙인 점 예측 — 구간의 가운데)이 처음 100% 에 닿는 날. 표·타일에는 이 값만 적고 범위는 곡선 카드의 띠로 본다(팀장님 11-02).",
+    `ROAS 기본 = ${ALL}(팀장님 11-02) — 그 설치일(UTC)에 설치한 유저 전체(광고 + 오가닉)의 IAP 순매출(af_purchase × 0.7 — 스토어 수수료 30% 제외, .dev. 제외) + 광고 매출(AppsFlyer ID 없는 오가닉 행 포함) ÷ 광고비. AppsFlyer 'TS's UA dashboard' 와 같은 계산(sf iOS 09-07~13 설치 D1·D3·D7·D14·D28 이 AF 화면과 소수 둘째 자리까지 같다 — D28 60.4%).`,
+    `참고 · ${PAID} = 원시 설치 리포트의 논오가닉 유저 매출만(UA 보드 캠페인 줄과 같은 정의 — 같은 코호트 D28 46.0%). 캠페인 표·산술 분해는 캠페인으로 오가닉을 나눌 수 없어 ${PAID}. 주별·D3/D7 기반의 참고 칸은 같은 이어 붙이기의 점 예측(구간 없음).`,
+    `${ALL} 예측의 오차 폭·방법 비교는 ${ALL} 누적 ROAS 로 채점했다. 11-02 sf 설치일 코호트(150명+) D7→D60 중앙 |오차|: iOS ${ALL} 7.6% · ${PAID} 6.4%(21개), Android 7.7% · 8.0%(31개) — 비슷한 수준.`,
+    "예상 회수일 = 중간값(이어 붙인 점 예측 — 구간의 가운데)이 처음 100% 에 닿는 날. 표·타일에는 이 값만 적고 범위는 D120 칸·곡선 카드의 띠로 본다(팀장님 11-02).",
     "리텐션 × ARPDAU(교과서 방식)·D7 배수는 우리 데이터에서 크게 과대라 머리 숫자에 쓰지 않고 방법 비교 카드에만 둔다(설계 문서 근거 2).",
   ].map(s => `<li>${esc(s)}</li>`).join("");
   render();

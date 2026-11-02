@@ -158,13 +158,16 @@ function render(S) {
   const I = k => (GX.GAMES[k] || {}).icon || '';
 
   // ── 벤토 ──
+  // UA ROAS = 오가닉 포함(팀장님 11-02, board_summary basis = all) — 광고 유저만은 부제 참고. 옛 요약(basis 없음)은 광고 유저만
+  const bn = u => u.basis === 'all' ? '오가닉 포함' : '광고 유저만';
+  const ref = (u, k) => u.basis === 'all' && u[k + '_paid'] != null ? ` · 광고 유저만 ${pct(u[k + '_paid'])}` : '';
   let h = '';
   if (uaKeys.length) {
     const f = uaKeys[0], u = G[f].ua;
     h += `<a class="t hero" href="${uaUrl(f)}" style="--c:${C(f)}">${GX.GAMES[f] ? `<img class="art" src="${GX.GAMES[f].art}" alt="">` : ''}<span class="pill">UA 진행 중</span>
       <div class="name">${esc(G[f].name)}</div>
-      <div class="kv"><div><div class="k">D1 ROAS · 최근 7일</div><div class="big">${pct(u.d1)}</div><div class="s">설치 ${num(u.d1_n)}명 · 본전 100%</div></div>
-      <div><div class="k">D0 ROAS · 최근 3일</div><div class="mid">${pct(u.d0)}</div><div class="s">설치 ${num(u.d0_n)}명</div></div>
+      <div class="kv"><div><div class="k">D1 ROAS · 최근 7일 · ${bn(u)}</div><div class="big">${pct(u.d1)}</div><div class="s">설치 ${num(u.d1_n)}명 · 본전 100%${ref(u, 'd1')}</div></div>
+      <div><div class="k">D0 ROAS · 최근 3일</div><div class="mid">${pct(u.d0)}</div><div class="s">설치 ${num(u.d0_n)}명${ref(u, 'd0')}</div></div>
       <div><div class="k">광고비 · ${md(u.last)}</div><div class="mid">${usd(u.cost)}</div><div class="s">CPI ${usd(u.cpi, 2)} · 설치 ${num(u.installs)}</div></div></div></a>`;
     // 오른쪽 열(사이드 UA 타일 + 합계) 중 히어로 옆 두 자리를 넘는 것은 아래 한 줄을 나눠 쓴다.
     // 넘친 타일이 4개 이상이면(UA 6게임, 2026-10-29) 합계까지 한 줄에 넣으면 폭이 3칸이라 합계 숫자 넷이 줄바꿈돼 타일 밖으로 밀린다
@@ -198,11 +201,11 @@ function render(S) {
   const who = (k, sub) => `<div class="who"><img src="${I(k)}" alt=""><div><b>${esc(G[k].name)}</b><span>${sub}</span></div></div>`;
   const m = (k, v, s = '', cls = '') => `<div class="m"><div class="k">${k}</div><div class="v ${cls}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
   let a = `<div class="totals">${totals.map(([k, v]) => `<div class="tot"><div class="k">${k}</div><div class="mid">${v}</div></div>`).join('')}</div>`;
-  if (uaKeys.length) a += `<section class="blk"><h2>UA · 마케팅 <small>광고비 · 설치 · CPI = 마지막 설치일 · D0 ROAS = 최근 3일 · D1 ROAS = 최근 7일(매출 관측 끝 기준)</small><a href="ua.html${hash}">UA 보드 →</a></h2>`
+  if (uaKeys.length) a += `<section class="blk"><h2>UA · 마케팅 <small>광고비 · 설치 · CPI = 마지막 설치일 · D0 ROAS = 최근 3일 · D1 ROAS = 최근 7일(매출 관측 끝 기준) · ROAS = 오가닉 포함(광고 유저만은 참고)</small><a href="ua.html${hash}">UA 보드 →</a></h2>`
     + uaKeys.map(k => { const u = G[k].ua;
       return `<a class="row" href="${uaUrl(k)}" style="--c:${C(k)}">${who(k, 'Android · AppLovin')}
-        ${m('광고비', usd(u.cost), md(u.last) + ' 설치일')}${m('설치', num(u.installs))}${m('CPI', usd(u.cpi, 2))}${m('D0 ROAS', pct(u.d0), '설치 ' + num(u.d0_n) + '명', 'hot')}
-        <div class="m"><div class="k">D1 ROAS</div><div class="v ${u.d1 >= 1 ? 'good' : 'hot'}">${pct(u.d1)}</div><div class="meter"><i style="width:${Math.min(u.d1 || 0, 1) * 100}%"></i></div><div class="s">본전 100% 대비 · 설치 ${num(u.d1_n)}명</div></div>
+        ${m('광고비', usd(u.cost), md(u.last) + ' 설치일')}${m('설치', num(u.installs))}${m('CPI', usd(u.cpi, 2))}${m('D0 ROAS', pct(u.d0), '설치 ' + num(u.d0_n) + '명' + ref(u, 'd0'), 'hot')}
+        <div class="m"><div class="k">D1 ROAS</div><div class="v ${u.d1 >= 1 ? 'good' : 'hot'}">${pct(u.d1)}</div><div class="meter"><i style="width:${Math.min(u.d1 || 0, 1) * 100}%"></i></div><div class="s">본전 100% 대비 · 설치 ${num(u.d1_n)}명${ref(u, 'd1')}</div></div>
         <div class="spark">${spark(u.cost_spark, C(k), 38)}<div class="s">설치일별 광고비</div></div><span class="go2">→</span></a>`; }).join('') + `</section>`;
   if (genKeys.length) a += `<section class="blk"><h2>게임 지표 <small>DAU · 설치 = 마지막 날 · D1 잔존 = 최근 7개 성숙 코호트 · 매출 = IAP + 광고, 광고 매출이 도착한 마지막 날(보통 이틀 전)</small><a href="general.html${hash}">일반 지표 보드 →</a></h2>`
     + genKeys.map(k => { const g = G[k].general;
