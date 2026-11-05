@@ -246,8 +246,9 @@ const inLv = (l)=>l>=lvr.min && (lvr.max==null || l<=lvr.max);
 const lvLabel = ()=>lvr.key==='all'?'전 레벨':(lvr.max==null?`LV ${lvr.min}+`:`LV ${lvr.min}~${lvr.max}`);
 // ── 레벨별 실패율 전체 표 — 레벨 구간·기간·OS 칩을 따른다. 전체 구간은 게임에 따라 1,700행이 넘어 한 쪽 LVF_PAGE 행만 그리고,
 //    정렬은 구간 전체에 적용한 뒤 자른다. 정렬·쪽 이동은 이 표만 다시 그린다(render 전체를 돌리지 않는다).
+//    실패율 = 판 기준(실패한 판 ÷ 판, 2026-11-05) — 판 = (유저, 레벨, attempt_count). 이어하기는 같은 판이라 분모를 늘리지 않고 '이어하기 후 클리어' 로 따로 본다.
 const LVF_PAGE = 100, LVF_LOW_N = 20;
-const LVF_COLS = [['level','레벨',1],['rate','실패율',-1],['att','시도',-1],['wins','클리어',-1],['fails','실패',-1]];   // [키, 머리글, 첫 클릭 방향]
+const LVF_COLS = [['level','레벨',1],['rate','실패율',-1],['plays','판',-1],['fplays','실패한 판',-1],['cont','이어하기 후 클리어',-1]];   // [키, 머리글, 첫 클릭 방향]
 const lvf = {sort:'level', dir:1, page:0, scope:null, rows:[]};
 function lvfSetRows(rows){
   const scope = [game, coh.os, lvr.min, lvr.max, rng.from, rng.to].join('|');
@@ -256,15 +257,17 @@ function lvfSetRows(rows){
 }
 function lvfBody(){
   const {rows, sort, dir} = lvf;
-  if(!rows.length) return empty('이 구간·기간에 시도가 있는 레벨 없음');
-  // 값이 없는 칸(실패 미전송)은 방향과 무관하게 맨 뒤. 실패율 정렬에서는 시도 적은 행도 뒤로 — 1회 시도 1회 실패(100%)가 벽을 덮지 않게(co 실측: 상위 20행 중 17행이 시도 20 미만)
-  const rank = (r)=> r[sort]==null ? 2 : (sort==='rate' && r.att<LVF_LOW_N ? 1 : 0);
+  if(!rows.length) return empty('이 구간·기간에 판이 있는 레벨 없음');
+  // 값이 없는 칸(실패 미전송·실패한 판 없음)은 방향과 무관하게 맨 뒤. 비율 정렬에서는 분모가 적은 행도 뒤로 — 1판 1실패(100%)가 벽을 덮지 않게
+  // (co 실측: 상위 20행 중 17행이 시도 20 미만). 실패율의 분모는 판, 이어하기 비율의 분모는 실패한 판.
+  const rank = (r)=> r[sort]==null ? 2 : ((sort==='rate' && r.plays<LVF_LOW_N) || (sort==='cont' && r.fplays<LVF_LOW_N) ? 1 : 0);
   const sorted = rows.slice().sort((a,b)=> rank(a)-rank(b) || (a[sort]-b[sort])*dir || a.level-b.level);
   const pages = Math.ceil(sorted.length/LVF_PAGE); lvf.page = Math.min(lvf.page, pages-1);
   const from = lvf.page*LVF_PAGE, shown = sorted.slice(from, from+LVF_PAGE);
   const th = LVF_COLS.map(([k,nm])=>`<th ${k===sort?`aria-sort="${dir>0?'ascending':'descending'}"`:''}><button type="button" data-lvf-sort="${k}">${nm}${k===sort?(dir>0?' ▲':' ▼'):''}</button></th>`).join('');
   const tr = shown.map(r=>{ const miss = r.rate==null;
-    return `<tr class="${!miss && r.att<LVF_LOW_N?'lown':''}"><td>LV ${lvKeyLabel(r.level)}</td><td class="num">${miss?'<span class="muted" title="이 레벨은 실패를 보내지 않아 실패율을 알 수 없다">미전송</span>':`${fmt.p(r.rate)} ${hbar(r.rate,1)}`}</td><td class="num">${fmt.n(r.att)}</td><td class="num">${fmt.n(r.wins)}</td><td class="num">${fmt.n(r.fails)}</td></tr>`; }).join('');
+    const cont = r.cont==null ? '–' : `<span title="이어하기 후 클리어 ${fmt.n(r.cw)} / 실패한 판 ${fmt.n(r.fplays)}">${fmt.p(r.cont)}</span>`;
+    return `<tr class="${!miss && r.plays<LVF_LOW_N?'lown':''}"><td>LV ${lvKeyLabel(r.level)}</td><td class="num">${miss?'<span class="muted" title="이 레벨은 실패를 보내지 않아 실패율을 알 수 없다">미전송</span>':`${fmt.p(r.rate)} ${hbar(r.rate,1)}`}</td><td class="num">${fmt.n(r.plays)}</td><td class="num">${fmt.n(r.fplays)}</td><td class="num">${cont}</td></tr>`; }).join('');
   const pager = pages>1 ? `<div class="lvfbar"><span class="muted small">${fmt.n(from+1)}–${fmt.n(from+shown.length)} / ${fmt.n(sorted.length)}개 레벨</span><span class="seg"><button type="button" data-lvf-page="-1" ${lvf.page?'':'disabled'}>이전</button><button type="button" data-lvf-page="1" ${lvf.page<pages-1?'':'disabled'}>다음</button></span></div>` : '';
   return `${pager}<div class="tscroll"><table class="ret lvf"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
 }
@@ -514,7 +517,7 @@ const ratio = (a,b)=> b>0 ? a/b : null;
 const OSI = {ios:0, aos:1};
 const osPick = (p)=> !Array.isArray(p) ? (p===undefined?0:p) : (coh.os==='all' ? (p[0]||0)+(p[1]||0) : (p[OSI[coh.os]]||0));
 const mapVals = (o, f)=>{ const out={}; for(const k in o) out[k]=f(o[k], k); return out; };
-const LV_DEFAULTS = {reach:0, reach_new:0, wins:0, wins_ach:0, fails:0, attempts_sum:0, stuck3_sampled:0};
+const LV_DEFAULTS = {reach:0, reach_new:0, wins:0, wins_ach:0, fails:0, attempts_sum:0, stuck3_sampled:0, plays:0, fail_plays:0, cont_wins:0};
 function osView(J){
   const P = osPick, M = mapVals;
   return {
@@ -525,6 +528,10 @@ function osView(J){
     levels: M(J.levels||{}, (v)=>Object.assign({}, LV_DEFAULTS, M(v, P), {fail_reasons:M(v.fail_reasons||{}, P),
       churn_sampled: v.churn_sampled ? [P(v.churn_sampled[0]), P(v.churn_sampled[1])] : [0, 0]})),   // [실패 유저, 미복귀]
     levels_daily: M(J.levels_daily||{}, (d)=>M(d, (wf)=>[P(wf[0]), P(wf[1])])),
+    // 판 시작일별 평탄 6칸 [판 iOS·AOS, 실패한 판 iOS·AOS, 이어하기 클리어 iOS·AOS](뒤쪽 0 잘림, metrics.to_json) — **원 배열 그대로** 둔다.
+    // 고른 날짜만 renderProgress 가 OS 로 펼친다(매 렌더 전체를 펼치면 sf 구간 변경 +18ms·기간 변경 +26ms, 2026-11-05 실측).
+    // 판 집계 전 산출이면 null — 실패율 표가 이벤트 기준으로 몰래 되돌아가지 않고 안내를 띄운다
+    plays_daily: J.plays_daily || null,
     integrity: Object.assign({}, J.integrity, {observed:P(J.integrity.observed), lost:P(J.integrity.lost),
       by_level:M(J.integrity.by_level||{}, (x)=>[P(x[0]), P(x[1])]),
       by_app_version:M(J.integrity.by_app_version||{}, (x)=>[P(x[0]), P(x[1])])}),
@@ -798,13 +805,22 @@ function renderProgress(J, has){
     // 벽 이탈률 = 그 레벨에서 마지막으로 실패한 다음날 af_login 이 없는 유저 비율(표본 1/10 · 유저·레벨당 1건 · 마지막 날 실패는 분모 제외)
     const chn = (l)=>(L[l].churn_sampled||[0,0]);
     out.push(card(`벽 TOP 10 <span class="muted">${lvLabel()} · 실패율 · 시도 20+ · 미복귀는 표본이라 분모가 작다(같은 구간 안에서만 비교)</span>`, walls.length?table(['레벨','실패율','시도','다음날 미복귀'+(rangeOn()?' ◌':''),'실패 사유'+(rangeOn()?' ◌':''),'벽에 걸린 유저(표본, 3회+)'+(rangeOn()?' ◌':'')], walls.map(w=>[`LV ${lvKeyLabel(w.l)}`, `${fmt.p(w.rate)} ${hbar(w.rate,1)}`, fmt.n(w.n), chn(w.l)[0]?`${fmt.p(ratio(chn(w.l)[1], chn(w.l)[0]))} <span class="muted">${fmt.n(chn(w.l)[1])}/${fmt.n(chn(w.l)[0])}</span>`:'–', esc(Object.entries(L[w.l].fail_reasons||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · ')), fmt.n(L[w.l].stuck3_sampled)])):empty('이 구간에 시도 20 이상 레벨 없음')));
-    // 전체 표 — 구간 안의 시도 있는 레벨 전부. 차트·TOP 10 과 달리 시도 20 미만과 퍼널 절단 이후도 빼지 않는다(적은 시도는 흐리게만).
-    const noFail = new Set(J.meta.no_fail_levels||[]);
-    lvfSetRows(lv.filter(l=>inLv(l) && att(l)>0).map(l=>noFail.has(l)
-      ? {level:l, rate:null, att:null, wins:wa(l), fails:null}
-      : {level:l, rate:ratio(fa(l),att(l)), att:att(l), wins:wa(l), fails:fa(l)}));
-    const lvfNotes = (lvf.rows.some(r=>r.rate==null)?' · 미전송 = 실패를 보내지 않는 레벨':'') + (lvf.rows.some(r=>r.level>AUTHORED_MAX)?` · LV ${AUTHORED_MAX+1}+ 는 ${LOOP_BUCKET}레벨 묶음`:'');
-    out.push(card(`레벨별 실패율 <span class="muted">${lvLabel()} · 실패 ÷ (신버전 클리어 + 실패) · 시도 있는 ${fmt.n(lvf.rows.length)}개 레벨 · 시도 ${LVF_LOW_N} 미만은 흐리게(실패율 정렬 땐 뒤로)${lvfNotes}</span>`, `<div id="lvfail" class="mfill">${lvfBody()}</div>`));
+    // 전체 표 — 구간 안의 판 있는 레벨 전부. 차트·TOP 10 과 달리 판 20 미만과 퍼널 절단 이후도 빼지 않는다(적은 판은 흐리게만).
+    // 판 기준(2026-11-05): 위 차트·TOP 10 은 이벤트 기준(실패 이벤트 전부 ÷ 클리어+실패)이라 이어하기가 많은 어려운 레벨에서 값이 다르다.
+    if(!J.plays_daily){
+      out.push(card('레벨별 실패율', empty('판 단위 집계가 없는 산출 — 다음 재집계(09:30·14:00·19:00) 뒤에 표시된다')));
+    } else {
+      let PP = {}, PF = {}, PC = {};
+      const pk = (x, i)=>osPick([x[i]||0, x[i+1]||0]);                                  // 평탄 6칸의 i 번째 쌍(osView 참고)
+      if(rangeOn()) daysIn(J).forEach(dd=>Object.entries(J.plays_daily[dd]||{}).forEach(([l,x])=>{PP[l]=(PP[l]||0)+pk(x,0); PF[l]=(PF[l]||0)+pk(x,2); PC[l]=(PC[l]||0)+pk(x,4);}));
+      const pp = (l)=>rangeOn()?(PP[l]||0):L[l].plays, pf = (l)=>rangeOn()?(PF[l]||0):L[l].fail_plays, pc = (l)=>rangeOn()?(PC[l]||0):L[l].cont_wins;
+      const noFail = new Set(J.meta.no_fail_levels||[]);
+      lvfSetRows(lv.filter(l=>inLv(l) && pp(l)>0).map(l=>noFail.has(l)
+        ? {level:l, rate:null, plays:null, fplays:null, cont:null}                       // 실패한 판이 안 보이니 판 수도 모른다
+        : {level:l, rate:ratio(pf(l),pp(l)), plays:pp(l), fplays:pf(l), cont:ratio(pc(l),pf(l)), cw:pc(l)}));
+      const lvfNotes = (lvf.rows.some(r=>r.rate==null)?' · 미전송 = 실패를 보내지 않는 레벨':'') + (lvf.rows.some(r=>r.level>AUTHORED_MAX)?` · LV ${AUTHORED_MAX+1}+ 는 ${LOOP_BUCKET}레벨 묶음`:'');
+      out.push(card(`레벨별 실패율 <span class="muted">${lvLabel()} · 판 기준 = 실패한 판 ÷ 판(시작·재시작마다 새 판, 이어하기는 같은 판) · 이어하기 후 클리어 = 실패한 판 중 같은 판에서 클리어 · 판 있는 ${fmt.n(lvf.rows.length)}개 레벨 · 판 ${LVF_LOW_N} 미만은 흐리게(비율 정렬 땐 뒤로)${lvfNotes}</span>`, `<div id="lvfail" class="mfill">${lvfBody()}</div>`));
+    }
     // '실패 사유' 전 레벨 분포 카드는 제거(팀장님 지시 2026-09-13) — 실측 100% moves_zero 라 정보가 없다.
     //  레벨별 사유는 벽 TOP 10 표의 '실패 사유' 열에 남아 있다.
   } else {
