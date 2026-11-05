@@ -511,14 +511,17 @@ function renderS5() {
   const seg = `<span class="seg" id="rmseg">${[["m", "매체"], ["cc", "국가"], ["os", "OS"]].map(([k, n]) => `<button type="button" data-rm="${k}" class="${st.rm === k ? "on" : ""}">${n}</button>`).join("")}</span>`;
   // 레벨 퍼널 — UA 설치 중 설치 후 funnel_days 일 안에 LV N 이상을 깬 비율(최고 클리어 레벨). 그 일수까지 이벤트 관측이 끝난 설치일만
   const FD = M.funnel_days, NL = M.funnel_lv, FU = U.filter(r => r.d <= shift(M.obs_ev, -FD));
+  const XS = NL > 50 ? 10 : 5;                    // x 축 라벨 간격 — 100레벨(2026-11-05)이면 10단위, 30레벨이면 5단위
   const n0 = sum(FU, r => r.n), reach = Array.from({length: NL}, (_, i) => sum(FU, r => at(r.lvf, i)));
   const prev = i => i ? reach[i - 1] : n0, LVL = reach.map((_, i) => "LV" + (i + 1));
   const drop = reach.map((x, i) => ratio(prev(i) - x, prev(i)));
-  const top = drop.map((v, i) => [v, i]).filter(([v]) => v != null).sort((a, b) => b[0] - a[0]).slice(0, 3);
+  // 이탈이 큰 레벨은 직전 도달 20명+ 만 — 100레벨로 늘리자(2026-11-05) 작은 게임 뒤쪽에서 1~2명 중 1명(50~100%)이 맨 위로 왔다
+  const TOP_MIN = 20;
+  const top = drop.map((v, i) => [v, i]).filter(([v, i]) => v != null && prev(i) >= TOP_MIN).sort((a, b) => b[0] - a[0]).slice(0, 3);
   const none = `퍼널을 볼 설치일이 없음(설치 후 ${FD}일까지 관측이 끝난 설치일)`;
   const reachC = n0 ? lineChart([{name: "도달률", color: "var(--c1)", points: [1, ...reach.map(x => x / n0)], tips: [`설치 ${fmt.n(n0)}명`, ...reach.map(x => `${fmt.n(x)}명`)]}],
-      {labels: ["설치", ...LVL], yfmt: v => fmt.p(v, 0), ymin: 0, ymax: 1, xshow: i => i % 5 === 0, title: "레벨 도달률"}) : empty(none);
-  const dropC = n0 ? barChart(drop, {labels: LVL, yfmt: v => fmt.p(v, 1), color: "var(--c1)", mark: top.map(([, i]) => i), xshow: i => i === 0 || (i + 1) % 5 === 0, title: "레벨별 이탈률",
+      {labels: ["설치", ...LVL], yfmt: v => fmt.p(v, 0), ymin: 0, ymax: 1, xshow: i => i % XS === 0, title: "레벨 도달률"}) : empty(none);
+  const dropC = n0 ? barChart(drop, {labels: LVL, yfmt: v => fmt.p(v, 1), color: "var(--c1)", mark: top.map(([, i]) => i), xshow: i => i === 0 || (i + 1) % XS === 0, title: "레벨별 이탈률",
       tips: reach.map((x, i) => `${i ? "LV" + i + " 도달" : "설치"} ${fmt.n(prev(i))}명 중 ${fmt.n(prev(i) - x)}명이 ${FD}일 안에 못 깸`)}) : empty(none);
   h += `<div class="grid">`
     + card(`LTV 곡선 D0~D28 ${src("ua")} ${src("gen")} <span class="muted">관측값 — 예측 없음</span>`, ltvC, "", "UA 설치 = 광고로 들어온 유저(배너 포함 광고 매출). 일반 코호트 = 계측 빌드 신규 전체(오가닉 포함, 배너 제외). 모집단·매출 범위가 달라 두 선의 높이 차이를 성과 차이로 읽지 말 것.")
@@ -527,7 +530,7 @@ function renderS5() {
     + card(`Funnel Drop-off Map — 레벨 도달률 ${src("new")} <span class="muted">UA 설치 ${fmt.n(n0)}명 · 설치 후 ${FD}일 안에 LV N 이상 클리어</span>`, reachC, "",
         `최고 클리어 레벨 기준(af_level_achieved · Level_Completed_N) — 레벨은 순서대로라 LV N 을 깼으면 앞 레벨도 지난 것으로 본다. 설치 후 ${FD}일째까지 이벤트 관측이 끝난 설치일만.`)
     + card(`Funnel Drop-off Map — 레벨별 이탈률 ${src("new")} <span class="muted">직전 레벨까지 온 유저 중 이 레벨을 ${FD}일 안에 못 깬 비율</span>`, dropC, "",
-        top.length ? `이탈이 큰 레벨: ${top.map(([v, i]) => `LV${i + 1} ${fmt.p(v, 1)}`).join(" · ")}. LV1 이탈 = 설치하고 1레벨을 못 깬 유저(진입 실패 포함).` : "")
+        top.length ? `이탈이 큰 레벨(직전 도달 ${TOP_MIN}명+): ${top.map(([v, i]) => `LV${i + 1} ${fmt.p(v, 1)}`).join(" · ")}. LV1 이탈 = 설치하고 1레벨을 못 깬 유저(진입 실패 포함).` : "")
     + `</div>`;
   h += missFor("s5");
   $("b5").innerHTML = h;
