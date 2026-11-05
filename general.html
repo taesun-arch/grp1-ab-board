@@ -227,7 +227,7 @@ let activeSec = 'all';
 const AUTHORED_MAX_DEFAULT = 850, LOOP_BUCKET = 10;
 let AUTHORED_MAX = AUTHORED_MAX_DEFAULT;
 const lvKeyLabel = (n)=> n<=AUTHORED_MAX ? String(n) : `${n}–${n+LOOP_BUCKET-1}`;
-// ── 레벨 구간 선택 (벽 TOP 10 · 레벨별 클리어율) — 고정 구간(≤100·≤300·≤500 중 저작 상한 미만) + 저작 + 루프 ──
+// ── 레벨 구간 선택 (벽 TOP 10 · 레벨별 실패율 그래프·표) — 고정 구간(≤100·≤300·≤500 중 저작 상한 미만) + 저작 + 루프 ──
 const lvPresets = (a)=>[['all','전체',1,null], ...[100,300,500].filter(x=>x<a).map(x=>[String(x),'≤'+x,1,x]),
   ['authored',`저작 ≤${a}`,1,a], ['loop',`루프 ${a+1}+`,a+1,null]];
 let LV_PRESETS = lvPresets(AUTHORED_MAX);
@@ -788,9 +788,9 @@ function renderProgress(J, has){
   if(rangeOn() && J.levels_daily){ daysIn(J).forEach(dd=>Object.entries(J.levels_daily[dd]||{}).forEach(([l,[w,f]])=>{WA[l]=(WA[l]||0)+w; FA[l]=(FA[l]||0)+f;})); }
   const wa = (l)=>rangeOn()?(WA[l]||0):(L[l].wins_ach||0), fa = (l)=>rangeOn()?(FA[l]||0):L[l].fails;
   const att = (l)=>wa(l)+fa(l);
-  // 레벨 구간 선택(전체·≤100·≤500·저작·루프·직접)이 클리어율 차트와 벽 TOP 10 에 적용된다. 전체일 때만 퍼널 절단 지점으로 끊는다.
+  // 레벨 구간 선택(전체·≤100·≤500·저작·루프·직접)이 타일·벽 TOP 10(이벤트 기준)과 실패율 그래프(판 기준)에 적용된다. 전체일 때만 퍼널 절단 지점으로 끊는다.
   const cr = lv.filter(l=>att(l)>=20 && inLv(l) && (lvr.key!=='all' || l<=cut));
-  // 구간 합계 타일 — 클리어율 차트와 같은 레벨 집합(시도 20+ · 구간 · 전체일 땐 퍼널 절단까지)
+  // 구간 합계 타일 — 벽 TOP 10 과 같은 레벨 집합(시도 20+ · 구간 · 전체일 땐 퍼널 절단까지)
   const CW = cr.reduce((a,l)=>a+wa(l),0), CF = cr.reduce((a,l)=>a+fa(l),0);
   // 벽 이탈률 — 같은 레벨 집합에서 '마지막 실패 다음날 미복귀' 유저 합계(표본 1/10)
   const CD = cr.reduce((a,l)=>a+(L[l].churn_sampled||[0,0])[0],0), CX = cr.reduce((a,l)=>a+(L[l].churn_sampled||[0,0])[1],0);
@@ -800,31 +800,48 @@ function renderProgress(J, has){
     tile('실패 후 다음날 미복귀', CD?fmt.p(ratio(CX, CD)):'–', `${lvLabel()} · 표본 ${fmt.n(CX)} / ${fmt.n(CD)} · ⚠ 구간 간 비교 금지(초반은 신규가 많아 원래 높다)`),
   ].join('') : '';
   if(has('level_fail')){
-    out.push(card(`레벨별 클리어율 <span class="muted">${lvLabel()} · 신버전 클리어 ÷ (신버전 클리어 + 실패) · 시도 20+ · ${fmt.n(cr.length)}개 레벨</span>`, cr.length?lineChart([{name:'클리어율',color:'var(--c2)',points:cr.map(l=>[l,ratio(wa(l),att(l))])}],{labels:cr.map(lvKeyLabel),ymax:1,yfmt:(v)=>fmt.p(v,0)}):empty('이 구간에 시도 20 이상 레벨 없음 — 구간·기간을 넓히거나 롤아웃을 기다린다')));
+    // 판 기준 값(2026-11-05) — 실패율 그래프와 전체 표가 같이 쓴다. 판 = (유저, 레벨, attempt_count), 실패율 = 실패한 판 ÷ 판.
+    // 판 집계 전 산출이면 둘 다 안내만 띄운다(이벤트 기준으로 몰래 되돌아가지 않는다).
+    const PLAYS_MISSING = '판 단위 집계가 없는 산출 — 다음 재집계(09:30·14:00·19:00) 뒤에 표시된다';
+    const noFail = new Set(J.meta.no_fail_levels||[]);
+    let pp = null, pf = null, pc = null;
+    if(J.plays_daily){
+      let PP = {}, PF = {}, PC = {};
+      const pk = (x, i)=>osPick([x[i]||0, x[i+1]||0]);                                  // 평탄 6칸의 i 번째 쌍(osView 참고)
+      if(rangeOn()) daysIn(J).forEach(dd=>Object.entries(J.plays_daily[dd]||{}).forEach(([l,x])=>{PP[l]=(PP[l]||0)+pk(x,0); PF[l]=(PF[l]||0)+pk(x,2); PC[l]=(PC[l]||0)+pk(x,4);}));
+      pp = (l)=>rangeOn()?(PP[l]||0):L[l].plays; pf = (l)=>rangeOn()?(PF[l]||0):L[l].fail_plays; pc = (l)=>rangeOn()?(PC[l]||0):L[l].cont_wins;
+    }
+    // 레벨별 실패율 그래프 — 클리어율 그래프를 판 기준 실패율로 바꿨다(2026-11-05). 판 20+ · 구간 · 전체일 땐 퍼널 절단까지, 실패 미전송 레벨은 0% 로 그리면 틀려서 뺀다.
+    if(!pp){
+      out.push(card('레벨별 실패율', empty(PLAYS_MISSING)));
+    } else {
+      const fr = lv.filter(l=>!noFail.has(l) && pp(l)>=LVF_LOW_N && inLv(l) && (lvr.key!=='all' || l<=cut));
+      const ymax = fr.length ? Math.min(1, Math.max(0.05, ...fr.map(l=>ratio(pf(l),pp(l))))*1.15) : 1;      // 실패율은 낮은 쪽에 몰려 있어 상한을 값에 맞춘다
+      const skipped = [...noFail].some(l=>inLv(l) && pp(l)>0) ? ' · 실패 미전송 레벨 제외' : '';
+      out.push(card(`레벨별 실패율 <span class="muted">${lvLabel()} · 판 기준 = 실패한 판 ÷ 판 · 판 ${LVF_LOW_N}+ · ${fmt.n(fr.length)}개 레벨${skipped}</span>`,
+        fr.length ? lineChart([{name:'실패율', color:'var(--c5)', points:fr.map(l=>[l, ratio(pf(l),pp(l))])}],
+                              {labels:fr.map(lvKeyLabel), ymax, yfmt:(v)=>fmt.p(v,0), tips:fr.map(l=>`실패한 판 ${fmt.n(pf(l))} / 판 ${fmt.n(pp(l))}`)})
+                  : empty(`이 구간에 판 ${LVF_LOW_N} 이상 레벨 없음 — 구간·기간을 넓힌다`)));
+    }
     const walls = cr.map(l=>({l,rate:ratio(fa(l),att(l)),n:att(l)})).sort((a,b)=>b.rate-a.rate).slice(0,10);
     // 벽 이탈률 = 그 레벨에서 마지막으로 실패한 다음날 af_login 이 없는 유저 비율(표본 1/10 · 유저·레벨당 1건 · 마지막 날 실패는 분모 제외)
     const chn = (l)=>(L[l].churn_sampled||[0,0]);
     out.push(card(`벽 TOP 10 <span class="muted">${lvLabel()} · 실패율 · 시도 20+ · 미복귀는 표본이라 분모가 작다(같은 구간 안에서만 비교)</span>`, walls.length?table(['레벨','실패율','시도','다음날 미복귀'+(rangeOn()?' ◌':''),'실패 사유'+(rangeOn()?' ◌':''),'벽에 걸린 유저(표본, 3회+)'+(rangeOn()?' ◌':'')], walls.map(w=>[`LV ${lvKeyLabel(w.l)}`, `${fmt.p(w.rate)} ${hbar(w.rate,1)}`, fmt.n(w.n), chn(w.l)[0]?`${fmt.p(ratio(chn(w.l)[1], chn(w.l)[0]))} <span class="muted">${fmt.n(chn(w.l)[1])}/${fmt.n(chn(w.l)[0])}</span>`:'–', esc(Object.entries(L[w.l].fail_reasons||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · ')), fmt.n(L[w.l].stuck3_sampled)])):empty('이 구간에 시도 20 이상 레벨 없음')));
-    // 전체 표 — 구간 안의 판 있는 레벨 전부. 차트·TOP 10 과 달리 판 20 미만과 퍼널 절단 이후도 빼지 않는다(적은 판은 흐리게만).
-    // 판 기준(2026-11-05): 위 차트·TOP 10 은 이벤트 기준(실패 이벤트 전부 ÷ 클리어+실패)이라 이어하기가 많은 어려운 레벨에서 값이 다르다.
-    if(!J.plays_daily){
-      out.push(card('레벨별 실패율', empty('판 단위 집계가 없는 산출 — 다음 재집계(09:30·14:00·19:00) 뒤에 표시된다')));
+    // 전체 표 — 구간 안의 판 있는 레벨 전부. 그래프·TOP 10 과 달리 판 20 미만과 퍼널 절단 이후도 빼지 않는다(적은 판은 흐리게만).
+    // 벽 TOP 10 은 아직 이벤트 기준(실패 이벤트 전부 ÷ 클리어+실패)이라 이어하기가 많은 어려운 레벨에서 값이 다르다.
+    if(!pp){
+      out.push(card('레벨별 실패율 전체 표', empty(PLAYS_MISSING)));
     } else {
-      let PP = {}, PF = {}, PC = {};
-      const pk = (x, i)=>osPick([x[i]||0, x[i+1]||0]);                                  // 평탄 6칸의 i 번째 쌍(osView 참고)
-      if(rangeOn()) daysIn(J).forEach(dd=>Object.entries(J.plays_daily[dd]||{}).forEach(([l,x])=>{PP[l]=(PP[l]||0)+pk(x,0); PF[l]=(PF[l]||0)+pk(x,2); PC[l]=(PC[l]||0)+pk(x,4);}));
-      const pp = (l)=>rangeOn()?(PP[l]||0):L[l].plays, pf = (l)=>rangeOn()?(PF[l]||0):L[l].fail_plays, pc = (l)=>rangeOn()?(PC[l]||0):L[l].cont_wins;
-      const noFail = new Set(J.meta.no_fail_levels||[]);
       lvfSetRows(lv.filter(l=>inLv(l) && pp(l)>0).map(l=>noFail.has(l)
         ? {level:l, rate:null, plays:null, fplays:null, cont:null}                       // 실패한 판이 안 보이니 판 수도 모른다
         : {level:l, rate:ratio(pf(l),pp(l)), plays:pp(l), fplays:pf(l), cont:ratio(pc(l),pf(l)), cw:pc(l)}));
       const lvfNotes = (lvf.rows.some(r=>r.rate==null)?' · 미전송 = 실패를 보내지 않는 레벨':'') + (lvf.rows.some(r=>r.level>AUTHORED_MAX)?` · LV ${AUTHORED_MAX+1}+ 는 ${LOOP_BUCKET}레벨 묶음`:'');
-      out.push(card(`레벨별 실패율 <span class="muted">${lvLabel()} · 판 기준 = 실패한 판 ÷ 판(시작·재시작마다 새 판, 이어하기는 같은 판) · 이어하기 후 클리어 = 실패한 판 중 같은 판에서 클리어 · 판 있는 ${fmt.n(lvf.rows.length)}개 레벨 · 판 ${LVF_LOW_N} 미만은 흐리게(비율 정렬 땐 뒤로)${lvfNotes}</span>`, `<div id="lvfail" class="mfill">${lvfBody()}</div>`));
+      out.push(card(`레벨별 실패율 전체 표 <span class="muted">${lvLabel()} · 판 기준 = 실패한 판 ÷ 판(시작·재시작마다 새 판, 이어하기는 같은 판) · 이어하기 후 클리어 = 실패한 판 중 같은 판에서 클리어 · 판 있는 ${fmt.n(lvf.rows.length)}개 레벨 · 판 ${LVF_LOW_N} 미만은 흐리게(비율 정렬 땐 뒤로)${lvfNotes}</span>`, `<div id="lvfail" class="mfill">${lvfBody()}</div>`));
     }
     // '실패 사유' 전 레벨 분포 카드는 제거(팀장님 지시 2026-09-13) — 실측 100% moves_zero 라 정보가 없다.
     //  레벨별 사유는 벽 TOP 10 표의 '실패 사유' 열에 남아 있다.
   } else {
-    out.push(card('레벨별 클리어율', empty(notSent(J,'level_fail') ? notSentMsg(J,'level_fail') : 'level_fail 이벤트가 아직 없음 — 계측 빌드 배포 뒤부터')));
+    out.push(card('레벨별 실패율', empty(notSent(J,'level_fail') ? notSentMsg(J,'level_fail') : 'level_fail 이벤트가 아직 없음 — 계측 빌드 배포 뒤부터')));
   }
   // 도달 일수
   const dtl = J.progression.days_to_level||{}; const ms = Object.keys(dtl).map(Number).sort((a,b)=>a-b).filter(m=>dtl[m].n>0);
