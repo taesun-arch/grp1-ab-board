@@ -30,26 +30,30 @@ a{color:inherit;text-decoration:none}
 .spark svg{display:block;width:100%}
 
 /* ── 벤토 ── */
-.bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:150px;gap:14px}
+.bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:minmax(150px,auto);gap:14px}   /* 좁은 폭에서 숫자 줄이 넘치면 잘리지 않고 그 줄이 높아진다(2026-11-05) */
 .t{position:relative;overflow:hidden;isolation:isolate;border-radius:22px;border:1px solid var(--line-soft);background:var(--card);padding:18px 20px;display:flex;flex-direction:column;transition:transform .2s var(--ease),border-color .2s}
 a.t:hover{transform:translateY(-2px);border-color:var(--line)}
 .big{font:600 46px/1 var(--font);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.hero{grid-column:span 7;grid-row:span 2;padding:26px 28px}
+.hero{grid-column:span var(--hs,7);grid-row:span 2;padding:26px 28px}
 .hero .art{position:absolute;right:-30px;top:-20px;height:130%;aspect-ratio:1;object-fit:cover;z-index:-2;opacity:.92;
   -webkit-mask-image:radial-gradient(circle at 65% 45%,#000 30%,transparent 70%);mask-image:radial-gradient(circle at 65% 45%,#000 30%,transparent 70%)}
 .hero::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,var(--card) 30%,transparent 75%)}
 .pill{align-self:flex-start;background:var(--c);color:#12131a;font-weight:600;font-size:12px;padding:4px 10px;border-radius:999px}
 .hero .name{font-size:42px;margin:12px 0 auto}
 .kv{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end} .kv .big{color:var(--c)}
-.side{grid-column:span 5;grid-row:span 1;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 16%,var(--card)),var(--card) 60%)}
+.side{grid-column:span 5;grid-row:span var(--rs,1);background:linear-gradient(135deg,color-mix(in srgb,var(--c) 16%,var(--card)),var(--card) 60%)}
 .side .head{display:flex;align-items:center;gap:10px} .side .head img{width:34px;height:34px;border-radius:22%}
+.side .row3{gap:10px 18px}   /* 숫자 넷(D1 ROAS · D1 잔존 · 광고비 · CPI) — 1280px 창의 히어로 옆 타일(내부 442px)에도 한 줄(실측 칸 합 375) */
 .row3{display:flex;gap:24px;flex-wrap:wrap;margin-top:auto}
-.sum{grid-column:span 5;grid-row:span 1;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--card)),var(--card))}
-.over{grid-column:span var(--span,6)}   /* 히어로 옆 두 자리를 넘친 UA·합계 타일 — 아래 한 줄을 균등 분할(UA 4게임, 2026-10-27) */
-.g{grid-column:span 3;grid-row:span 2}
+.over{grid-column:span var(--span,6)}   /* 히어로 옆 두 자리를 넘친 UA 타일 — 아래 줄을 균등 분할(폭은 render 가 --span 으로) */
+.g{grid-column:span var(--gs,3);grid-row:span 2}   /* 폭은 render 가 한 줄 최대 4개로 고르게 --gs 로 */
 .g .head{display:flex;align-items:center;gap:12px} .g .head img{width:48px;height:48px;border-radius:22%}
 .g .row3{gap:18px;margin-top:12px} .g .spark{margin-top:auto} .g .spark svg{height:56px}
-.board{grid-column:span var(--bs,4);grid-row:span 1;justify-content:center}   /* 보드 바로가기 넷(일반·UA·KPI·ROAS 예측, 2026-11-01) — 폭은 render 가 게임 타일 뒤 남은 칸에 맞춰 --bs 로 */
+.board{grid-column:span 3;grid-row:span 1;justify-content:center}   /* 보드 바로가기 넷(일반·UA·KPI·ROAS 예측) — 자기 묶음에서 한 줄 */
+/* 벤토 세 묶음(ROAS · DAU · 보드) — 제목 + 묶음 사이 구분선(2026-11-05) */
+.grp>h2{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin:0 0 12px;font-size:17px;font-weight:600}
+.grp>h2 small{font-size:12px;color:var(--ink-3);font-weight:400}
+.grp+.grp{margin-top:26px;padding-top:20px;border-top:1px solid var(--line)}
 .board .name{font-size:26px} .board .icons{display:flex;gap:6px;margin-top:8px} .board .icons img{width:28px;height:28px;border-radius:22%}
 .board::before{content:"";position:absolute;inset:0 0 auto;height:3px;background:var(--bc)}
 .board .go{position:absolute;right:22px;top:50%;transform:translateY(-50%);font-size:22px;color:var(--ink-3)}
@@ -59,9 +63,7 @@ a.t:hover{transform:translateY(-2px);border-color:var(--line)}
 .lockt button{border:0;border-radius:999px;padding:8px 18px;background:var(--ink);color:var(--bg);font:inherit;font-weight:600;cursor:pointer}
 
 /* ── 브리핑 ── */
-.totals{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px}
-.tot{background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:12px 18px;min-width:150px}
-.blk{margin-top:26px}
+.blk{margin-top:26px} .blk:first-child{margin-top:0}
 .blk h2{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 12px;margin:0 0 12px;font-size:18px;font-weight:600}
 .blk h2 small{font-size:12.5px;color:var(--ink-3);font-weight:400}
 .blk h2 a{margin-left:auto;font-size:13px;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
@@ -82,7 +84,7 @@ a.t:hover{transform:translateY(-2px);border-color:var(--line)}
 .notice{margin-top:22px;padding:12px 16px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;color:var(--ink-3);font-size:12.5px}
 .notice b{color:var(--ink-2)}
 @media (max-width:1100px){
-  .bento{grid-template-columns:repeat(6,minmax(0,1fr))} .hero,.side,.sum,.over,.board,.lockt{grid-column:span 6} .g{grid-column:span 3}
+  .bento{grid-template-columns:repeat(6,minmax(0,1fr))} .hero,.side,.over,.board,.lockt{grid-column:span 6} .g{grid-column:span 3}
   .row{grid-template-columns:1fr 1fr 1fr} .row .spark,.row .go2{display:none} .who{grid-column:1 / -1}
 }
 @media (max-width:640px){
@@ -103,7 +105,7 @@ a.t:hover{transform:translateY(-2px);border-color:var(--line)}
     <h1>GRP1 대시보드</h1><span class="when" id="when"></span>
     <div class="view" role="group" aria-label="보기"><button type="button" data-v="bento" aria-pressed="true">벤토</button><button type="button" data-v="brief" aria-pressed="false">브리핑</button></div>
   </div>
-  <div class="bento" id="bento"></div>
+  <div id="bento"></div>
   <div id="brief" hidden></div>
   <div class="notice"><b>보드끼리 숫자를 대조하지 마세요.</b> 일반 지표는 계측 빌드 유저 전체·잔존 = <span style="font-family:var(--mono)">af_login</span>, UA 는 광고로 들어온 설치만·잔존 = 그날 인앱 이벤트 1건 이상. AppsFlyer 대시보드와도 절대값을 대조하지 않습니다(집계 기준·매출 도착 시점이 다름).</div>
 </main>
@@ -150,63 +152,61 @@ function render(S) {
   const any = (G[uaKeys[0]] || G[genKeys[0]] || {}), last = (any.ua || any.general || {}).last;
   $('when').textContent = `${last || ''} (UTC) 기준 · 갱신 ${S.generated_at || ''}`;
   $('gen').textContent = [B.general ? '일반 ' + B.general : '', B.ua ? 'UA ' + B.ua : '', B.kpi ? 'KPI ' + B.kpi : '', B.payback ? 'ROAS 예측 ' + B.payback : ''].filter(Boolean).join(' · ');
-  const cost =uaKeys.reduce((s, k) => s + G[k].ua.cost, 0), inst = uaKeys.reduce((s, k) => s + G[k].ua.installs, 0);
-  const dauSum = genKeys.reduce((s, k) => s + G[k].general.dau, 0);
-  const totals = [['광고비 · 어제', usd(cost)], ['광고 설치 · 어제', num(inst)], ['평균 CPI', usd(inst ? cost / inst : null, 2)], ['DAU 합계 · 어제', num(dauSum)]];
   const icons = ks => ks.map(k => GX.GAMES[k] ? `<img src="${GX.GAMES[k].icon}" alt="" title="${esc(GX.GAMES[k].name)}">` : '').join('');
   const C = k => (GX.GAMES[k] || {}).color || 'var(--accent)';
   const I = k => (GX.GAMES[k] || {}).icon || '';
 
-  // ── 벤토 ──
+  // ── 벤토 ── 세 묶음(ROAS · DAU · 보드 바로가기)을 각자 격자로 — 제목 + 구분선(2026-11-05 팀장님 "분류가 안 되어 있다")
   // UA ROAS = 오가닉 포함(팀장님 11-02, board_summary basis = all) — 광고 유저만은 부제 참고. 옛 요약(basis 없음)은 광고 유저만
   const bn = u => u.basis === 'all' ? '오가닉 포함' : '광고 유저만';
   const ref = (u, k) => u.basis === 'all' && u[k + '_paid'] != null ? ` · 광고 유저만 ${pct(u[k + '_paid'])}` : '';
-  let h = '';
+  // D1 잔존(UA, 광고 유저) 부제 — 설치 수, D1 이 관측된 설치일이 아직 없으면(UA 첫날) 그렇게 쓴다. 옛 요약(r1 없음)도 같은 문구
+  const r1s = (u, pre) => u.r1_n ? pre + num(u.r1_n) + '명' : 'D1 관측 전';
+  // n 개를 한 줄 최대 max 개로 고르게 — 줄 수 = ceil(n / max), 남는 하나씩은 앞줄부터, 줄마다 12칸을 꽉 채운 폭 목록
+  const even = (n, max) => { const rows = Math.ceil(n / max);
+    return [].concat(...Array.from({length: rows}, (_, r) => { const c = Math.floor(n / rows) + (r < n % rows ? 1 : 0); return Array(c).fill(12 / c); })); };
+  const grp = (title, note, body) => `<section class="grp"><h2>${title}${note ? ` <small>${note}</small>` : ''}</h2><div class="bento">${body}</div></section>`;
+  let h = '', out = '';
   if (uaKeys.length) {
     const f = uaKeys[0], u = G[f].ua;
-    h += `<a class="t hero" href="${uaUrl(f)}" style="--c:${C(f)}">${GX.GAMES[f] ? `<img class="art" src="${GX.GAMES[f].art}" alt="">` : ''}<span class="pill">UA 진행 중</span>
+    h += `<a class="t hero" href="${uaUrl(f)}" style="--c:${C(f)};${uaKeys.length === 1 ? '--hs:12' : ''}">${GX.GAMES[f] ? `<img class="art" src="${GX.GAMES[f].art}" alt="">` : ''}<span class="pill">UA 진행 중</span>
       <div class="name">${esc(G[f].name)}</div>
       <div class="kv"><div><div class="k">D1 ROAS · 최근 7일 · ${bn(u)}</div><div class="big">${pct(u.d1)}</div><div class="s">설치 ${num(u.d1_n)}명 · 본전 100%${ref(u, 'd1')}</div></div>
-      <div><div class="k">D0 ROAS · 최근 3일</div><div class="mid">${pct(u.d0)}</div><div class="s">설치 ${num(u.d0_n)}명${ref(u, 'd0')}</div></div>
+      <div><div class="k">D1 잔존 · 최근 7일</div><div class="mid">${pct(u.r1)}</div><div class="s">${r1s(u, '광고 유저 ')}</div></div>
       <div><div class="k">광고비 · ${md(u.last)}</div><div class="mid">${usd(u.cost)}</div><div class="s">CPI ${usd(u.cpi, 2)} · 설치 ${num(u.installs)}</div></div></div></a>`;
-    // 오른쪽 열(사이드 UA 타일 + 합계) 중 히어로 옆 두 자리를 넘는 것은 아래 한 줄을 나눠 쓴다.
-    // 넘친 타일이 4개 이상이면(UA 6게임, 2026-10-29) 합계까지 한 줄에 넣으면 폭이 3칸이라 합계 숫자 넷이 줄바꿈돼 타일 밖으로 밀린다
-    // → UA 타일끼리 한 줄을 나누고 합계는 다음 줄 전체 폭(solo).
-    // UA 7게임(2026-11-04): 넘친 UA 타일 4개를 3칸씩 나누면 CPI 줄이 타일 밖으로 잘린다 → UA 타일은 최소 4칸(3개씩 줄바꿈), 합계는 마지막 줄의 남은 칸 전부.
-    const rest = uaKeys.length - 2, solo = rest >= 4, overUa = rest - 1;
-    const span = rest > 0 ? Math.max(solo ? 4 : 3, Math.floor(12 / (solo ? overUa : rest))) : 0;
-    const sumSpan = solo ? 12 - (overUa * span) % 12 : span;
-    let slot = 0; const over = sum => slot++ >= 2 && span ? [' over', `--span:${sum ? sumSpan : span};`] : ['', ''];
-    for (const k of uaKeys.slice(1)) { const v = G[k].ua, [oc, os] = over();
+    // 히어로 옆 두 자리(5칸) 다음 UA 타일은 아래 줄에 고르게 — 한 줄 최대 3개(4칸 · 숫자 넷이 들어가는 최소 폭), 4개 → [6·6][6·6], 5개 → [4·4·4][6·6].
+    // 어제 합계 타일은 2026-11-05 제거(팀장님). 폭·높이는 CSS 변수로만 넘긴다(인라인 grid-column 은 좁은 화면 미디어 쿼리를 덮어쓴다) —
+    // UA 1게임 = 히어로 전체 폭(--hs), 2게임 = 옆 타일 두 줄(--rs)
+    const spans = even(Math.max(uaKeys.length - 3, 0), 3);
+    uaKeys.slice(1).forEach((k, i) => { const v = G[k].ua;
+      const [oc, os] = i >= 2 ? [' over', `--span:${spans[i - 2]};`] : ['', uaKeys.length === 2 ? '--rs:2;' : ''];
       h += `<a class="t side${oc}" href="${uaUrl(k)}" style="${os}--c:${C(k)}"><div class="head"><img src="${I(k)}" alt=""><span class="name" style="font-size:20px">${esc(G[k].name)}</span><span class="s" style="margin-left:auto">UA</span></div>
-        <div class="row3"><div><div class="k">D1 ROAS · 7일 · ${bn(v)}</div><div class="mid" style="color:${C(k)}">${pct(v.d1)}</div>${v.basis === 'all' && v.d1_paid != null ? `<div class="s">광고 유저만 ${pct(v.d1_paid)}</div>` : ''}</div><div><div class="k">광고비 · ${md(v.last)}</div><div class="mid">${usd(v.cost)}</div></div><div><div class="k">CPI</div><div class="mid">${usd(v.cpi, 2)}</div></div></div></a>`; }
-    const [oc, os] = over(true);
-    h += `<div class="t sum${oc}" style="${os}"><div class="k">어제 합계 · UA ${uaKeys.length}게임 · 게임 ${genKeys.length}개</div>
-      <div class="row3">${totals.map(([k, v]) => `<div><div class="k">${k.split(' · ')[0]}</div><div class="mid">${v}</div></div>`).join('')}</div></div>`;
+        <div class="row3"><div><div class="k">D1 ROAS · 7일 · ${bn(v)}</div><div class="mid" style="color:${C(k)}">${pct(v.d1)}</div>${v.basis === 'all' && v.d1_paid != null ? `<div class="s">광고 유저만 ${pct(v.d1_paid)}</div>` : ''}</div><div><div class="k">D1 잔존 · 7일</div><div class="mid">${pct(v.r1)}</div><div class="s">${r1s(v, '광고 유저 ')}</div></div><div><div class="k">광고비 · ${md(v.last)}</div><div class="mid">${usd(v.cost)}</div></div><div><div class="k">CPI</div><div class="mid">${usd(v.cpi, 2)}</div></div></div></a>`; });
+    out += grp('ROAS', 'D1 ROAS = 최근 7일(매출 관측 끝 기준 · 오가닉 포함) · D1 잔존 = 최근 7일(이벤트 관측 끝 기준 · 광고 유저 · 인앱 이벤트) · 광고비 · CPI = 마지막 설치일', h);
   }
-  for (const k of genKeys) { const g = G[k].general;
-    h += `<a class="t g" href="${gen(k)}" style="--c:${C(k)}"><div class="head"><img src="${I(k)}" alt=""><div><div class="name" style="font-size:19px">${esc(G[k].name)}</div><div class="s">${G[k].ua ? '일반 지표 · UA' : '일반 지표'}</div></div></div>
+  // 게임 타일(3칸 × 2줄)은 한 줄 최대 4개로 고르게(7개 → [3·3·3·3][4·4·4]) — 묶음이 갈려 빈칸을 보드 바로가기로 메울 수 없다
+  const gs = even(genKeys.length, 4); h = '';
+  genKeys.forEach((k, i) => { const g = G[k].general;
+    h += `<a class="t g" href="${gen(k)}" style="--gs:${gs[i]};--c:${C(k)}"><div class="head"><img src="${I(k)}" alt=""><div><div class="name" style="font-size:19px">${esc(G[k].name)}</div><div class="s">${G[k].ua ? '일반 지표 · UA' : '일반 지표'}</div></div></div>
       <div class="row3"><div><div class="k">DAU</div><div class="mid">${num(g.dau)}</div><div class="s">${dauDelta(g)}</div></div>
       <div><div class="k">D1 잔존</div><div class="mid">${pct(g.d1)}</div><div class="s">최근 7코호트</div></div></div>
-      <div class="spark">${spark(g.dau_spark, C(k), 56)}<div class="s">DAU 14일</div></div></a>`; }
-  // 보드 바로가기 넷(일반·UA·KPI·ROAS 예측, 2026-11-01) 폭 — 게임 타일(3칸 × 2줄)이 4개씩 차고 마지막 묶음 옆에 남는 칸(12 - 3 × 나머지)을 채운다.
-  // 남는 6칸 × 2줄이면 [3·3 | 3·3], 9칸이면 [3·3·3] + 다음 줄 9, 3칸이면 두 개를 세로로 쌓고 나머지 둘은 다음 줄 [6·6], 딱 맞으면 새 줄 [3·3·3·3]
-  // (Opus 구현 리뷰가 헤드리스 Edge 로 칸 배치를 실측).
-  const bs = ({0: [3, 3, 3, 3], 1: [3, 3, 3, 9], 2: [3, 3, 3, 3], 3: [3, 3, 6, 6]})[genKeys.length % 4];
-  h += `<a class="t board" href="general.html${hash}" style="--bc:#6f93ff;--bs:${bs[0]}"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><div class="icons">${icons(genKeys)}</div><span class="go">→</span></a>`;
-  h += `<a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5;--bs:${bs[1]}"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
-  h += `<a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a;--bs:${bs[2]}"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
-  h += `<a class="t board" href="payback.html${hash}" style="--bc:#f0a040;--bs:${bs[3]}"><div class="k">ROAS FORECAST · 120일 회수 · 작업 중</div><div class="name">ROAS 예측</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`;
-  $('bento').innerHTML = h;
+      <div class="spark">${spark(g.dau_spark, C(k), 56)}<div class="s">DAU 14일</div></div></a>`; });
+  if (genKeys.length) out += grp('DAU', 'DAU = 마지막 날 · 7일 전 대비 · D1 잔존 = 최근 7개 성숙 코호트(af_login · 오가닉 포함)', h);
+  // 보드 바로가기 넷(일반·UA·KPI·ROAS 예측) — 자기 묶음에서 한 줄에 넷(각 3칸)
+  out += grp('보드', '', `<a class="t board" href="general.html${hash}" style="--bc:#6f93ff"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><div class="icons">${icons(genKeys)}</div><span class="go">→</span></a>`
+    + `<a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`
+    + `<a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`
+    + `<a class="t board" href="payback.html${hash}" style="--bc:#f0a040"><div class="k">ROAS FORECAST · 120일 회수 · 작업 중</div><div class="name">ROAS 예측</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`);
+  $('bento').innerHTML = out;
 
   // ── 브리핑 ──
   const who = (k, sub) => `<div class="who"><img src="${I(k)}" alt=""><div><b>${esc(G[k].name)}</b><span>${sub}</span></div></div>`;
   const m = (k, v, s = '', cls = '') => `<div class="m"><div class="k">${k}</div><div class="v ${cls}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
-  let a = `<div class="totals">${totals.map(([k, v]) => `<div class="tot"><div class="k">${k}</div><div class="mid">${v}</div></div>`).join('')}</div>`;
-  if (uaKeys.length) a += `<section class="blk"><h2>UA · 마케팅 <small>광고비 · 설치 · CPI = 마지막 설치일 · D0 ROAS = 최근 3일 · D1 ROAS = 최근 7일(매출 관측 끝 기준) · ROAS = 오가닉 포함(광고 유저만은 참고)</small><a href="ua.html${hash}">UA 보드 →</a></h2>`
+  let a = '';      // 어제 합계 줄은 2026-11-05 제거(팀장님 — 벤토 합계 타일과 같이)
+  if (uaKeys.length) a += `<section class="blk"><h2>UA · 마케팅 <small>광고비 · 설치 · CPI = 마지막 설치일 · D1 잔존 = 최근 7일(이벤트 관측 끝 기준 · 광고 유저) · D1 ROAS = 최근 7일(매출 관측 끝 기준) · ROAS = 오가닉 포함(광고 유저만은 참고)</small><a href="ua.html${hash}">UA 보드 →</a></h2>`
     + uaKeys.map(k => { const u = G[k].ua;
       return `<a class="row" href="${uaUrl(k)}" style="--c:${C(k)}">${who(k, 'Android · AppLovin')}
-        ${m('광고비', usd(u.cost), md(u.last) + ' 설치일')}${m('설치', num(u.installs))}${m('CPI', usd(u.cpi, 2))}${m('D0 ROAS', pct(u.d0), '설치 ' + num(u.d0_n) + '명' + ref(u, 'd0'), 'hot')}
+        ${m('광고비', usd(u.cost), md(u.last) + ' 설치일')}${m('설치', num(u.installs))}${m('CPI', usd(u.cpi, 2))}${m('D1 잔존', pct(u.r1), r1s(u, '광고 유저 '))}
         <div class="m"><div class="k">D1 ROAS</div><div class="v ${u.d1 >= 1 ? 'good' : 'hot'}">${pct(u.d1)}</div><div class="meter"><i style="width:${Math.min(u.d1 || 0, 1) * 100}%"></i></div><div class="s">본전 100% 대비 · 설치 ${num(u.d1_n)}명${ref(u, 'd1')}</div></div>
         <div class="spark">${spark(u.cost_spark, C(k), 38)}<div class="s">설치일별 광고비</div></div><span class="go2">→</span></a>`; }).join('') + `</section>`;
   if (genKeys.length) a += `<section class="blk"><h2>게임 지표 <small>DAU · 설치 = 마지막 날 · D1 잔존 = 최근 7개 성숙 코호트 · 매출 = IAP + 광고, 광고 매출이 도착한 마지막 날(보통 이틀 전)</small><a href="general.html${hash}">일반 지표 보드 →</a></h2>`
@@ -222,12 +222,12 @@ function render(S) {
 // 잠금 — 숫자가 없을 때도 보드 바로가기는 보인다
 function locked(enc, err) {
   $('gen').textContent = [B.general ? '일반 ' + B.general : '', B.ua ? 'UA ' + B.ua : '', B.kpi ? 'KPI ' + B.kpi : '', B.payback ? 'ROAS 예측 ' + B.payback : ''].filter(Boolean).join(' · ');
-  $('bento').innerHTML = `<div class="t lockt"><b>GRP1 대시보드</b><div class="s" style="margin-top:6px;font-size:13px;${err ? 'color:var(--crit)' : ''}">${err || '요약 숫자는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다.'}</div>
+  $('bento').innerHTML = `<div class="bento"><div class="t lockt"><b>GRP1 대시보드</b><div class="s" style="margin-top:6px;font-size:13px;${err ? 'color:var(--crit)' : ''}">${err || '요약 숫자는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다.'}</div>
     ${enc ? `<form id="pwform"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password"><button type="submit">열기</button></form>` : ''}</div>
-    <a class="t board" href="general.html${hash}" style="--bc:#6f93ff;--bs:3"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><span class="go">→</span></a>
-    <a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5;--bs:3"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><span class="go">→</span></a>
-    <a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a;--bs:3"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><span class="go">→</span></a>
-    <a class="t board" href="payback.html${hash}" style="--bc:#f0a040;--bs:3"><div class="k">ROAS FORECAST · 120일 회수 · 작업 중</div><div class="name">ROAS 예측</div><span class="go">→</span></a>`;
+    <a class="t board" href="general.html${hash}" style="--bc:#6f93ff"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><span class="go">→</span></a>
+    <a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><span class="go">→</span></a>
+    <a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><span class="go">→</span></a>
+    <a class="t board" href="payback.html${hash}" style="--bc:#f0a040"><div class="k">ROAS FORECAST · 120일 회수 · 작업 중</div><div class="name">ROAS 예측</div><span class="go">→</span></a></div>`;
   $('bento').hidden = false; $('brief').hidden = true;
   if (enc) { $('pwform').onsubmit = async ev => { ev.preventDefault();
     try { const p = $('pw').value; const d = await decrypt(enc, p); try { localStorage.setItem(PWKEY, p); } catch (e) {} render(d); } catch (e) { locked(enc, '비밀번호가 맞지 않습니다.'); } }; }
