@@ -96,6 +96,48 @@ table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border
    — 버튼 아래가 통째로 비어 보였다(2026-09-20). flow-root 로 헤더가 플로트를 품게 해 표가 카드 폭을 다 쓴다. */
 .card h3{display:flow-root} .card h3 .tools{float:right}
 .cohb{display:inline-block;font-size:10.5px;font-weight:500;color:var(--chip-on-ink);background:var(--chip-on);border-radius:999px;padding:0 7px;margin-right:4px;vertical-align:1px}
+/* 크게 보기 아이콘 — 카드 오른쪽 위. 차트 svg 와 섞이지 않게 CSS 마스크로 그린다 */
+.card{position:relative}
+.card:has(> .xpnd) > h3{padding-right:30px}
+.xpnd{position:absolute;top:8px;right:8px;width:26px;height:26px;padding:0;display:grid;place-items:center;background:transparent;border:1px solid transparent;border-radius:6px;color:var(--ink-3)}
+.xpnd::before{content:"";width:14px;height:14px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3h7v7M21 3l-7.5 7.5M10 21H3v-7M3 21l7.5-7.5'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3h7v7M21 3l-7.5 7.5M10 21H3v-7M3 21l7.5-7.5'/%3E%3C/svg%3E") center/contain no-repeat}
+.xpnd:hover{color:var(--ink);background:var(--chip);border-color:var(--line)}
+/* 크게 보기 모달 — 고른 카드 하나만. 표·히트맵은 칸을 키우고, 차트는 bigChart 가 실제 픽셀 좌표로 다시 그린다 */
+html.mopen{overflow:hidden} html.mopen.mgut{scrollbar-gutter:stable}   /* 스크롤바가 있던 화면은 그 자리를 남겨 뒤 화면이 밀리지 않게 */
+.mdlg{width:min(94vw,1800px);height:90vh;max-width:none;max-height:none;padding:0;overflow:hidden;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.45)}
+.mdlg[open]{display:flex;flex-direction:column}
+.mdlg::backdrop{background:rgba(0,0,0,.62)}
+@media (max-width:720px){ .mdlg{width:100vw;height:100dvh;border-radius:0} }
+.mbar{flex:none;display:flex;align-items:center;gap:12px;padding:8px 10px 8px 18px;border-bottom:1px solid var(--line-soft)}
+.mbar #mfilters{flex:1;min-width:0}
+.mclose{flex:none;width:30px;height:30px;padding:0;background:transparent;border:1px solid transparent;border-radius:6px;color:var(--ink-2);font-size:15px;line-height:1}
+.mclose:hover{color:var(--ink);background:var(--chip);border-color:var(--line)}
+.mbody{flex:1;min-height:0;display:flex;padding:14px 18px 14px;overflow:auto}
+.mbody .card{flex:1;min-width:0;display:flex;flex-direction:column;padding:0;background:transparent;border:0;border-radius:0;box-shadow:none}
+.mbody .card > h3{flex:none;font-size:15px;margin-bottom:12px} .mbody .card > h3 .muted{font-size:12.5px}
+.mbody .mfill{display:contents}
+.mbody .lvfbar,.mbody .legend,.mbody .small{flex:none}
+.mbody .tscroll{flex:1;min-height:0;max-height:none!important}
+.mbody table{font-size:13.5px} .mbody th,.mbody td{padding:7px 8px}
+.mbody th{position:sticky;top:0;z-index:1;background:var(--card)}
+/* 가로로 넘치는 표(코호트 전체 열)도 어느 행인지 보이게 첫 열 고정 */
+.mbody th:first-child,.mbody td:first-child{position:sticky;left:0;background:var(--card)} .mbody th:first-child{z-index:2}
+.mbody .heat{flex:1;min-height:0;overflow:auto;grid-auto-rows:minmax(36px,1fr)}
+.mbody .heat div{height:auto;font-size:12.5px}
+.mchart{flex:1;min-height:0;display:flex;align-items:flex-start}
+.mchart svg{max-height:none;flex:none} .mchart svg text{font-size:12px}
+.mxscroll{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden}
+/* 차트 마우스오버 — 안내선·강조 표식(.chhov)과 값 상자(#chtip). 상자는 포인터를 가리지도 가로채지도 않는다 */
+svg[data-ch]{cursor:crosshair}
+.chhov{pointer-events:none}
+.chhov line{stroke:var(--ink-2);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.chhov circle{stroke:var(--card);stroke-width:2;vector-effect:non-scaling-stroke}
+.chhov rect{fill:var(--ink);opacity:.1}
+.chtip{position:fixed;z-index:50;left:0;top:0;max-width:440px;padding:8px 11px;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.4);font-size:12.5px;line-height:1.5;color:var(--ink);pointer-events:none}
+.chtip[hidden]{display:none}
+.chth{font-weight:600;font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.chtr{display:flex;align-items:center;gap:7px} .chtr i{flex:none;width:9px;height:9px;border-radius:2px} .chtr span{flex:1;color:var(--ink-2)} .chtr b{font-weight:600;font-variant-numeric:tabular-nums;margin-left:12px}
+.chts{margin-top:2px;font-size:11.5px;color:var(--ink-3)}
 </style>
 </head>
 <body>
@@ -149,6 +191,12 @@ table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border
   </section>
   <section id="sec-slices"><h2>슬라이스 <span class="muted">핵심 지표를 차원별로</span><span class="seg" id="sliceseg"></span></h2><div class="grid wide" id="slices"></div></section>
 </main>
+<!-- 크게 보기 — 카드 하나를 복제해 띄운다. 기간·OS·레벨 구간은 화면에 설정된 값을 그대로 따른다(현재 값은 #mfilters 에 표시) -->
+<dialog id="cardmodal" class="mdlg" aria-label="크게 보기">
+  <div class="mbar"><div id="mfilters" class="small muted"></div><button type="button" class="mclose" aria-label="닫기" title="닫기 (Esc)">✕</button></div>
+  <div id="mbody" class="mbody"></div>
+</dialog>
+<div id="chtip" class="chtip" hidden></div>
 <script>
 // 데이터가 오기 전에 히어로부터 게임 이름으로(?game= 또는 마지막 게임) — 복호·렌더가 끝날 때까지 자리표시자 제목이 보이던 것을 없앤다(2026-10-30).
 GX.prehero(document.getElementById('hero'));
@@ -227,6 +275,7 @@ document.addEventListener('click', (e)=>{
     lvf.page = 0;
   } else lvf.page += Number(b.dataset.lvfPage);
   $('lvfail').innerHTML = lvfBody();
+  modalFill(false);
 });
 // ── 레벨 축 재분할 — 선택 구간의 약 1/10 폭, 단 **10의 배수**(팀장님 지시). 데이터는 10레벨 고정 폭으로 와서 병합만 한다.
 //    예: 전체(절단 ~281) → 30 · ≤100 → 10 · ≤300 → 30 · ≤500 → 50. 구간이 100 미만이면 최소 폭 10.
@@ -348,29 +397,96 @@ function renderFilters(J){
 }
 
 // ── 차트 헬퍼 (인라인 SVG) ──
+// 그린 차트의 입력을 보관한다 — 크게 보기가 같은 데이터를 큰 좌표로 다시 그린다(render 마다 비운다).
+const CHARTS = [];
+// 평소 카드 = 560×200 좌표를 카드 폭에 맞춰 늘린다.
+const CARD_GEO = {
+  line:{W:560,H:200,L:44,R:12,T:12,B:28,ticks:4,r:2.2,showX:(i,n)=>{ const step=Math.max(1,Math.ceil(n/8)); return i%step===0||i===n-1; }},
+  bar: {W:560,H:200,L:44,R:12,T:12,B:30,ticks:4,showX:(i,n)=>{ const step=Math.max(1,Math.ceil(n/12)); return i%step===0||i===n-1; }},
+};
+// y 상한 — opts.ymax 가 0 이면(그 구간 값이 전부 0) 데이터 기준으로. 0 으로 나누면 좌표가 NaN 이 된다. 마우스오버가 자주 부르므로 차트마다 한 번만 계산한다.
+const chartYmax = (c)=> c.ymax ??= (c.opts.ymax || Math.max(1e-9, ...(c.kind==='line' ? c.series.flatMap(s=>s.points.map(p=>p[1]||0)) : c.items.map(i=>i.value||0)))*1.1);
+// 평소 카드는 등분이라 정수로 반올림한다. 모달 눈금은 딱 떨어지는 값이라 그대로 적는다(부동소수 오차만 정리).
+const chartYLabel = (c, big)=>(v)=> c.opts.yfmt ? c.opts.yfmt(v) : fmt.n(big ? +v.toPrecision(12) : Math.round(v));
+// 위에서 아래로 딱 떨어지는 눈금값 — 간격은 1·2·5×10ⁿ 중 10칸 이내로 가장 촘촘한 것.
+// 서식이 반올림하면 라벨과 위치가 어긋나므로(0.5 → "1", $0.0005 → "$0.001") 3칸째 라벨이 1칸째의 3배일 때만 쓴다. 맞는 간격이 없으면 상한과 0 만.
+function niceTicks(ymax, label){
+  const num = (v)=>parseFloat(String(label(v)).replace(/[^0-9.-]/g,''));
+  const base = Math.pow(10, Math.floor(Math.log10(ymax/10)));
+  for(let e=0; e<3; e++) for(const m of [1,2,5]){
+    const step = m*base*Math.pow(10,e);
+    if(step>ymax) continue;
+    if(ymax/step > 10+1e-9 || !(num(step)>0) || Math.abs(num(3*step)/num(step)-3)>1e-6) continue;
+    const vals = []; for(let i=0; i*step<=ymax*(1+1e-9); i++) vals.push(i*step);
+    return vals.reverse();
+  }
+  return num(ymax)>0 ? [ymax, 0] : [0];
+}
+// 값 → 좌표. 그리기와 마우스오버가 같은 식을 쓴다.
+function chartScale(c, G){
+  const {W,H,L,R,T,B} = G, ymax = chartYmax(c);
+  const n = c.kind==='line' ? c.opts.labels.length : (c.items.length||1);
+  return {ymax, n, bw:(W-L-R)/n, xs:(i)=>L+(n<=1?0:(W-L-R)*i/(n-1)), ys:(v)=>T+(H-T-B)*(1-(v||0)/ymax)};
+}
+// c = {kind:'line',series,opts} | {kind:'bar',items,opts}, G = 좌표. 축·눈금·표식을 조각으로 돌려준다(평소 카드와 모달의 조립 방식이 다르다).
+function chartParts(c, G){
+  const {W,H,L,R,T,B} = G, o = c.opts, line = c.kind==='line';
+  const {ymax, n, bw, xs, ys} = chartScale(c, G);
+  const yLabel = chartYLabel(c, !G.ticks);
+  // 평소 카드 = 높이를 G.ticks 등분. 모달(G.ticks 없음) = 딱 떨어지는 값에만 눈금
+  const ticks = G.ticks ? Array.from({length:G.ticks+1},(_,k)=>[T+(H-T-B)*k/G.ticks, ymax*(1-k/G.ticks)])
+                        : niceTicks(ymax, yLabel).map(v=>[T+(H-T-B)*(1-v/ymax), v]);
+  const gx1 = G.gx1 ?? L, gx2 = G.gx2 ?? W-R, yx = G.yx ?? L-6;
+  const grid=[], ylab=[];
+  ticks.forEach(([y,v])=>{
+    grid.push(`<line class="grid" x1="${gx1}" x2="${gx2}" y1="${y}" y2="${y}"/>`);
+    ylab.push(`<text x="${yx}" y="${y+3}" text-anchor="end">${yLabel(v)}</text>`); });
+  const labelY = H-B+20;
+  let xl='', marks='';
+  if(line){
+    o.labels.forEach((lb,i)=>{ if(G.showX(i,n)) xl+=(G.vgrid?`<line class="grid" x1="${xs(i)}" x2="${xs(i)}" y1="${T}" y2="${H-B}"/>`:'')+`<text x="${xs(i)}" y="${labelY}" text-anchor="middle">${esc(lb)}</text>`; });
+    marks = c.series.map(s=>{ const d=s.points.map((p,i)=>(i?'L':'M')+xs(i).toFixed(1)+' '+ys(p[1]).toFixed(1)).join(' ');
+      const dots=s.points.map((p,i)=>`<circle cx="${xs(i).toFixed(1)}" cy="${ys(p[1]).toFixed(1)}" r="${G.r}" fill="${s.color}"/>`).join('');
+      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>${dots}`; }).join('');
+  } else {
+    marks = c.items.map((it,i)=>{const h=(H-T-B)*(it.value||0)/ymax; const x=L+bw*i+bw*0.15; const lbl=G.showX(i,n)?`<text x="${L+bw*i+bw/2}" y="${labelY}" text-anchor="middle">${esc(it.label)}</text>`:'';
+      return `<rect x="${x.toFixed(1)}" y="${(H-B-h).toFixed(1)}" width="${(bw*0.7).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${it.color||'var(--c1)'}"/>${lbl}`;}).join('');
+  }
+  return {grid, ylab, xl, marks};
+}
+function cardSvg(c){
+  const id = CHARTS.push(c)-1, G = CARD_GEO[c.kind], P = chartParts(c, G);
+  return `<svg viewBox="0 0 ${G.W} ${G.H}" role="img" aria-label="${esc(c.opts.title||'')}" data-ch="${id}">${P.grid.map((l,i)=>l+P.ylab[i]).join('')}<line class="axis" x1="${G.L}" x2="${G.W-G.R}" y1="${G.H-G.B}" y2="${G.H-G.B}"/>${P.xl}${P.marks}</svg>`;
+}
 function lineChart(series, opts){
   // series: [{name,color,points:[[x,y],...]}] x 는 라벨 문자열(동일 축), y 숫자
-  const W=560,H=200,L=44,R=12,T=12,B=28; const labels = opts.labels;
-  let ymax = opts.ymax ?? Math.max(1e-9, ...series.flatMap(s=>s.points.map(p=>p[1]||0)))*1.1;
-  const xs=(i)=>L+(labels.length<=1?0:(W-L-R)*i/(labels.length-1)); const ys=(v)=>T+(H-T-B)*(1-(v||0)/ymax);
-  let g=''; for(let k=0;k<=4;k++){const y=T+(H-T-B)*k/4; g+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${y}" y2="${y}"/><text x="${L-6}" y="${y+3}" text-anchor="end">${opts.yfmt?opts.yfmt(ymax*(1-k/4)):fmt.n(Math.round(ymax*(1-k/4)))}</text>`;}
-  const step=Math.max(1,Math.ceil(labels.length/8)); let xl='';
-  labels.forEach((lb,i)=>{ if(i%step===0||i===labels.length-1) xl+=`<text x="${xs(i)}" y="${H-8}" text-anchor="middle">${esc(lb)}</text>`; });
-  const paths = series.map(s=>{ const d=s.points.map((p,i)=>(i?'L':'M')+xs(i).toFixed(1)+' '+ys(p[1]).toFixed(1)).join(' ');
-    const dots=s.points.map((p,i)=>`<circle cx="${xs(i).toFixed(1)}" cy="${ys(p[1]).toFixed(1)}" r="2.2" fill="${s.color}"><title>${esc(labels[i])} · ${s.name}: ${opts.yfmt?opts.yfmt(p[1]):fmt.n(p[1])}${opts.tips&&opts.tips[i]?' · '+esc(opts.tips[i]):''}</title></circle>`).join('');
-    return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>${dots}`; }).join('');
   const legend = series.length>1?`<div class="legend">${series.map(s=>`<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>`:'';
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'')}">${g}<line class="axis" x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}"/>${xl}${paths}</svg>${legend}`;
+  return cardSvg({kind:'line', series, opts}) + legend;
 }
 function barChart(items, opts){
   // items: [{label, value, color?, title?}] 세로 막대
-  const W=560,H=200,L=44,R=12,T=12,B=30; const n=items.length||1;
-  const ymax = opts.ymax ?? Math.max(1e-9, ...items.map(i=>i.value||0))*1.1; const bw=(W-L-R)/n;
-  let g=''; for(let k=0;k<=4;k++){const y=T+(H-T-B)*k/4; g+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${y}" y2="${y}"/><text x="${L-6}" y="${y+3}" text-anchor="end">${opts.yfmt?opts.yfmt(ymax*(1-k/4)):fmt.n(Math.round(ymax*(1-k/4)))}</text>`;}
-  const step=Math.max(1,Math.ceil(n/12));
-  const bars=items.map((it,i)=>{const h=(H-T-B)*(it.value||0)/ymax; const x=L+bw*i+bw*0.15; const lbl=(i%step===0||i===n-1)?`<text x="${L+bw*i+bw/2}" y="${H-10}" text-anchor="middle">${esc(it.label)}</text>`:'';
-    return `<rect x="${x.toFixed(1)}" y="${(H-B-h).toFixed(1)}" width="${(bw*0.7).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${it.color||'var(--c1)'}"><title>${esc(it.title||it.label+': '+(opts.yfmt?opts.yfmt(it.value):fmt.n(it.value)))}</title></rect>${lbl}`;}).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'')}">${g}<line class="axis" x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}"/>${bars}</svg>`;
+  return cardSvg({kind:'bar', items, opts});
+}
+// 크게 보기 = 실제 픽셀 좌표로 다시 그린다 — 늘리면 글자도 같이 커지고 라벨 수는 그대로라서. 점·막대가 많아 좁아지면 폭을 늘려 좌우 스크롤하고,
+// 스크롤해도 값을 읽을 수 있게 y 축은 따로 그려 고정한다.
+const BIG = {axis:56, pad:12, T:14, B:34, minH:240, scrollbar:16, gap:{line:6, bar:16}, labelSteps:[1,2,5,10,20,50,100,200,500,1000]};
+function bigChart(c, id, availW, availH){
+  const line = c.kind==='line', labels = line ? c.opts.labels : c.items.map(i=>i.label), n = labels.length;
+  const H = Math.max(BIG.minH, availH-BIG.scrollbar);
+  const longest = Math.max(1,...labels.map(l=>String(l).length));
+  const yLabel = chartYLabel(c, true);
+  const axis = Math.max(BIG.axis, Math.ceil(Math.max(...niceTicks(chartYmax(c), yLabel).map(v=>String(yLabel(v)).length))*7.4)+12);   // 긴 라벨(1,200,000)이 왼쪽에서 잘리지 않게
+  const pad = line ? Math.max(BIG.pad, Math.ceil(longest*3.8)+4) : BIG.pad;    // 선 차트 첫·끝 점은 가장자리에 놓인다 — 가운데 정렬 라벨이 잘리지 않게
+  const W = Math.max(availW-axis, n*BIG.gap[c.kind]+pad*2);
+  const pxPer = (W-pad*2)/Math.max(1, line?n-1:n);
+  const wanted = Math.ceil((longest*7.6+14)/pxPer);     // 12px 글자가 겹치지 않는 라벨 간격
+  const step = BIG.labelSteps.find(x=>x>=wanted) || wanted;
+  const G = {W, H, L:pad, R:pad, T:BIG.T, B:BIG.B, r:pxPer<12?2.6:3.6, gx1:0, gx2:W, yx:axis-6, vgrid:true,
+             showX:(i,k)=>i===k-1||(i%step===0&&k-1-i>=wanted)};   // 마지막 점은 항상 라벨 — 너무 가까운 앞 라벨을 뺀다
+  c.bigG = G;      // 마우스오버가 같은 좌표로 계산한다
+  const P = chartParts(c, G);
+  return `<svg class="myaxis" viewBox="0 0 ${axis} ${H}" style="width:${axis}px;height:${H}px">${P.ylab.join('')}</svg>`
+    + `<div class="mxscroll"><svg class="mplot" viewBox="0 0 ${W} ${H}" role="img" data-ch="${id}" style="width:${W}px;height:${H}px">${P.grid.join('')}<line class="axis" x1="0" x2="${W}" y1="${H-G.B}" y2="${H-G.B}"/>${P.xl}${P.marks}</svg></div>`;
 }
 function hbar(v, max){ const w = max>0?Math.max(0,Math.min(100,v/max*100)):0; return `<span class="bar" style="width:80px"><i style="width:${w.toFixed(0)}%"></i></span>`; }
 function table(cols, rows, opts={}){
@@ -378,7 +494,9 @@ function table(cols, rows, opts={}){
   const tr = rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${i?'num':''}">${c}</td>`).join('')}</tr>`).join('');
   return `<div class="tscroll" style="${opts.h?'max-height:'+opts.h+'px':''}"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
 }
-const card = (title, body, cls='') => `<div class="card ${cls}"><h3>${title}</h3>${body}</div>`;
+// 그래프·표가 있는 카드만 크게 보기 아이콘을 단다('없음' 문구뿐인 빈 카드는 볼 것이 없다)
+const XPND = '<button type="button" class="xpnd" data-xpnd title="크게 보기" aria-label="크게 보기"></button>';
+const card = (title, body, cls='') => `<div class="card ${cls}"><h3>${title}</h3>${/<svg|<table|class="heat"/.test(body)?XPND:''}${body}</div>`;
 const tile = (k, v, s='') => `<div class="tile"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`;
 const empty = (msg) => `<div class="empty">${esc(msg)}</div>`;
 // 게임이 보내지 않는 이벤트·파라미터(meta.not_sent, config.GAMES[..].not_sent) — 빈 카드에 '아직 없음' 대신 이 사유를 띄운다
@@ -433,6 +551,7 @@ function osView(J){
 
 // ── 렌더 ──
 function render(){
+  CHARTS.length = 0; chartHoverOff();
   const RAW = D.games[game]; if(!RAW){ $('empty').hidden=false; $('empty').textContent='데이터 없음 — general/build.py 를 먼저 실행'; return; }
   const J = osView(RAW);           // 고른 OS 의 스칼라 뷰 — 아래 카드 코드는 전부 이 J 만 본다
   $('empty').hidden=true;
@@ -457,7 +576,118 @@ function render(){
   renderAccess(J, has, cov); renderProgress(J, has); renderFunnel(J); renderPlay(J); renderIntegrity(J, has); renderMoney(J); renderArpu(J); renderPayCohort(J); renderAds(J); renderAdsCohort(J); renderSlices(J);
   document.querySelector('#sec-integrity h2 .muted').innerHTML = 'attempt_count 갭 = 유실 시도(하한)' + ALL();
   document.querySelector('#sec-slices h2 .muted').innerHTML = '핵심 지표를 차원별로' + ALL();
+  modalFill();       // 모달 안 버튼(Dn 커브/설치일별 등)이 부른 render — 모달도 새 값으로
 }
+
+// ── 차트 마우스오버 — 지름 3.6px 점 위에 정확히 올려야 값이 뜨던 것을, 차트 어디에 올려도 가장 가까운 x 에 붙게 한다(평소 카드·모달 공통).
+//    브라우저 기본 툴팁(<title>)은 겹쳐 뜨므로 쓰지 않는다. 모달은 최상위 층이라 상자도 모달 안으로 옮겨 띄운다.
+const hov = {svg:null, i:-1}; let lastPt = null;
+function chartTipHtml(c, i){
+  const o = c.opts, val = (v)=>o.yfmt?o.yfmt(v):fmt.n(v);
+  if(c.kind==='bar'){ const it = c.items[i]; return `<div class="chth">${esc(it.title||it.label+': '+val(it.value))}</div>`; }
+  const rows = c.series.map(s=>{ const p = s.points[i]; return `<div class="chtr"><i style="background:${s.color}"></i><span>${esc(s.name)}</span> <b>${p?val(p[1]):'–'}</b></div>`; }).join(' ');
+  return `<div class="chth">${esc(o.labels[i])}</div> ${rows}${o.tips&&o.tips[i]?` <div class="chts">${esc(o.tips[i])}</div>`:''}`;
+}
+function chartHoverOff(){
+  if(hov.svg){ hov.svg.querySelector('.chhov')?.remove(); hov.svg = null; hov.i = -1; }
+  $('chtip').hidden = true;
+}
+function chartHover(svg, cx, cy){
+  const c = CHARTS[+svg.dataset.ch], m = svg.getScreenCTM(); if(!c || !m) return chartHoverOff();
+  const G = svg.classList.contains('mplot') ? c.bigG : CARD_GEO[c.kind], S = chartScale(c, G);
+  if(!S.n) return chartHoverOff();     // 시작일 > 종료일 등으로 점이 없는 차트
+  // CTM 으로 환산 — 넓은 카드는 max-height 때문에 그림이 상자 가운데로 몰려 상자 폭 비율과 다르다
+  const x = (cx-m.e)/m.a;
+  const raw = c.kind==='line' ? (S.n<=1 ? 0 : Math.round((x-G.L)/(G.W-G.L-G.R)*(S.n-1))) : Math.floor((x-G.L)/S.bw);
+  const i = Math.max(0, Math.min(S.n-1, raw)), t = $('chtip');
+  if(hov.svg!==svg || hov.i!==i){
+    chartHoverOff(); hov.svg = svg; hov.i = i;
+    const mark = c.kind==='line'
+      ? `<line x1="${S.xs(i)}" x2="${S.xs(i)}" y1="${G.T}" y2="${G.H-G.B}"/>`+c.series.map(s=>`<circle cx="${S.xs(i)}" cy="${S.ys((s.points[i]||[])[1])}" r="${G.r*2}" fill="${s.color}"/>`).join('')
+      : `<rect x="${G.L+S.bw*i}" y="${G.T}" width="${S.bw}" height="${G.H-G.T-G.B}"/>`;
+    svg.insertAdjacentHTML('beforeend', `<g class="chhov">${mark}</g>`);
+    const root = $('cardmodal').open ? $('cardmodal') : document.body;
+    if(t.parentElement!==root) root.appendChild(t);
+    t.innerHTML = chartTipHtml(c, i); t.hidden = false;
+    hov.w = t.offsetWidth; hov.h = t.offsetHeight;      // 내용이 바뀔 때만 잰다 — 움직일 때마다 재면 화면 전체 배치를 다시 계산한다
+  }
+  // 포인터 오른쪽에 — 화면 밖으로 나가면 왼쪽으로
+  const gap = 14, left = cx+gap+hov.w > innerWidth-4 ? cx-gap-hov.w : cx+gap;
+  t.style.left = Math.max(4, left)+'px';
+  t.style.top = Math.max(4, Math.min(innerHeight-hov.h-4, cy-hov.h/2))+'px';
+}
+function chartPointer(e){
+  lastPt = {x:e.clientX, y:e.clientY};
+  const svg = e.target.closest?.('svg[data-ch]');
+  if(svg) chartHover(svg, e.clientX, e.clientY); else if(hov.svg) chartHoverOff();
+}
+document.addEventListener('pointermove', chartPointer, {passive:true});
+document.addEventListener('pointerdown', chartPointer, {passive:true});     // 터치는 pointermove 없이 눌림만 온다
+document.documentElement.addEventListener('pointerleave', chartHoverOff);      // 포인터가 창 밖으로
+window.addEventListener('blur', chartHoverOff);
+// scroll 은 버블되지 않아 capture 로 안쪽 영역까지 받는다. 모달 차트의 좌우 스크롤만 닫지 않고 값을 갱신한다(modalFill).
+window.addEventListener('scroll', (e)=>{ if(!e.target.classList?.contains('mxscroll')) chartHoverOff(); }, {capture:true, passive:true});
+
+// ── 크게 보기 모달 — 화면의 카드를 복제해 띄운다. 카드 도구는 document 위임이라 복제본에서도 동작하고, render 가 끝나면 다시 복제한다.
+//    카드는 다시 그릴 때마다 새 요소가 되므로 (담는 칸 id, 순번)으로 기억한다. 기간·OS·레벨 구간은 화면 설정을 그대로 따른다(모달에 칩 없음).
+const mod = {host:null, idx:-1};
+function modalFilterText(sc){
+  const days = allDays(D.games[game]);
+  const allTime = sc.querySelector('h3 .all') || mod.host==='integrity';      // ◌ 표시 카드 · 정합 섹션(◌ 가 섹션 제목에 있다)은 기간 칩과 무관
+  const parts = [cohOsLabel(), rangeOn() && !allTime ? `${rng.from||days[0]} ~ ${rng.to||days[days.length-1]}` : '전체 기간'];
+  if(mod.host==='progress' && sc.querySelector('h3').textContent.includes(lvLabel())) parts.push(lvLabel());   // 레벨 구간을 따르는 카드만
+  return parts.map(esc).join(' · ');
+}
+function modalFill(keep=true){
+  if(mod.host==null) return;
+  chartHoverOff();
+  const SCROLLERS = '.tscroll,.mxscroll', body = $('mbody');
+  const pos = keep ? [...body.querySelectorAll(SCROLLERS)].map(e=>[e.scrollLeft, e.scrollTop]) : [];
+  const fa = document.activeElement;
+  const refocus = keep && body.contains(fa) && fa.matches('button,select') ? fa.tagName+[...fa.attributes].filter(a=>a.name.startsWith('data-')).map(a=>`[${a.name}="${CSS.escape(a.value)}"]`).join('') : '';
+  const src = ($(mod.host)||{children:[]}).children[mod.idx];
+  if(!src || !src.classList.contains('card')){ $('cardmodal').close(); return; }
+  const c = src.cloneNode(true);
+  c.querySelector('.xpnd')?.remove();
+  c.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));      // 화면 카드와 id 가 겹치면 $() 가 어느 쪽을 잡을지 모른다
+  c.querySelectorAll('svg[data-ch]').forEach(sv=>{ const box=document.createElement('div'); box.className='mchart'; box.dataset.ch=sv.dataset.ch; sv.replaceWith(box); });
+  $('mbody').replaceChildren(c);
+  let wide = false;
+  c.querySelectorAll('.mchart').forEach(box=>{           // 배치가 끝나야 남은 폭·높이를 잴 수 있다
+    box.innerHTML = bigChart(CHARTS[+box.dataset.ch], box.dataset.ch, box.clientWidth, box.clientHeight);
+    const sc = box.querySelector('.mxscroll');
+    sc.addEventListener('scroll', ()=>{ if(hov.svg && lastPt) chartHover(hov.svg, lastPt.x, lastPt.y); });     // 휠로 옮기면 포인터 아래 값이 바뀐다
+    if(sc.scrollWidth>sc.clientWidth){ wide = true;      // 휠도 좌우로
+      sc.addEventListener('wheel', (e)=>{ if(body.scrollHeight>body.clientHeight+1) return;      // 낮은 창이면 세로 스크롤에 양보
+        if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ sc.scrollLeft+=e.deltaY; e.preventDefault(); } }, {passive:false}); }
+  });
+  body.querySelectorAll(SCROLLERS).forEach((e,i)=>{ if(pos[i]){ e.scrollLeft = pos[i][0]; e.scrollTop = pos[i][1]; } });
+  if(refocus) body.querySelector(refocus)?.focus();
+  $('mfilters').innerHTML = modalFilterText(c) + (wide?' · <b>좌우 스크롤</b>(마우스 휠 가능)':'');
+}
+document.addEventListener('click', (e)=>{
+  const b = e.target.closest('button[data-xpnd]'); if(!b) return;
+  const c = b.closest('.card'), host = c.parentElement;
+  mod.host = host.id; mod.idx = [...host.children].indexOf(c);
+  const root = document.documentElement;
+  root.classList.toggle('mgut', innerWidth>root.clientWidth); root.classList.add('mopen');
+  $('cardmodal').showModal();
+  modalFill();
+});
+(function(){
+  const d = $('cardmodal'); let downOutside = false, resizeT = 0;
+  d.querySelector('.mclose').onclick = ()=>d.close();
+  // 바깥(배경) 클릭으로 닫기 — 표 글자를 드래그하다 바깥에서 놓은 경우는 닫지 않는다
+  d.addEventListener('mousedown', (e)=>{ downOutside = e.target===d; });
+  d.addEventListener('click', (e)=>{ if(e.target===d && downOutside) d.close(); });
+  d.addEventListener('close', ()=>{
+    if(d.open) return;      // close 이벤트는 뒤늦게 온다 — 그 사이 다른 카드를 열었으면 그대로 둔다
+    const opener = ($(mod.host)||{children:[]}).children[mod.idx];
+    mod.host = null; chartHoverOff(); $('mbody').replaceChildren(); document.documentElement.classList.remove('mopen','mgut');
+    opener?.querySelector('.xpnd')?.focus();
+  });
+  window.addEventListener('resize', ()=>{ clearTimeout(resizeT); resizeT = setTimeout(modalFill, 120); });
+})();
 
 function renderAccess(J, has, cov){
   const days = daysIn(J); const last = days[days.length-1]; const d = J.daily;
@@ -574,7 +804,7 @@ function renderProgress(J, has){
       ? {level:l, rate:null, att:null, wins:wa(l), fails:null}
       : {level:l, rate:ratio(fa(l),att(l)), att:att(l), wins:wa(l), fails:fa(l)}));
     const lvfNotes = (lvf.rows.some(r=>r.rate==null)?' · 미전송 = 실패를 보내지 않는 레벨':'') + (lvf.rows.some(r=>r.level>AUTHORED_MAX)?` · LV ${AUTHORED_MAX+1}+ 는 ${LOOP_BUCKET}레벨 묶음`:'');
-    out.push(card(`레벨별 실패율 <span class="muted">${lvLabel()} · 실패 ÷ (신버전 클리어 + 실패) · 시도 있는 ${fmt.n(lvf.rows.length)}개 레벨 · 시도 ${LVF_LOW_N} 미만은 흐리게(실패율 정렬 땐 뒤로)${lvfNotes}</span>`, `<div id="lvfail">${lvfBody()}</div>`));
+    out.push(card(`레벨별 실패율 <span class="muted">${lvLabel()} · 실패 ÷ (신버전 클리어 + 실패) · 시도 있는 ${fmt.n(lvf.rows.length)}개 레벨 · 시도 ${LVF_LOW_N} 미만은 흐리게(실패율 정렬 땐 뒤로)${lvfNotes}</span>`, `<div id="lvfail" class="mfill">${lvfBody()}</div>`));
     // '실패 사유' 전 레벨 분포 카드는 제거(팀장님 지시 2026-09-13) — 실측 100% moves_zero 라 정보가 없다.
     //  레벨별 사유는 벽 TOP 10 표의 '실패 사유' 열에 남아 있다.
   } else {
