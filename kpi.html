@@ -137,6 +137,7 @@ if (GX.wantsPlain()) document.write('<script src="kpi-data.js"><\/script>');
 'use strict';
 const $ = id => document.getElementById(id), esc = GX.esc;
 GX.wireTheme($("theme")); GX.withHash();
+GX.tips();         // 카드 제목 옆 설명·타일 설명 → 느낌표 툴팁(2026-11-06)
 const fmt = {
   n: v => v == null ? "–" : Math.round(v).toLocaleString("en-US"),
   p: (v, d = 1) => v == null || !isFinite(v) ? "–" : (v * 100).toFixed(d) + "%",
@@ -155,9 +156,10 @@ const st = {from: null, to: null, os: OSN[Q.get("os")] ? Q.get("os") : "all", se
 let D = null, G = null, M = null, LO, HI, OK, CAP = {};
 
 // ── 공용 조각 ──
+// sub = 아래 줄(한눈에 읽어야 하는 숫자·모집단만) · o.tip = 정의 — 라벨 옆 느낌표 툴팁(GX.tips, 2026-11-06)
 function tile(label, value, sub, s, o = {}) {
   const meter = o.meter != null ? `<div class="meter${o.hit ? " hit" : ""}" style="width:${Math.max(0, Math.min(1, o.meter)) * 100}%"></div>` : "";
-  return `<div class="tile"><div class="k">${label} ${s ? src(s) : ""}</div><div class="v${o.hit ? " hit" : ""}">${value}</div><div class="s">${sub || ""}</div>${meter}</div>`;
+  return `<div class="tile"><div class="k">${label} ${s ? src(s) : ""}${o.tip ? ` <span class="muted">${o.tip}</span>` : ""}</div><div class="v${o.hit ? " hit" : ""}">${value}</div><div class="s">${sub || ""}</div>${meter}</div>`;
 }
 const card = (title, body, cls = "", foot = "") => `<div class="card ${cls}"><h3>${title}</h3>${body}${foot ? `<div class="foot">${foot}</div>` : ""}</div>`;
 const empty = msg => `<div class="empty">${esc(msg)}</div>`;
@@ -290,10 +292,10 @@ function renderS1() {
   const MR = masterRows(), paid = MR.filter(r => r[2] !== "Organic");
   const clk = sum(paid, r => r[4]), minst = sum(paid, r => r[5]), org = sum(MR.filter(r => r[2] === "Organic"), r => r[5]), allI = sum(MR, r => r[5]);
   let h = `<div class="tiles">`
-    + tile("광고비", fmt.usd(cost, 0), `설치일 ${days(U)}일 · Master API`, "ua")
-    + tile("설치", fmt.n(n), "원시 설치 리포트(논오가닉)", "ua")
-    + tile("CPI", fmt.usd(ratio(cost, n)), "광고비 ÷ 설치", "ua")
-    + tile("CVR (클릭 → 설치)", fmt.p(ratio(minst, clk)), `Master 클릭 ${fmt.n(clk)} · AF 귀속 클릭 기준`, "ref")
+    + tile("광고비", fmt.usd(cost, 0), `설치일 ${days(U)}일`, "ua", {tip: "Master API 광고비"})
+    + tile("설치", fmt.n(n), "", "ua", {tip: "원시 설치 리포트(논오가닉)"})
+    + tile("CPI", fmt.usd(ratio(cost, n)), "", "ua", {tip: "광고비 ÷ 설치"})
+    + tile("CVR (클릭 → 설치)", fmt.p(ratio(minst, clk)), `Master 클릭 ${fmt.n(clk)}`, "ref", {tip: "Master 설치 ÷ Master 클릭 · AF 귀속 클릭 기준"})
     + tile("오가닉 비중", fmt.p(ratio(org, allI)), `Master 설치 ${fmt.n(allI)} 중 Organic ${fmt.n(org)}`, "new")
     + `</div>`;
   // 국가별 CPI — 광고비 큰 15개국 + 기타
@@ -336,13 +338,13 @@ function renderS2() {
   // 세션 분모 = af_app_opened 를 보낸 유저 — sf 는 이 이벤트가 계측 빌드(1.5.2)부터라 활동 유저로 나누면 롤아웃 초기가 0 으로 떨어진다(09-11 iOS 세션 유저 1명)
   const ses = ratio(sum(A, r => r.ses), sum(A, r => r.ses_u));
   const rt = A.reduce((a, r) => { for (const b in r.retry || {}) { a[0] += r.retry[b][0]; a[1] += r.retry[b][1]; } return a; }, [0, 0]);
-  const T = (k, X) => tile(`D${k} 잔존`, fmt.p(X.v), X.n ? `코호트 ${fmt.n(X.n)}명 · af_login` : "성숙한 코호트 없음", "gen");
+  const T = (k, X) => tile(`D${k} 잔존`, fmt.p(X.v), X.n ? `코호트 ${fmt.n(X.n)}명` : "성숙한 코호트 없음", "gen", {tip: `설치 +${k}일에 af_login 한 비율 · 코호트 = 설치 당일 af_login`});
   let h = `<div class="tiles">` + T(1, ret(1)) + T(7, ret(7)) + T(28, ret(28))
-    + tile("인게임 진입률", fmt.p(entry.v), `UA 설치 ${fmt.n(entry.n)}명 중 설치 당일 af_login(로그인 완료)`, "new")
-    + tile("튜토리얼 완료율 (근사)", fmt.p(clr0.v), `D0 첫 클리어 — UA 설치 ${fmt.n(clr0.n)}명 중 설치 당일 1레벨 이상 클리어`, "new")
-    + tile("세션 수 (일)", fmt.f(ses, 2), `유저당 하루 평균 · af_app_opened ${fmt.n(sum(A, r => r.ses))}건`, "new")
-    + tile("코어 루프 진입률", fmt.p(L7.v), `UA 설치 ${fmt.n(L7.n)}명 · D7 안에 광고 시청 또는 결제`, "new")
-    + (CAP.fail ? tile("Fail → Retry", fmt.p(ratio(rt[1], rt[0])), `실패 ${fmt.n(rt[0])}건 중 같은 레벨 재도전(유저 1/${M.sample_mod} 표본)`, "new") : "")
+    + tile("인게임 진입률", fmt.p(entry.v), `UA 설치 ${fmt.n(entry.n)}명`, "new", {tip: "UA 설치 중 설치 당일 af_login(로그인 완료)"})
+    + tile("튜토리얼 완료율 (근사)", fmt.p(clr0.v), `UA 설치 ${fmt.n(clr0.n)}명`, "new", {tip: "D0 첫 클리어로 근사 — UA 설치 중 설치 당일 1레벨 이상 클리어"})
+    + tile("세션 수 (일)", fmt.f(ses, 2), `af_app_opened ${fmt.n(sum(A, r => r.ses))}건`, "new", {tip: "유저당 하루 평균 af_app_opened"})
+    + tile("코어 루프 진입률", fmt.p(L7.v), `UA 설치 ${fmt.n(L7.n)}명`, "new", {tip: "D7 안에 광고 시청 또는 결제한 UA 설치 비율"})
+    + (CAP.fail ? tile("Fail → Retry", fmt.p(ratio(rt[1], rt[0])), `실패 ${fmt.n(rt[0])}건`, "new", {tip: `실패 중 같은 레벨 재도전 비율(유저 1/${M.sample_mod} 표본)`}) : "")
     + `</div>`;
   // 잔존 커브(일반) · 목표 레벨 도달(일반) · 세션 일별(새로 계산)
   const ks = Array.from({length: 28}, (_, i) => i + 1), rc = ks.map(k => ret(k));
@@ -388,13 +390,13 @@ function renderS3() {
   const band = {}; for (const r of A) for (const b in r.band || {}) { const x = band[b] || (band[b] = [0, 0, 0, 0, 0, 0]); r.band[b].forEach((v, i) => x[i] += v); const t = (r.retry || {})[b]; if (t) { x[4] += t[0]; x[5] += t[1]; } }
   const tb = Object.values(band).reduce((a, x) => a.map((v, i) => v + x[i]), [0, 0, 0, 0, 0, 0]);
   let h = `<div class="tiles">`
-    + tile("광고 시청 수", fmt.f(ratio(watch, F.act), 2), `리워드 + 전면 노출 ÷ 활동 유저-일`, "new")
+    + tile("광고 시청 수", fmt.f(ratio(watch, F.act), 2), "", "new", {tip: "리워드 + 전면 노출 ÷ 활동 유저-일"})
     + tile("리워드 매출 비중", fmt.p(ratio(at(F.f.rewarded, 1), revAll)), `리워드 ${fmt.usd(at(F.f.rewarded, 1), 0)} / 광고 ${fmt.usd(revAll, 0)}`, "new")
     + tile("전면 매출 비중", fmt.p(ratio(at(F.f.interstitial, 1), revAll)), `전면 ${fmt.usd(at(F.f.interstitial, 1), 0)}`, "new")
-    + (CAP.banner ? tile("배너 매출 비중", fmt.p(ratio(at(F.f.banner, 1), revAll)), `배너 ${fmt.usd(at(F.f.banner, 1), 0)}${CAP.hiddenBanner ? " · 화면에 안 보이는 자동 갱신" : ""}`, "new")
+    + (CAP.banner ? tile("배너 매출 비중", fmt.p(ratio(at(F.f.banner, 1), revAll)), `배너 ${fmt.usd(at(F.f.banner, 1), 0)}`, "new", CAP.hiddenBanner ? {tip: "화면에 안 보이는 자동 갱신 배너"} : {})
         : tile("배너 매출 비중", "–", "이 게임은 배너 광고 단위가 없다", "new"))
-    + (CAP.fail ? tile("레벨 실패율", fmt.p(ratio(tb[3], tb[0] + tb[3])), `실패 ÷ (클리어 + 실패) · 실패 ${fmt.n(tb[3])}${CAP.partial}`, "new") : "")
-    + (CAP.ach ? tile("평균 시도 / 클리어", fmt.f(ratio(tb[1], tb[2]), 2), `클리어 때 attempt_count 평균 · 클리어 ${fmt.n(tb[2])}${CAP.partial}`, "new") : "")
+    + (CAP.fail ? tile("레벨 실패율", fmt.p(ratio(tb[3], tb[0] + tb[3])), `실패 ${fmt.n(tb[3])}${CAP.partial}`, "new", {tip: "실패 ÷ (클리어 + 실패) — 이벤트 기준"}) : "")
+    + (CAP.ach ? tile("평균 시도 / 클리어", fmt.f(ratio(tb[1], tb[2]), 2), `클리어 ${fmt.n(tb[2])}${CAP.partial}`, "new", {tip: "클리어 때 attempt_count 평균"}) : "")
     + `</div>`;
   const order = ["rewarded", "interstitial", "banner", "other"].filter(k => F.f[k]);
   const fT = order.length ? table(["형식", "노출", "노출 / 활동 유저-일", "시청 유저 비율", "매출", "eCPM", "매출 비중"],
@@ -438,13 +440,13 @@ function renderS4() {
     + RK.map(([k, X, AF]) => { const V = hasAll() ? AF.v : X.v;     // 값 = 오가닉 포함, 부제 끝 = 참고 광고 유저만
         return tile(`D${k} ROAS · ${mainName()}`, fmt.p(V), (X.n ? `설치 ${fmt.n(X.n)}명 · 광고비 ${fmt.usd(X.cost, 0)}` : "매출 관측 전")
           + (hasAll() && X.v != null ? `<br>참고 · ${PAID} ${fmt.p(X.v)}` : ""), "ua", {meter: V, hit: V >= 1}); }).join("")
-    + tile("ARPDAU", fmt.usd(ratio(iapA + iaaA, sum(AA, r => r.act)), 3), `(IAP + 광고 전 형식) ÷ 활동 유저-일`, "new")
-    + tile("일 결제율", fmt.p(ratio(sum(A, r => r.payers), sum(A, r => r.act)), 2), `결제자 ÷ 활동 유저 (하루 평균)`, "new")
-    + tile("D7 결제 전환", fmt.p(pay7.v, 2), pay7.n ? `코호트 ${fmt.n(pay7.n)}명 · 설치 후 7일 안 첫 결제` : "성숙한 코호트 없음", "gen")
-    + tile("D7 ARPPU", fmt.usd(arppu7.v), "D7 누적 IAP ÷ D7 결제자", "gen")
-    + tile("IAP 비중", fmt.p(ratio(iapA, iapA + iaaA)), `IAP ${fmt.usd(iapA, 0)} · 광고 매출 도착일만`, "new")
-    + tile("IAA 비중", fmt.p(ratio(iaaA, iapA + iaaA)), `광고 ${fmt.usd(iaaA, 0)} (배너 포함)`, "new")
-    + tile("광고제거 상품 비중", fmt.p(ratio(noad, iapAll)), `IAP 중 noad 계열 ${fmt.usd(noad, 0)}`, "new")
+    + tile("ARPDAU", fmt.usd(ratio(iapA + iaaA, sum(AA, r => r.act)), 3), "", "new", {tip: "(IAP + 광고 전 형식) ÷ 활동 유저-일"})
+    + tile("일 결제율", fmt.p(ratio(sum(A, r => r.payers), sum(A, r => r.act)), 2), "", "new", {tip: "결제자 ÷ 활동 유저 (하루 평균)"})
+    + tile("D7 결제 전환", fmt.p(pay7.v, 2), pay7.n ? `코호트 ${fmt.n(pay7.n)}명` : "성숙한 코호트 없음", "gen", {tip: "설치 후 7일 안 첫 결제 비율"})
+    + tile("D7 ARPPU", fmt.usd(arppu7.v), "", "gen", {tip: "D7 누적 IAP ÷ D7 결제자"})
+    + tile("IAP 비중", fmt.p(ratio(iapA, iapA + iaaA)), `IAP ${fmt.usd(iapA, 0)}`, "new", {tip: "IAP ÷ (IAP + 광고) · 광고 매출이 도착한 날만"})
+    + tile("IAA 비중", fmt.p(ratio(iaaA, iapA + iaaA)), `광고 ${fmt.usd(iaaA, 0)}`, "new", {tip: "광고 ÷ (IAP + 광고) · 배너 포함"})
+    + tile("광고제거 상품 비중", fmt.p(ratio(noad, iapAll)), `noad 계열 ${fmt.usd(noad, 0)}`, "new", {tip: "IAP 중 광고제거(noad) 계열 상품 매출 비중"})
     + `</div>`;
   const K = Array.from({length: M.roas_max + 1}, (_, k) => k), rc = K.map(k => roasK(U, k)), ac = K.map(k => afK(AFR, k));
   const roasC = lineChart(hasAll() ? [{name: `ROAS (${ALL})`, color: "var(--c1)", points: ac.map(x => x.v), tips: rc.map(x => `광고 설치 ${fmt.n(x.n)}명`)},
@@ -480,10 +482,10 @@ function renderS5() {
   const be = mc.findIndex(x => x.v != null && x.v >= 1), lastK = (() => { for (let k = K.length - 1; k >= 0; k--) if (mc[k].v != null) return k; return -1; })();
   const garpu = K.map(k => genK(R, k, (r, k) => at(r.iap, k) + at(r.iaa, k), r => r.n, true));
   let h = `<div class="tiles">`
-    + tile("관측 LTV D7", fmt.usd(lv[7].v, 3), lv[7].n ? `UA 설치 ${fmt.n(lv[7].n)}명 · 누적 매출 ÷ 설치` : "매출 관측 전", "ua")
-    + tile("관측 LTV D28", fmt.usd(lv[28].v, 3), lv[28].n ? `UA 설치 ${fmt.n(lv[28].n)}명` : "D28 성숙 설치일 없음", "ua")
-    + tile(`Break-even Day · ${mainName()}`, be >= 0 ? `D${be}` : "미도달", be >= 0 ? `ROAS 100% 첫 도달 · 설치 ${fmt.n(rc[be].n)}명` : (lastK >= 0 ? `D${lastK} 까지 최고 ${fmt.p(Math.max(...mc.filter(x => x.v != null).map(x => x.v)))}` : "매출 관측 전"), "new", {hit: be >= 0})
-    + tile("D28 누적 ARPU (전체 신규)", fmt.usd(garpu[28].v, 3), garpu[28].n ? `일반 코호트 ${fmt.n(garpu[28].n)}명 · IAP + 광고(배너 제외)` : "D28 성숙 코호트 없음", "gen")
+    + tile("관측 LTV D7", fmt.usd(lv[7].v, 3), lv[7].n ? `UA 설치 ${fmt.n(lv[7].n)}명` : "매출 관측 전", "ua", {tip: "설치 후 7일까지 누적 매출 ÷ 설치"})
+    + tile("관측 LTV D28", fmt.usd(lv[28].v, 3), lv[28].n ? `UA 설치 ${fmt.n(lv[28].n)}명` : "D28 성숙 설치일 없음", "ua", {tip: "설치 후 28일까지 누적 매출 ÷ 설치"})
+    + tile(`Break-even Day · ${mainName()}`, be >= 0 ? `D${be}` : "미도달", be >= 0 ? `설치 ${fmt.n(rc[be].n)}명` : (lastK >= 0 ? `D${lastK} 까지 최고 ${fmt.p(Math.max(...mc.filter(x => x.v != null).map(x => x.v)))}` : "매출 관측 전"), "new", {hit: be >= 0, tip: "ROAS 100% 에 처음 닿은 설치 후 일수"})
+    + tile("D28 누적 ARPU (전체 신규)", fmt.usd(garpu[28].v, 3), garpu[28].n ? `일반 코호트 ${fmt.n(garpu[28].n)}명` : "D28 성숙 코호트 없음", "gen", {tip: "설치 후 28일까지 IAP + 광고(배너 제외) ÷ 코호트"})
     + `</div>`;
   const ltvC = lineChart([{name: "UA 설치 (누적 매출 ÷ 설치)", color: "var(--c1)", points: lv.map(x => x.v), tips: lv.map(x => `설치 ${fmt.n(x.n)}명`)},
     {name: "일반 코호트 (누적 ARPU)", color: "var(--c2)", points: garpu.map(x => x.v), tips: garpu.map(x => `코호트 ${fmt.n(x.n)}명`)}], {labels: K.map(k => "D" + k), yfmt: v => fmt.usd(v, 2), title: "LTV 곡선"});

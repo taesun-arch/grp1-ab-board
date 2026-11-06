@@ -81,5 +81,70 @@ window.GX = (function(){
     return `<button class="gx-game" type="button" role="tab" aria-selected="${!!selected}" data-g="${esc(key)}" style="--gc:${g.color || 'var(--accent)'}">`
       + (g.icon ? `<img src="${g.icon}" alt="">` : '') + esc(name || g.name || key) + `</button>`;
   };
-  return {GAMES, wireTheme, withHash, hero, posterBtn, esc, rememberGame, lastGame, prehero, b64, wantsPlain};
+  // ── 설명 툴팁(2026-11-06) — 카드 제목 옆 회색 설명(.card > h3 > span.muted)·카드 각주(.card > .foot)·타일 설명(.tile > .k > span.muted)을 느낌표 버튼 뒤로 숨긴다.
+  //    누르면(터치 = 클릭) 상자가 뜨고, 같은 버튼·상자 밖 아무 곳·Esc·스크롤·창 크기 변경이면 닫힌다. 한눈에 필요한 짧은 값은 span.muted.keep 으로 남긴다.
+  //    보드는 렌더마다 innerHTML 을 갈아끼우므로 MutationObserver 로 새로 생긴 것만 바꾼다. 글은 DOM 에 숨김으로 남는다(크게 보기 복제·화면 테스트가 읽는다).
+  //    보드가 GX.tips() 를 불러야 켜진다(일반·KPI·ROAS 예측). 크게 보기 모달(<dialog>)은 최상위 층이라 상자도 그 안에 띄운다.
+  function tips(){
+    if (tips.on) return; tips.on = true;
+    const SEL = '.card > h3 > span.muted:not(.keep):not(.gx-tip), .card > .foot:not(.keep):not(.gx-tip), .tile > .k > span.muted:not(.keep):not(.gx-tip)';
+    // 버튼 자리 = 제목(h3)·타일 라벨(.k). 카드 각주는 그 카드 제목의 버튼이 같이 띄운다.
+    const hostOf = (s) => s.classList.contains('foot') ? s.parentElement.querySelector(':scope > h3') : s.parentElement;
+    const tipsOf = (host) => [...host.querySelectorAll(':scope > .gx-tip'),
+      ...(host.tagName === 'H3' && host.parentElement ? host.parentElement.querySelectorAll(':scope > .foot.gx-tip') : [])];
+    const convert = () => {
+      const fresh = document.querySelectorAll(SEL);
+      if (!fresh.length) return;
+      const hosts = new Set();
+      fresh.forEach(s => { s.classList.add('gx-tip'); const h = hostOf(s); if (h) hosts.add(h); });
+      hosts.forEach(h => {
+        if (h.querySelector(':scope > .gx-i')) return;
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'gx-i'; b.setAttribute('aria-label', '설명 보기'); b.setAttribute('aria-expanded', 'false');
+        // 제목(h3) = 설명 바로 앞(제목 글·출처 꼬리표 뒤, ◌ 표시·도구보다 앞) — 설명이 없으면(각주만) 맨 끝.
+        // 타일 라벨 = 라벨 글 바로 뒤(출처 꼬리표 앞) — KPI 타일은 라벨 + 꼬리표 + 버튼이 한 줄에 안 들어가 버튼만 다음 줄로 밀렸다(11-06)
+        const at = h.tagName === 'H3' ? h.querySelector(':scope > .gx-tip') : h.firstElementChild;
+        h.insertBefore(b, at);
+      });
+    };
+    let pop = null, opener = null;
+    const close = () => {
+      if (opener) opener.setAttribute('aria-expanded', 'false');
+      opener = null; if (pop) pop.hidden = true;
+    };
+    const open = (b) => {
+      close();
+      const host = b.parentElement;
+      const parts = tipsOf(host).map(s => s.innerHTML.trim()).filter(Boolean);
+      if (!parts.length) return;
+      if (!pop) { pop = document.createElement('div'); pop.className = 'gx-pop'; pop.setAttribute('role', 'tooltip'); pop.hidden = true; }
+      const layer = b.closest('dialog[open]') || document.body;               // 모달 안이면 모달 안에(최상위 층 위로)
+      if (pop.parentElement !== layer) layer.appendChild(pop);
+      const title = [...host.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();
+      pop.innerHTML = (title ? `<div class="gx-pop-h">${esc(title)}</div>` : '') + parts.join('<br>');
+      pop.hidden = false;
+      // 보이는 폭 기준 — 폰 폭에서 넓은 표 때문에 문서가 가로로 넘치면 innerWidth 가 커진다(390px 화면에서 575, 11-06 실측) → clientWidth
+      const de = document.documentElement, VW = de.clientWidth || innerWidth, VH = de.clientHeight || innerHeight;
+      pop.style.maxWidth = Math.min(380, VW - 32) + 'px';
+      const r = b.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight, M = 16;
+      const left = Math.max(M, Math.min(VW - w - M, r.left - 12));
+      const top = r.bottom + 6 + h > VH - 8 && r.top - 6 - h > 8 ? r.top - 6 - h : r.bottom + 6;   // 아래가 모자라면 위로
+      pop.style.left = left + 'px'; pop.style.top = top + 'px';
+      opener = b; b.setAttribute('aria-expanded', 'true');
+    };
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('.gx-i');
+      if (b) { e.preventDefault(); e.stopPropagation(); if (b === opener) close(); else open(b); return; }
+      if (opener && !(pop && pop.contains(e.target))) close();              // 상자 밖 아무 곳
+    }, true);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && opener) close(); });
+    addEventListener('scroll', () => { if (opener) close(); }, true);
+    addEventListener('resize', () => { if (opener) close(); });
+    const start = () => {
+      convert();
+      new MutationObserver(() => { convert(); if (opener && !opener.isConnected) close(); }).observe(document.body, {childList: true, subtree: true});
+    };
+    if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+  }
+  return {GAMES, wireTheme, withHash, hero, posterBtn, esc, rememberGame, lastGame, prehero, b64, wantsPlain, tips};
 })();

@@ -90,6 +90,7 @@ table.ret th{position:sticky;top:0;background:var(--card)} table.ret td.cell{tex
 table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border-bottom:2px solid var(--line)} table.ret td.n{color:var(--ink-2)}
 /* 레벨별 실패율 표 — 머리글이 정렬 버튼 · 시도 적은 행은 흐리게 · 넓은 구간은 쪽 이동 */
 .lvf th button{border:0;background:transparent;padding:0;font:inherit;color:inherit} .lvf th[aria-sort] button{color:var(--ink);font-weight:600} .lvf tr.lown td{opacity:.5} .lvf td.lowc{opacity:.5}
+.lvf tbody tr[data-lvt]{cursor:pointer} .lvf tbody tr[data-lvt]:hover td{background:var(--chip)} .lvf tbody tr.sel td{background:var(--chip);box-shadow:inset 0 -1px 0 var(--accent)}   /* 행 = 레벨 추이 선택 */
 .lvfbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px} .lvfbar .seg button:disabled{opacity:.4;cursor:default}
 .tools{display:inline-flex;gap:8px;align-items:center;margin-left:auto} .tools select{background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:2px 6px;font-size:12px;color:var(--ink)}
 /* 헤더의 도구 버튼은 float 이라, 헤더가 플로트를 품지 않으면 뒤따르는 표(.tscroll = BFC)가 그 폭을 피해 줄어든다
@@ -252,9 +253,30 @@ const lvLabel = ()=>lvr.key==='all'?'전 레벨':(lvr.max==null?`LV ${lvr.min}+`
 const LVF_PAGE = 100, LVF_LOW_N = 20;
 const LVF_FAIL_COLS = [['level','레벨',1],['rate','실패율',-1],['plays','판',-1],['fplays','실패한 판',-1],['cont','이어하기 후 클리어',-1]];   // [키, 머리글, 첫 클릭 방향]
 const LVF_STOP_COLS = [['stop','정지율',-1],['stopn','판정 유저',-1]];
-const lvf = {sort:'level', dir:1, page:0, scope:null, rows:[], cols:[...LVF_FAIL_COLS, ...LVF_STOP_COLS], sd:7};   // sd = 정지 판정 일수(meta.stop_days)
+const lvf = {sort:'level', dir:1, page:0, scope:null, rows:[], cols:[...LVF_FAIL_COLS, ...LVF_STOP_COLS], sd:7, stopPer:false};   // sd = 정지 판정 일수(meta.stop_days) · stopPer = 기간 정지율(도착 기준)
+// 기간 정지율(2026-11-06) — 산출 stop_daily {도착일: {레벨키: [도착 iOS·AOS, 다시 안 들어옴 iOS·AOS, 1일 뒤 복귀 iOS·AOS, 2일 뒤 …]}}(뒤쪽 0 잘림).
+// 기간 [F, T] 에 도착한 유저 중 정지 = 다시 안 들어옴 + T 보다 뒤에 복귀(도착일 a 이면 T−a 일 뒤보다 늦게). 반환 {레벨키: [도착, 정지]}(OS 칩 반영).
+const dayNum = (d)=>Math.round(Date.parse(d+'T00:00:00Z')/864e5);
+const dayStr = (n)=>new Date(n*864e5).toISOString().slice(0,10);
+function stopPeriod(S, F, T, only=null){                                                  // only = 레벨키 하나만(레벨 추이 카드)
+  const out = {}, Tn = dayNum(T);
+  for(const a in S){
+    if(a<F || a>T) continue;
+    const gap = Tn - dayNum(a), row = S[a];
+    for(const k of (only==null ? Object.keys(row) : (row[only] ? [String(only)] : []))){
+      const x = row[k], c = out[k] || (out[k] = [0, 0]);
+      c[0] += osPick([x[0]||0, x[1]||0]);
+      let q = osPick([x[2]||0, x[3]||0]);
+      for(let i = 2+2*(gap+1); i < x.length; i += 2) q += osPick([x[i]||0, x[i+1]||0]);    // T 뒤 복귀 = 기간 안에는 다시 안 들어옴
+      c[1] += q;
+    }
+  }
+  return out;
+}
 function lvfSetRows(rows, fail){
-  lvf.cols = fail ? [...LVF_FAIL_COLS, ...LVF_STOP_COLS] : [LVF_FAIL_COLS[0], ...LVF_STOP_COLS];
+  // 정지율 분모 머리글 — 기간이면 '도착 유저'(기간 안 도착), 아니면 '판정 유저'(온 지 7일+)
+  const stopCols = LVF_STOP_COLS.map(c=>c[0]==='stopn' && lvf.stopPer ? ['stopn','도착 유저',c[2]] : c);
+  lvf.cols = fail ? [...LVF_FAIL_COLS, ...stopCols] : [LVF_FAIL_COLS[0], ...stopCols];
   if(!lvf.cols.some(c=>c[0]===lvf.sort)){ lvf.sort = 'level'; lvf.dir = 1; }   // 실패 열이 없는 게임으로 바뀌면 레벨순
   const scope = [game, coh.os, lvr.min, lvr.max, rng.from, rng.to].join('|');
   if(scope!==lvf.scope){ lvf.scope = scope; lvf.page = 0; }     // 게임·OS·구간·기간이 바뀌면 첫 쪽으로(정렬은 유지)
@@ -268,20 +290,26 @@ function lvfCell(k, r){
   if(k==='plays' || k==='fplays') return `<td class="num">${r[k]==null?'–':fmt.n(r[k])}</td>`;
   if(k==='cont') return `<td class="num">${r.cont==null ? '–' : `<span title="이어하기 후 클리어 ${fmt.n(r.cw)} / 실패한 판 ${fmt.n(r.fplays)}">${fmt.p(r.cont)}</span>`}</td>`;
   if(k==='stop') return r.stop==null ? '<td class="num">–</td>'
-    : `<td class="num${r.stopn<LVF_LOW_N?' lowc':''}"><span title="정지 ${fmt.n(r.sq)} / 판정 ${fmt.n(r.stopn)}(안 멈춤 ${fmt.n(r.stopn-r.sq)}) · 보류(온 지 ${lvf.sd}일 안 됨) ${fmt.n(r.sw)}">${fmt.p(r.stop)}</span> ${hbar(r.stop,1)}</td>`;
+    : `<td class="num${r.stopn<LVF_LOW_N?' lowc':''}"><span title="${lvf.stopPer ? `정지 ${fmt.n(r.sq)} / 기간 안 도착 ${fmt.n(r.stopn)} — 기간 끝까지 다시 안 들어온 유저`
+        : `정지 ${fmt.n(r.sq)} / 판정 ${fmt.n(r.stopn)}(안 멈춤 ${fmt.n(r.stopn-r.sq)}) · 보류(온 지 ${lvf.sd}일 안 됨) ${fmt.n(r.sw)}`}">${fmt.p(r.stop)}</span> ${hbar(r.stop,1)}</td>`;
   return `<td class="num">${fmt.n(r.stopn)}</td>`;
+}
+function lvfSorted(){
+  const {rows, sort, dir} = lvf;
+  // 값이 없는 칸(실패 미전송·실패한 판 없음·정지 판정 없음)은 방향과 무관하게 맨 뒤. 비율 정렬에서는 분모가 적은 행도 뒤로 — 1판 1실패(100%)가 벽을 덮지 않게
+  // (co 실측: 상위 20행 중 17행이 시도 20 미만).
+  const rank = (r)=> r[sort]==null ? 2 : (LVF_LOW[sort] && LVF_LOW[sort](r) ? 1 : 0);
+  return rows.slice().sort((a,b)=> rank(a)-rank(b) || (a[sort]-b[sort])*dir || a.level-b.level);
 }
 function lvfBody(){
   const {rows, sort, dir, cols} = lvf;
   if(!rows.length) return empty('이 구간·기간에 값이 있는 레벨 없음');
-  // 값이 없는 칸(실패 미전송·실패한 판 없음·정지 판정 없음)은 방향과 무관하게 맨 뒤. 비율 정렬에서는 분모가 적은 행도 뒤로 — 1판 1실패(100%)가 벽을 덮지 않게
-  // (co 실측: 상위 20행 중 17행이 시도 20 미만).
-  const rank = (r)=> r[sort]==null ? 2 : (LVF_LOW[sort] && LVF_LOW[sort](r) ? 1 : 0);
-  const sorted = rows.slice().sort((a,b)=> rank(a)-rank(b) || (a[sort]-b[sort])*dir || a.level-b.level);
+  const sorted = lvfSorted();
   const pages = Math.ceil(sorted.length/LVF_PAGE); lvf.page = Math.min(lvf.page, pages-1);
   const from = lvf.page*LVF_PAGE, shown = sorted.slice(from, from+LVF_PAGE);
-  const th = cols.map(([k,nm])=>`<th ${k===sort?`aria-sort="${dir>0?'ascending':'descending'}"`:''}><button type="button" data-lvf-sort="${k}">${nm}${k==='stop'&&rangeOn()?' ◌':''}${k===sort?(dir>0?' ▲':' ▼'):''}</button></th>`).join('');
-  const tr = shown.map(r=>`<tr class="${r.plays>0 && r.plays<LVF_LOW_N?'lown':''}">${cols.map(([k])=>lvfCell(k, r)).join('')}</tr>`).join('');
+  const th = cols.map(([k,nm])=>`<th ${k===sort?`aria-sort="${dir>0?'ascending':'descending'}"`:''}><button type="button" data-lvf-sort="${k}">${nm}${k==='stop'&&rangeOn()&&!lvf.stopPer?' ◌':''}${k===sort?(dir>0?' ▲':' ▼'):''}</button></th>`).join('');
+  // 행을 누르면 아래 '레벨 추이' 카드가 그 레벨로 바뀐다(고른 행 = sel)
+  const tr = shown.map(r=>`<tr class="${[r.plays>0 && r.plays<LVF_LOW_N?'lown':'', r.level===lvt.level?'sel':''].join(' ').trim()}" data-lvt="${r.level}">${cols.map(([k])=>lvfCell(k, r)).join('')}</tr>`).join('');
   const pager = pages>1 ? `<div class="lvfbar"><span class="muted small">${fmt.n(from+1)}–${fmt.n(from+shown.length)} / ${fmt.n(sorted.length)}개 레벨</span><span class="seg"><button type="button" data-lvf-page="-1" ${lvf.page?'':'disabled'}>이전</button><button type="button" data-lvf-page="1" ${lvf.page<pages-1?'':'disabled'}>다음</button></span></div>` : '';
   return `${pager}<div class="tscroll"><table class="ret lvf"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
 }
@@ -292,6 +320,42 @@ document.addEventListener('click', (e)=>{
     lvf.page = 0;
   } else lvf.page += Number(b.dataset.lvfPage);
   $('lvfail').innerHTML = lvfBody();
+  modalFill(false);
+});
+// ── 레벨 추이(2026-11-06) — 전체 표에서 고른 레벨의 날짜별 실패율(그날 시작한 판). 기간·OS 칩을 따른다.
+//    스테이지를 바꾼 날 앞뒤 변화를 한 그래프로 보려는 카드. 판이 없는 날은 0% 가 아니라 빈칸(선이 끊긴다).
+const lvt = {level:null, ctx:null}, LVT_WIN = 7;                                         // LVT_WIN = 정지율 선의 창(일)
+function lvtCard(){
+  const X = lvt.ctx; if(!X || lvt.level==null) return '';
+  const {J, days} = X, l = lvt.level, lbl = lvKeyLabel(l), labels = days.map(d=>d.slice(5));
+  const pick = (x, i)=>osPick([x[i]||0, x[i+1]||0]);
+  const fail = days.map(d=>{ const x = ((J.plays_daily||{})[d]||{})[l]; const n = x ? pick(x,0) : 0; return n>0 ? {n, f:pick(x,2)} : null; });
+  const series = [], tips = days.map(()=>[]);
+  if(X.hasFail){
+    series.push({name:'실패율(그날 시작한 판)', color:'var(--c5)', points:days.map((d,i)=>[labels[i], fail[i] ? fail[i].f/fail[i].n : null])});
+    fail.forEach((v,i)=>tips[i].push(v ? `판 ${fmt.n(v.n)} · 실패한 판 ${fmt.n(v.f)}` : '그날 판 없음'));
+  }
+  // 정지율(7일 창) — 그날까지 7일 동안 이 레벨에 도착한 유저 중 그날까지 다시 안 들어온 유저. 창 길이가 같아 날짜끼리 비교된다.
+  // 데이터 첫날부터 7일이 다 차지 않은 날은 빈칸(짧은 창은 값이 다른 뜻이 된다).
+  if(X.hasStop){
+    const firstN = dayNum(X.first);
+    const st = days.map(d=>{ const tn = dayNum(d); if(tn-(LVT_WIN-1) < firstN) return null;
+      const c = stopPeriod(J.stop_daily, dayStr(tn-(LVT_WIN-1)), d, l)[l]; return c && c[0]>0 ? {n:c[0], q:c[1]} : null; });
+    series.push({name:`정지율(그날까지 ${LVT_WIN}일 도착)`, color:'var(--c4)', points:days.map((d,i)=>[labels[i], st[i] ? st[i].q/st[i].n : null])});
+    st.forEach((v,i)=>tips[i].push(v ? `${LVT_WIN}일 도착 ${fmt.n(v.n)} · 정지 ${fmt.n(v.q)}` : `${LVT_WIN}일 창 없음`));
+  }
+  const vals = series.flatMap(s=>s.points.map(p=>p[1])).filter(v=>v!=null);
+  const ymax = vals.length ? Math.min(1, Math.max(0.05, ...vals)*1.15) : 1;
+  const sub = `LV ${lbl} · 표에서 레벨을 누르면 바뀐다 · ${days.length}일${X.hasFail?' · 실패율 = 그날 시작한 판 중 실패한 판(판 없는 날은 빈칸)':''}`
+    + (X.hasStop ? ` · 정지율 = 그날까지 ${LVT_WIN}일 동안 도착한 유저 중 그날까지 다시 안 들어온 유저(창 끝 무렵 도착자 몫만큼 높게 나온다 — 날짜끼리는 같은 조건)` : '');
+  return card(`레벨 추이 <span class="muted">${sub}</span>`,
+    vals.length ? lineChart(series, {labels, ymax, yfmt:(v)=>fmt.p(v,0), tips:tips.map(t=>t.join(' · '))}) : empty(`LV ${lbl} — 이 기간에 값이 있는 날이 없음`), '', ' data-lvtc');
+}
+document.addEventListener('click', (e)=>{
+  const tr = e.target.closest('tr[data-lvt]'); if(!tr || e.target.closest('button')) return;
+  lvt.level = Number(tr.dataset.lvt);
+  $('lvfail').innerHTML = lvfBody();
+  const c = document.querySelector('#progress [data-lvtc]'); if(c) c.outerHTML = lvtCard();
   modalFill(false);
 });
 // ── 레벨 축 재분할 — 선택 구간의 약 1/10 폭, 단 **10의 배수**(팀장님 지시). 데이터는 10레벨 고정 폭으로 와서 병합만 한다.
@@ -462,8 +526,11 @@ function chartParts(c, G){
   let xl='', marks='';
   if(line){
     o.labels.forEach((lb,i)=>{ if(G.showX(i,n)) xl+=(G.vgrid?`<line class="grid" x1="${xs(i)}" x2="${xs(i)}" y1="${T}" y2="${H-B}"/>`:'')+`<text x="${xs(i)}" y="${labelY}" text-anchor="middle">${esc(lb)}</text>`; });
-    marks = c.series.map(s=>{ const d=s.points.map((p,i)=>(i?'L':'M')+xs(i).toFixed(1)+' '+ys(p[1]).toFixed(1)).join(' ');
-      const dots=s.points.map((p,i)=>`<circle cx="${xs(i).toFixed(1)}" cy="${ys(p[1]).toFixed(1)}" r="${G.r}" fill="${s.color}"/>`).join('');
+    // y 가 null 인 점(그날 값 없음 — 레벨 추이 카드)은 건너뛰고 선을 끊는다. 0 으로 그리면 '실패율 0%' 로 읽힌다.
+    marks = c.series.map(s=>{ const seg=[]; let pen=false;
+      s.points.forEach((p,i)=>{ if(p[1]==null){ pen=false; return; } seg.push((pen?'L':'M')+xs(i).toFixed(1)+' '+ys(p[1]).toFixed(1)); pen=true; });
+      const d=seg.join(' ');
+      const dots=s.points.map((p,i)=>p[1]==null?'':`<circle cx="${xs(i).toFixed(1)}" cy="${ys(p[1]).toFixed(1)}" r="${G.r}" fill="${s.color}"/>`).join('');
       return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>${dots}`; }).join('');
   } else {
     marks = c.items.map((it,i)=>{const h=(H-T-B)*(it.value||0)/ymax; const x=L+bw*i+bw*0.15; const lbl=G.showX(i,n)?`<text x="${L+bw*i+bw/2}" y="${labelY}" text-anchor="middle">${esc(it.label)}</text>`:'';
@@ -513,8 +580,9 @@ function table(cols, rows, opts={}){
 }
 // 그래프·표가 있는 카드만 크게 보기 아이콘을 단다('없음' 문구뿐인 빈 카드는 볼 것이 없다)
 const XPND = '<button type="button" class="xpnd" data-xpnd title="크게 보기" aria-label="크게 보기"></button>';
-const card = (title, body, cls='') => `<div class="card ${cls}"><h3>${title}</h3>${/<svg|<table|class="heat"/.test(body)?XPND:''}${body}</div>`;
-const tile = (k, v, s='') => `<div class="tile"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`;
+const card = (title, body, cls='', attrs='') => `<div class="card ${cls}"${attrs}><h3>${title}</h3>${/<svg|<table|class="heat"/.test(body)?XPND:''}${body}</div>`;
+// s = 아래 줄(한눈에 읽어야 하는 숫자만) · tip = 정의·주의 — 라벨 옆 느낌표 툴팁(GX.tips, 2026-11-06)
+const tile = (k, v, s='', tip='') => `<div class="tile"><div class="k">${k}${tip?` <span class="muted">${tip}</span>`:''}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`;
 const empty = (msg) => `<div class="empty">${esc(msg)}</div>`;
 // 게임이 보내지 않는 이벤트·파라미터(meta.not_sent, config.GAMES[..].not_sent) — 빈 카드에 '아직 없음' 대신 이 사유를 띄운다
 const notSent = (J, name)=> (J.meta.not_sent||[]).includes(name);
@@ -523,6 +591,16 @@ const notSentMsg = (J, name)=>`${name} — ${(J.meta.not_sent_why||{})[name] || 
 // af_login 에 max_level 스냅샷이 없는 게임(cl) — 레벨 = 그날까지 최고 클리어, 설치 며칠차 = Install Time
 const noSnap = (J)=> J.meta.login_payload===false;
 const ratio = (a,b)=> b>0 ? a/b : null;
+// 소수 첫째 자리 반올림 — 파이썬 round(x, 1) 과 같게 정확히 반이면 짝수 쪽(0.25 → 0.2, 0.75 → 0.8). 퍼센타일 보간값은 0.25 배수라 반이 실제로 나온다.
+const round1 = (x)=>{ const y = x*10, f = Math.floor(y); return (y-f===0.5 ? (f%2===0 ? f : f+1) : Math.round(y))/10; };
+// 분포 {값: 명} 의 p25·p50·p75 — metrics._pct 와 같은 선형 보간(정렬 목록을 펼치지 않고 위치로 찾는다)
+function histPct(h){
+  const xs = Object.entries(h).filter(([,c])=>c>0).map(([k,c])=>[+k,c]).sort((a,b)=>a[0]-b[0]);
+  const n = xs.reduce((a,[,c])=>a+c,0); if(!n) return {n:0};
+  const at = (idx)=>{ let acc = 0; for(const [v,c] of xs){ acc += c; if(idx<acc) return v; } return xs[xs.length-1][0]; };
+  const q = (p)=>{ const i = (n-1)*p, lo = Math.floor(i), hi = Math.min(lo+1, n-1), a = at(lo); return round1(a+(at(hi)-a)*(i-lo)); };
+  return {n, p25:q(.25), p50:q(.5), p75:q(.75)};
+}
 
 // ── OS 펼치기 — 산출은 모든 숫자를 [ios, aos] 쌍으로 담는다(전체 = 두 슬롯 합).
 //    고른 OS 로 **스칼라 사본**을 만들어 기존 카드 코드가 그대로 돌게 한다. 일반 재귀 변환은 쌍과 진짜 배열
@@ -545,6 +623,9 @@ function osView(J){
     // 고른 날짜만 renderProgress 가 OS 로 펼친다(매 렌더 전체를 펼치면 sf 구간 변경 +18ms·기간 변경 +26ms, 2026-11-05 실측).
     // 판 집계 전 산출이면 null — 실패율 표가 이벤트 기준으로 몰래 되돌아가지 않고 안내를 띄운다
     plays_daily: J.plays_daily || null,
+    // 기간 칩용 분해(2026-11-06) — 원 배열 그대로(고른 날짜만 renderProgress 가 OS 로 펼친다). 재집계 전 산출이면 null → 전체 기간 값 + ◌
+    wall_daily: J.wall_daily || null,                // {churn|stuck3: {레벨키: [[실패일, 다음 실패일, …쌍]]}}
+    stop_daily: J.stop_daily || null,                // {도착일: {레벨키: [도착, 안 들어옴, 1일 뒤 복귀, …]}}
     integrity: Object.assign({}, J.integrity, {observed:P(J.integrity.observed), lost:P(J.integrity.lost),
       by_level:M(J.integrity.by_level||{}, (x)=>[P(x[0]), P(x[1])]),
       by_app_version:M(J.integrity.by_app_version||{}, (x)=>[P(x[0]), P(x[1])])}),
@@ -605,7 +686,7 @@ const hov = {svg:null, i:-1}; let lastPt = null;
 function chartTipHtml(c, i){
   const o = c.opts, val = (v)=>o.yfmt?o.yfmt(v):fmt.n(v);
   if(c.kind==='bar'){ const it = c.items[i]; return `<div class="chth">${esc(it.title||it.label+': '+val(it.value))}</div>`; }
-  const rows = c.series.map(s=>{ const p = s.points[i]; return `<div class="chtr"><i style="background:${s.color}"></i><span>${esc(s.name)}</span> <b>${p?val(p[1]):'–'}</b></div>`; }).join(' ');
+  const rows = c.series.map(s=>{ const p = s.points[i]; return `<div class="chtr"><i style="background:${s.color}"></i><span>${esc(s.name)}</span> <b>${p&&p[1]!=null?val(p[1]):'–'}</b></div>`; }).join(' ');
   return `<div class="chth">${esc(o.labels[i])}</div> ${rows}${o.tips&&o.tips[i]?` <div class="chts">${esc(o.tips[i])}</div>`:''}`;
 }
 function chartHoverOff(){
@@ -623,7 +704,7 @@ function chartHover(svg, cx, cy){
   if(hov.svg!==svg || hov.i!==i){
     chartHoverOff(); hov.svg = svg; hov.i = i;
     const mark = c.kind==='line'
-      ? `<line x1="${S.xs(i)}" x2="${S.xs(i)}" y1="${G.T}" y2="${G.H-G.B}"/>`+c.series.map(s=>`<circle cx="${S.xs(i)}" cy="${S.ys((s.points[i]||[])[1])}" r="${G.r*2}" fill="${s.color}"/>`).join('')
+      ? `<line x1="${S.xs(i)}" x2="${S.xs(i)}" y1="${G.T}" y2="${G.H-G.B}"/>`+c.series.map(s=>{ const y = (s.points[i]||[])[1]; return y==null ? '' : `<circle cx="${S.xs(i)}" cy="${S.ys(y)}" r="${G.r*2}" fill="${s.color}"/>`; }).join('')
       : `<rect x="${G.L+S.bw*i}" y="${G.T}" width="${S.bw}" height="${G.H-G.T-G.B}"/>`;
     svg.insertAdjacentHTML('beforeend', `<g class="chhov">${mark}</g>`);
     const root = $('cardmodal').open ? $('cardmodal') : document.body;
@@ -713,11 +794,11 @@ function renderAccess(J, has, cov){
   const days = daysIn(J); const last = days[days.length-1]; const d = J.daily;
   const sum = (k)=>days.reduce((a,x)=>a+(d[x][k]||0),0);
   $('tiles').innerHTML = [
-    tile('기간 유저'+(rangeOn()?' ◌':''), fmt.n(J.meta.users), rangeOn()?'전체 기간 기준':`${days.length}일`),
-    tile('마지막 날 DAU', has('af_login')?fmt.n(d[last]?.dau):'–', has('af_login')?`${last} · 활동 ${fmt.n(d[last]?.active_any)}`:'af_login 미수신'),
-    tile('af_login 커버리지', cov!=null?fmt.p(cov,0):'–', J.meta.instrumented_only?'계측 유저 한정':(cov!=null&&cov<0.8?'롤아웃 중':'af_login 유저 ÷ 활동 유저')),
-    tile('설치(기간 합)', fmt.n(sum('installs')), 'Install Time 기준'),
-    tile('유저-일 합(기간)', fmt.n(sum('dau')), 'Σ DAU · 매출/유저-일의 분모'),
+    tile('기간 유저'+(rangeOn()?' ◌':''), fmt.n(J.meta.users), rangeOn()?'':`${days.length}일`, rangeOn()?'전체 기간 기준 — 기간 칩과 무관':'시작일 이후 인앱 이벤트가 있는 유저'),
+    tile('마지막 날 DAU', has('af_login')?fmt.n(d[last]?.dau):'–', has('af_login')?`${last} · 활동 ${fmt.n(d[last]?.active_any)}`:'af_login 미수신', 'DAU = 그날 af_login 유저 · 활동 = 그날 인앱 이벤트가 있는 유저'),
+    tile('af_login 커버리지', cov!=null?fmt.p(cov,0):'–', !J.meta.instrumented_only&&cov!=null&&cov<0.8?'롤아웃 중':'', (J.meta.instrumented_only?'계측 유저 한정 · ':'')+'af_login 유저 ÷ 활동 유저'),
+    tile('설치(기간 합)', fmt.n(sum('installs')), '', 'Install Time 기준'),
+    tile('유저-일 합(기간)', fmt.n(sum('dau')), '', 'Σ DAU · 매출/유저-일의 분모'),
     tile('결제자'+(rangeOn()?' ◌':''), fmt.n(J.monetization.payers), `전환 ${fmt.p(ratio(J.monetization.payers, J.meta.users),2)}`),
     tile('매출(기간 합)', fmt.usd(sum('revenue_usd')), rangeOn()?`결제 ${fmt.n(sum('purchases'))}건`:`유저당 매출(기간) ${fmt.usd(ratio(sum('revenue_usd'), J.meta.users)||0)}`),
     tile('광고 노출(기간 합)', fmt.n(sum('ad_imps')), `수익 ${fmt.usd(sum('ad_rev_usd'))}`),
@@ -754,7 +835,10 @@ function renderProgress(J, has){
   const L = J.levels; const lv = Object.keys(L).map(Number).sort((a,b)=>a-b); const out=[];
   if(!lv.length){ $('ptiles').innerHTML=''; $('progress').innerHTML = card('진행', empty('클리어·실패 이벤트 없음')); return; }
   const users = J.meta.users||1;
+  // 기간 칩(2026-11-06) — 퍼널·마일스톤은 설치일, 벽 열은 실패일로 고른 날짜를 따른다. 산출에 기간 분해가 없으면(재집계 전) 전체 기간 값 + ◌
+  const inR = (d)=>(!rng.from||d>=rng.from)&&(!rng.to||d<=rng.to), PR = J.progression;
   // 도달 퍼널 = 신규 설치 코호트(시작일 이후 설치·설치 당일 af_login)만 — 기존 유저를 넣으면 '현재 위치 분포' 가 돼 퍼널이 아니다.
+  // NC·hasNew·cutNew 는 레벨 축 폭(LVW)을 정하는 전 기간 값이다 — 기간을 바꿔도 분포·히트맵 칸 폭이 흔들리지 않게.
   const NC = J.progression.new_cohort_users||0; const hasNew = NC>0 && lv.some(l=>L[l].reach_new>0);
   const cutAll = lv.find(l=>ratio(L[l].reach,users)<0.005) || lv[lv.length-1];
   // 레벨 축 묶음 폭 — 구간의 1/10(10 배수). 전체일 때 span 은 **신규 코호트 도달 0.5% 절단**(퍼널이 끊는 지점)으로 본다.
@@ -765,17 +849,31 @@ function renderProgress(J, has){
   const LVW = binWidth(lvHi - lvr.min + 1);
   const LVANCHOR = lvAnchor(lvr.min);
   const LVFOLD = Math.min(LV_TAIL, LVANCHOR + 10*LVW);
-  if(hasNew){
-    const cutN = lv.find(l=>ratio(L[l].reach_new,NC)<0.005) || lv[lv.length-1];
+  // 기간을 고르면 그 기간에 **설치한** 신규 코호트만(◉ 코호트 카드와 같은 설치일 범위). 최고 클리어는 데이터 끝까지 본 값이다.
+  // 산출 = 설치일별 코호트 수 + 최고 클리어 칸(누적 아님) → 고른 설치일만 더해 칸 키 내림차순으로 누적한다.
+  const funPer = rangeOn() && PR.reach_new_by_day && PR.new_cohort_by_day;
+  let fNC = NC, fReach = (l)=>L[l].reach_new;
+  if(funPer){
+    fNC = 0; const cnt = {};
+    Object.entries(PR.new_cohort_by_day).forEach(([d,pr])=>{ if(inR(d)) fNC += osPick(pr); });
+    Object.entries(PR.reach_new_by_day).forEach(([d,row])=>{ if(inR(d)) for(const k in row) cnt[k] = (cnt[k]||0) + osPick(row[k]); });
+    const ks = Object.keys(cnt).map(Number).sort((a,b)=>b-a), at = {}; let acc = 0, i = 0;
+    for(let j=lv.length-1; j>=0; j--){ const l = lv[j]; while(i<ks.length && ks[i]>=l){ acc += cnt[ks[i]]; i++; } at[l] = acc; }
+    fReach = (l)=>at[l]||0;
+  }
+  if(fNC>0 && lv.some(l=>fReach(l)>0)){
+    const cutN = lv.find(l=>ratio(fReach(l),fNC)<0.005) || lv[lv.length-1];
     // 레벨 구간을 고르면 그 구간만, 전체면 0.5% 절단까지. 구간이 좁으면 매 레벨, 넓으면 10단위로 찍는다.
     const inRange = lv.filter(l=>inLv(l) && (lvr.key!=='all' || l<=cutN));
     const step = Math.max(1, Math.ceil(inRange.length/90));      // 점이 90개를 넘으면 솎아낸다(루프 구간은 수천 레벨)
     const pts = step===1 ? inRange : inRange.filter((l,i)=>i%step===0 || i===inRange.length-1);
-    const y = pts.length ? Math.min(1, Math.max(...pts.map(l=>ratio(L[l].reach_new,NC)))*1.15) : 1;
-    out.push(card(`도달 퍼널 <span class="muted">${lvLabel()} · 신규 설치 코호트 ${fmt.n(NC)}명(시작일 이후 설치·설치 당일 af_login)의 최고 클리어 ≥ N 비율${lvr.key==='all'?` · LV${cutN} 이후 0.5% 미만 생략`:''}</span>${ALL()}`,
-      pts.length?lineChart([{name:'도달',color:'var(--c1)',points:pts.map(l=>[l,ratio(L[l].reach_new,NC)])}],{labels:pts.map(String),ymax:y,yfmt:(v)=>fmt.p(v,0)}):empty('이 구간에 도달 데이터 없음')));
+    const y = pts.length ? Math.min(1, Math.max(...pts.map(l=>ratio(fReach(l),fNC)))*1.15) : 1;
+    const who = funPer ? `선택 기간 설치 신규 코호트 ${fmt.n(fNC)}명(설치 당일 af_login)의 최고 클리어(데이터 끝까지) ≥ N 비율`
+                       : `신규 설치 코호트 ${fmt.n(fNC)}명(시작일 이후 설치·설치 당일 af_login)의 최고 클리어 ≥ N 비율`;
+    out.push(card(`도달 퍼널 <span class="muted">${lvLabel()} · ${who}${lvr.key==='all'?` · LV${cutN} 이후 0.5% 미만 생략`:''}</span>${funPer?'':ALL()}`,
+      pts.length?lineChart([{name:'도달',color:'var(--c1)',points:pts.map(l=>[l,ratio(fReach(l),fNC)])}],{labels:pts.map(String),ymax:y,yfmt:(v)=>fmt.p(v,0)}):empty('이 구간에 도달 데이터 없음')));
   } else {
-    out.push(card('도달 퍼널', empty('신규 설치 코호트가 아직 없음 — 시작일 이후 설치·당일 로그인 유저가 쌓이면 표시')));
+    out.push(card('도달 퍼널', empty(funPer ? '선택 기간에 설치한 신규 코호트 없음' : '신규 설치 코호트가 아직 없음 — 시작일 이후 설치·당일 로그인 유저가 쌓이면 표시')));
   }
   // 활성 유저 현재 레벨 분포 — 선택 기간에 **마지막으로 접속한** 유저만(마지막 af_login 일자 기준). 전체 기간이면 전원.
   // 예: 9/11 설치·LV99·이후 미접속 유저는 마지막 접속일 9/11 로 묶여, "최근 7일" 이 9/11 을 벗어나면 빠진다.
@@ -812,32 +910,64 @@ function renderProgress(J, has){
   const fr = pp ? lv.filter(l=>!noFail.has(l) && pp(l)>=LVF_LOW_N && inLv(l) && (lvr.key!=='all' || l<=cut)) : [];
   // 구간 합계 타일. 클리어한 판 = 실패 없는 판 + 이어하기 후 클리어(판마다 실패나 클리어 중 하나는 있다).
   const SP = fr.reduce((a,l)=>a+pp(l),0), SF = fr.reduce((a,l)=>a+pf(l),0), SC = fr.reduce((a,l)=>a+pc(l),0);
+  // 벽 열(미복귀·3회+)·미복귀 타일 — 기간을 고르면 **기간 안 마지막 실패**로 다시 센다(2026-11-06). 산출 wall_daily 의 기록
+  // [실패일, 같은 유저·레벨의 다음 실패일, 분모 iOS·AOS, 미복귀 iOS·AOS] 중 F ≤ 실패일 ≤ T < 다음 실패일 인 것이 유저·레벨당 하나다.
+  const wallPer = rangeOn() && J.wall_daily;
+  const wmark = rangeOn() && !wallPer ? ' ◌' : '';                                       // 재집계 전 산출 — 전체 기간 값임을 표시
+  const wallOf = (()=>{
+    if(!wallPer) return (l)=>({den:L[l].churn_sampled[0], ch:L[l].churn_sampled[1], s3:L[l].stuck3_sampled});
+    const F = rng.from||'', T = rng.to||'9999-99-99', W = J.wall_daily, memo = {};
+    const live = (d, nx)=> d>=F && d<=T && (!nx || nx>T);
+    return (l)=> memo[l] ??= (()=>{ let den=0, ch=0, s3=0;
+      for(const [d,nx,di,da,ci,ca] of (W.churn[l]||[])) if(live(d,nx)){ den += osPick([di,da]); ch += osPick([ci,ca]); }
+      for(const [d,nx,i,a] of (W.stuck3[l]||[])) if(live(d,nx)) s3 += osPick([i,a]);
+      return {den, ch, s3}; })();
+  })();
   // 벽 이탈률 — 같은 레벨 집합에서 '마지막 실패 다음날 미복귀' 유저 합계(표본 1/10)
-  const CD = fr.reduce((a,l)=>a+(L[l].churn_sampled||[0,0])[0],0), CX = fr.reduce((a,l)=>a+(L[l].churn_sampled||[0,0])[1],0);
+  const CD = fr.reduce((a,l)=>a+wallOf(l).den,0), CX = fr.reduce((a,l)=>a+wallOf(l).ch,0);
   $('ptiles').innerHTML = has('level_fail') && fr.length ? [
-    tile('실패율 합계', fmt.p(ratio(SF, SP)), `${lvLabel()} · 판 ${LVF_LOW_N}+ ${fmt.n(fr.length)}개 레벨 · 실패한 판 ${fmt.n(SF)} / 판 ${fmt.n(SP)}`),
-    tile('평균 판/클리어', fmt.f(ratio(SP, SP-SF+SC), 2), '판 ÷ 클리어한 판 (시작·재시작마다 1판, 이어하기는 같은 판)'),
-    tile('실패 후 다음날 미복귀', CD?fmt.p(ratio(CX, CD)):'–', `${lvLabel()} · 표본 ${fmt.n(CX)} / ${fmt.n(CD)} · ⚠ 구간 간 비교 금지(초반은 신규가 많아 원래 높다)`),
+    tile('실패율 합계', fmt.p(ratio(SF, SP)), `실패한 판 ${fmt.n(SF)} / 판 ${fmt.n(SP)}`, `${lvLabel()} · 판 ${LVF_LOW_N}+ ${fmt.n(fr.length)}개 레벨 · 실패한 판 ÷ 판`),
+    tile('평균 판/클리어', fmt.f(ratio(SP, SP-SF+SC), 2), '', '판 ÷ 클리어한 판 (시작·재시작마다 1판, 이어하기는 같은 판)'),
+    tile('실패 후 다음날 미복귀'+wmark, CD?fmt.p(ratio(CX, CD)):'–', `표본 ${fmt.n(CX)} / ${fmt.n(CD)}`, `${lvLabel()} · 그 레벨 마지막 실패 다음날 af_login 없음(유저 표본) · ⚠ 구간 간 비교 금지(초반은 신규가 많아 원래 높다)`),
   ].join('') : '';
-  // 레벨 정지율(2026-11-05) — 산출 stop_p(깬 유저)·stop_q(멈춘 유저)·stop_w(보류: 최근 활동이라 판정 불가). 정지율 = 멈춤 ÷ (멈춤 + 깸).
-  // 데이터 끝 시점 상태라 기간 칩과 무관(◌)하고 OS 칩만 따른다. 클리어만으로 정하므로 실패를 보내지 않는 게임에도 그린다.
+  // 레벨 정지율(2026-11-05) — 클리어만으로 정하므로 실패를 보내지 않는 게임에도 그린다. OS 칩을 따른다.
+  //   기간 없음 = 판정 규칙: 산출 stop_p(깬 유저)·stop_q(멈춘 유저)·stop_w(보류: 온 지 7일 안 됨). 정지율 = 멈춤 ÷ (멈춤 + 깸).
+  //   기간 있음(2026-11-06) = 기간 안에 이 레벨에 **도착**하고 기간 끝까지 다시 안 들어온 유저(못 깬 채) ÷ 기간 안 도착 유저 — stopPeriod 참고.
+  //     기간 끝 무렵 도착자는 다시 올 시간이 짧아 높게 나온다 → 같은 길이 기간끼리 비교한다. 산출에 분해가 없으면 판정 규칙 값 + ◌.
   const SD = lvf.sd = J.meta.stop_days || 7;
   const STOP_MISSING = '정지율 집계가 없는 산출 — 다음 재집계(09:30·14:00·19:00) 뒤에 표시된다';
-  const sv = (l)=>{ const q = L[l].stop_q, n = q + L[l].stop_p; return {stop:ratio(q, n), stopn:n, sq:q, sw:L[l].stop_w}; };
-  const stopAny = (l)=> L[l].stop_q + L[l].stop_p + L[l].stop_w > 0;
-  const hasStop = lv.some(stopAny);
+  const hasStop = lv.some(l=> L[l].stop_q + L[l].stop_p + L[l].stop_w > 0);              // 정지율 집계가 있는 산출인가(기간과 무관)
+  const stopPer = rangeOn() && !!J.stop_daily;
+  lvf.stopPer = stopPer;
+  let sv, stopAny;
+  if(stopPer){
+    const acc = stopPeriod(J.stop_daily, rng.from || allDays(J)[0], rng.to || allDays(J).at(-1));
+    sv = (l)=>{ const c = acc[l] || [0, 0]; return {stop:ratio(c[1], c[0]), stopn:c[0], sq:c[1], sw:0}; };
+    stopAny = (l)=> (acc[l] || [0])[0] > 0;
+  } else {
+    sv = (l)=>{ const q = L[l].stop_q, n = q + L[l].stop_p; return {stop:ratio(q, n), stopn:n, sq:q, sw:L[l].stop_w}; };
+    stopAny = (l)=> L[l].stop_q + L[l].stop_p + L[l].stop_w > 0;
+  }
+  const nWho = stopPer ? '도착' : '판정';
   const loopNote = (ls)=> ls.some(l=>l>AUTHORED_MAX) ? ` · LV ${AUTHORED_MAX+1}+ 는 ${LOOP_BUCKET}레벨 묶음` : '';
   const stopChart = ()=>{
     if(!hasStop) return card('레벨별 정지율', empty(STOP_MISSING));
-    // 레벨 집합 = 구간 안 · 판정 20명+ · 전체면 도달 0.5% 절단까지(실패율 그래프와 같은 절단)
+    // 레벨 집합 = 구간 안 · 판정(기간이면 도착) 20명+ · 전체면 도달 0.5% 절단까지(실패율 그래프와 같은 절단)
     const sr = lv.filter(l=>inLv(l) && (lvr.key!=='all' || l<=cut) && sv(l).stopn>=LVF_LOW_N);
     const ymax = sr.length ? Math.min(1, Math.max(0.05, ...sr.map(l=>sv(l).stop))*1.15) : 1;
-    return card(`레벨별 정지율 <span class="muted">${lvLabel()} · 이 레벨에서 멈춘 유저 ÷ 판정 유저(이 레벨에 온 지 ${SD}일+) · 멈춤 = 못 깨고 ${SD}일+ 미접속 · 판정 ${LVF_LOW_N}명+ · ${fmt.n(sr.length)}개 레벨${loopNote(sr)} · ⚠ 초반 레벨은 설치 직후 이탈이 섞여 원래 높다(같은 구간 안에서 비교)</span>${ALL()}`,
+    const def = stopPer ? `기간 안에 이 레벨에 온 유저 중 기간 끝까지 다시 안 들어온 유저(못 깬 채) · 도착 ${LVF_LOW_N}명+ · ⚠ 기간 끝 무렵 도착자는 다시 올 시간이 짧아 높게 나온다(같은 길이 기간끼리 비교)`
+                        : `이 레벨에서 멈춘 유저 ÷ 판정 유저(이 레벨에 온 지 ${SD}일+) · 멈춤 = 못 깨고 ${SD}일+ 미접속 · 판정 ${LVF_LOW_N}명+`;
+    return card(`레벨별 정지율 <span class="muted">${lvLabel()} · ${def} · ${fmt.n(sr.length)}개 레벨${loopNote(sr)} · ⚠ 초반 레벨은 설치 직후 이탈이 섞여 원래 높다(같은 구간 안에서 비교)</span>${stopPer?'':ALL()}`,
       sr.length ? lineChart([{name:'정지율', color:'var(--c4)', points:sr.map(l=>[l, sv(l).stop])}],
-                            {labels:sr.map(lvKeyLabel), ymax, yfmt:(v)=>fmt.p(v,0), tips:sr.map(l=>{ const s = sv(l); return `정지 ${fmt.n(s.sq)} / 판정 ${fmt.n(s.stopn)} · 보류 ${fmt.n(s.sw)}`; })})
-                : empty(`이 구간에 판정 ${LVF_LOW_N}명 이상 레벨 없음 — 구간을 넓힌다`));
+                            {labels:sr.map(lvKeyLabel), ymax, yfmt:(v)=>fmt.p(v,0), tips:sr.map(l=>{ const s = sv(l); return stopPer ? `정지 ${fmt.n(s.sq)} / 도착 ${fmt.n(s.stopn)}` : `정지 ${fmt.n(s.sq)} / 판정 ${fmt.n(s.stopn)} · 보류 ${fmt.n(s.sw)}`; })})
+                : empty(`이 구간에 ${nWho} ${LVF_LOW_N}명 이상 레벨 없음 — 구간${stopPer?'·기간':''}을 넓힌다`));
   };
-  const STOP_SUB = `정지율 = 이 레벨에서 멈춘 유저 ÷ 판정 유저 — 판정 = 이 레벨에 온 지 ${SD}일+ 된 유저(그 안 된 유저는 보류), 멈춤 = 그중 못 깨고 ${SD}일+ 미접속 · 정지율은 기간 칩과 무관(데이터 끝 시점) · 판정 ${LVF_LOW_N}명 미만 정지율은 흐리게(정렬 땐 뒤로)`;
+  // 레벨 추이 카드 재료 — 표 행을 누르면 render 전체가 아니라 이 카드만 다시 그린다. 고른 레벨이 표에 없으면(구간·기간 변경) 표 첫 행으로.
+  lvt.ctx = {J, days: daysIn(J), first: allDays(J)[0], hasFail: has('level_fail') && !!J.plays_daily, hasStop: hasStop && !!J.stop_daily};
+  const lvtDefault = ()=>{ if(!lvf.rows.some(r=>r.level===lvt.level)) lvt.level = lvf.rows.length ? lvfSorted()[0].level : null; };
+  const STOP_SUB = stopPer
+    ? `정지율 = 기간 안에 이 레벨에 도착한 유저 중 기간 끝까지 다시 안 들어온 유저(못 깬 채) ÷ 도착 유저 · ⚠ 기간 끝 무렵 도착자는 다시 올 시간이 짧아 높게 나온다(같은 길이 기간끼리 비교) · 도착 ${LVF_LOW_N}명 미만 정지율은 흐리게(정렬 땐 뒤로)`
+    : `정지율 = 이 레벨에서 멈춘 유저 ÷ 판정 유저 — 판정 = 이 레벨에 온 지 ${SD}일+ 된 유저(그 안 된 유저는 보류), 멈춤 = 그중 못 깨고 ${SD}일+ 미접속${rangeOn()?' · 정지율은 기간 칩과 무관(재집계 전 산출)':''} · 판정 ${LVF_LOW_N}명 미만 정지율은 흐리게(정렬 땐 뒤로)`;
   if(has('level_fail')){
     // 레벨별 실패율 그래프 — 클리어율 그래프를 판 기준 실패율로 바꿨다(2026-11-05).
     if(!pp){
@@ -857,19 +987,28 @@ function renderProgress(J, has){
       out.push(card('벽 TOP 10', empty(PLAYS_MISSING)));
     } else {
       const walls = fr.map(l=>({l,rate:ratio(pf(l),pp(l)),n:pp(l)})).sort((a,b)=>b.rate-a.rate).slice(0,10);
-      const chn = (l)=>(L[l].churn_sampled||[0,0]);
-      out.push(card(`벽 TOP 10 <span class="muted">${lvLabel()} · 판 기준 실패율 · 판 ${LVF_LOW_N}+ · 미복귀는 표본이라 분모가 작다(같은 구간 안에서만 비교)</span>`, walls.length?table(['레벨','실패율','판','다음날 미복귀'+(rangeOn()?' ◌':''),'실패 사유'+(rangeOn()?' ◌':''),'벽에 걸린 유저(표본, 3회+)'+(rangeOn()?' ◌':'')], walls.map(w=>[`LV ${lvKeyLabel(w.l)}`, `${fmt.p(w.rate)} ${hbar(w.rate,1)}`, fmt.n(w.n), chn(w.l)[0]?`${fmt.p(ratio(chn(w.l)[1], chn(w.l)[0]))} <span class="muted">${fmt.n(chn(w.l)[1])}/${fmt.n(chn(w.l)[0])}</span>`:'–', esc(Object.entries(L[w.l].fail_reasons||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · ')), fmt.n(L[w.l].stuck3_sampled)])):empty(`이 구간에 판 ${LVF_LOW_N} 이상 레벨 없음`)));
+      // 실패 사유 — 사유 건수는 일별로 나누지 않았다. 사유가 한 가지뿐인 게임(2026-11-06 전 게임)은 기간 안 실패의 사유도 그것뿐이라
+      // 기간을 고르면 이름만 적는다(건수는 전체 기간 값이라 뺀다). 사유가 둘 이상이면 전체 기간 건수 + ◌.
+      const reasons = new Set(); lv.forEach(l=>Object.keys(L[l].fail_reasons||{}).forEach(r=>reasons.add(r)));
+      const nameOnly = rangeOn() && reasons.size<=1, rmark = rangeOn() && !nameOnly ? ' ◌' : '';
+      const reasonCell = (l)=> nameOnly ? (pf(l)>0 ? esc(Object.keys(L[l].fail_reasons||{}).join(' · ')) : '')
+                                        : esc(Object.entries(L[l].fail_reasons||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(' · '));
+      const chCell = (l)=>{ const w = wallOf(l); return w.den ? `${fmt.p(ratio(w.ch, w.den))} <span class="muted">${fmt.n(w.ch)}/${fmt.n(w.den)}</span>` : '–'; };
+      out.push(card(`벽 TOP 10 <span class="muted">${lvLabel()} · 판 기준 실패율 · 판 ${LVF_LOW_N}+ · 미복귀는 표본이라 분모가 작다(같은 구간 안에서만 비교)${wallPer?' · 미복귀·3회+ = 기간 안 마지막 실패 기준':''}</span>`, walls.length?table(['레벨','실패율','판','다음날 미복귀'+wmark,'실패 사유'+rmark,'벽에 걸린 유저(표본, 3회+)'+wmark], walls.map(w=>[`LV ${lvKeyLabel(w.l)}`, `${fmt.p(w.rate)} ${hbar(w.rate,1)}`, fmt.n(w.n), chCell(w.l), reasonCell(w.l), fmt.n(wallOf(w.l).s3)])):empty(`이 구간에 판 ${LVF_LOW_N} 이상 레벨 없음`)));
     }
     // 전체 표 — 구간 안의 판 있는 레벨 전부 + 판 없이 정지만 있는 레벨. 그래프·TOP 10 과 달리 판 20 미만과 퍼널 절단 이후도 빼지 않는다(적은 판은 흐리게만).
     // 기간을 고르면 그날 판이 있는 레벨만 — 정지율은 기간과 무관한 값이라 정지 전용 행까지 넣으면 그날 표가 아니게 된다.
     if(!pp){
       out.push(card('레벨별 실패율·정지율 전체 표', empty(PLAYS_MISSING)));
     } else {
-      lvfSetRows(lv.filter(l=>inLv(l) && (pp(l)>0 || (!rangeOn() && stopAny(l)))).map(l=>Object.assign({level:l}, sv(l), noFail.has(l)
+      // 기간을 골랐는데 정지율 분해가 없으면(재집계 전) 정지 전용 행은 넣지 않는다 — 기간과 무관한 값이라 그날 표가 아니게 된다
+      lvfSetRows(lv.filter(l=>inLv(l) && (pp(l)>0 || ((!rangeOn() || stopPer) && stopAny(l)))).map(l=>Object.assign({level:l}, sv(l), noFail.has(l)
         ? {rate:null, nofail:true, plays:null, fplays:null, cont:null}                     // 실패한 판이 안 보이니 판 수도 모른다
         : {rate:ratio(pf(l),pp(l)), plays:pp(l), fplays:pf(l), cont:ratio(pc(l),pf(l)), cw:pc(l)})), true);
+      lvtDefault();
       const lvfNotes = (lvf.rows.some(r=>r.nofail)?' · 미전송 = 실패를 보내지 않는 레벨':'') + loopNote(lvf.rows.map(r=>r.level));
-      out.push(card(`레벨별 실패율·정지율 전체 표 <span class="muted">${lvLabel()} · 판 기준 = 실패한 판 ÷ 판(시작·재시작마다 새 판, 이어하기는 같은 판) · 이어하기 후 클리어 = 실패한 판 중 같은 판에서 클리어 · ${STOP_SUB} · ${fmt.n(lvf.rows.length)}개 레벨 · 판 ${LVF_LOW_N} 미만 행은 흐리게(비율 정렬 땐 뒤로)${lvfNotes}</span>`, `<div id="lvfail" class="mfill">${lvfBody()}</div>`));
+      out.push(card(`레벨별 실패율·정지율 전체 표 <span class="muted">${lvLabel()} · 판 기준 = 실패한 판 ÷ 판(시작·재시작마다 새 판, 이어하기는 같은 판) · 이어하기 후 클리어 = 실패한 판 중 같은 판에서 클리어 · ${STOP_SUB} · ${fmt.n(lvf.rows.length)}개 레벨 · 판 ${LVF_LOW_N} 미만 행은 흐리게(비율 정렬 땐 뒤로) · 행을 누르면 아래 레벨 추이${lvfNotes}</span>`, `<div id="lvfail" class="mfill">${lvfBody()}</div>`));
+      out.push(lvtCard());
     }
     // '실패 사유' 전 레벨 분포 카드는 제거(팀장님 지시 2026-09-13) — 실측 100% moves_zero 라 정보가 없다.
     //  레벨별 사유는 벽 TOP 10 표의 '실패 사유' 열에 남아 있다.
@@ -881,12 +1020,22 @@ function renderProgress(J, has){
       out.push(card('레벨별 정지율 전체 표', empty(STOP_MISSING)));
     } else {
       lvfSetRows(lv.filter(l=>inLv(l) && stopAny(l)).map(l=>Object.assign({level:l}, sv(l))), false);
-      out.push(card(`레벨별 정지율 전체 표 <span class="muted">${lvLabel()} · ${STOP_SUB} · ${fmt.n(lvf.rows.length)}개 레벨${loopNote(lvf.rows.map(r=>r.level))}</span>${ALL()}`, `<div id="lvfail" class="mfill">${lvfBody()}</div>`));
+      lvtDefault();
+      out.push(card(`레벨별 정지율 전체 표 <span class="muted">${lvLabel()} · ${STOP_SUB} · ${fmt.n(lvf.rows.length)}개 레벨 · 행을 누르면 아래 레벨 추이${loopNote(lvf.rows.map(r=>r.level))}</span>${stopPer?'':ALL()}`, `<div id="lvfail" class="mfill">${lvfBody()}</div>`));
+      out.push(lvtCard());
     }
   }
-  // 도달 일수
-  const dtl = J.progression.days_to_level||{}; const ms = Object.keys(dtl).map(Number).sort((a,b)=>a-b).filter(m=>dtl[m].n>0);
-  out.push(card('마일스톤 도달 일수 <span class="muted">설치일 → 첫 클리어 · start 이후 설치자</span>'+ALL(), ms.length?table(['레벨','도달 유저','p25','중앙값','p75'], ms.map(m=>[`LV ${m}`, fmt.n(dtl[m].n), fmt.f(dtl[m].p25), `<b>${fmt.f(dtl[m].p50)}</b>일`, fmt.f(dtl[m].p75)])):empty('마일스톤 도달 없음')));
+  // 도달 일수 — 기간을 고르면 그 기간에 설치한 유저만(설치일별 분포를 합쳐 퍼센타일을 다시 낸다, 2026-11-06)
+  const dtlPer = rangeOn() && PR.days_to_level_by_day;
+  let dtl = J.progression.days_to_level||{};
+  if(dtlPer){
+    const H = {};
+    Object.entries(PR.days_to_level_by_day).forEach(([d,ms])=>{ if(!inR(d)) return;
+      for(const m in ms){ const t = H[m]||(H[m]={}); for(const k in ms[m]) t[k] = (t[k]||0) + osPick(ms[m][k]); } });
+    dtl = mapVals(H, histPct);
+  }
+  const ms = Object.keys(dtl).map(Number).sort((a,b)=>a-b).filter(m=>dtl[m].n>0);
+  out.push(card(`마일스톤 도달 일수 <span class="muted">설치일 → 첫 클리어 · ${dtlPer?'선택 기간 설치자':'start 이후 설치자'}</span>${dtlPer?'':ALL()}`, ms.length?table(['레벨','도달 유저','p25','중앙값','p75'], ms.map(m=>[`LV ${m}`, fmt.n(dtl[m].n), fmt.f(dtl[m].p25), `<b>${fmt.f(dtl[m].p50)}</b>일`, fmt.f(dtl[m].p75)])):empty(dtlPer?'선택 기간 설치자의 마일스톤 도달 없음':'마일스톤 도달 없음')));
   // 히트맵 — 기간을 고르면 그 날짜들의 af_login 만 합산한다(heatmap_by_day). 레벨은 당일 클리어까지 반영된 값.
   let heat = J.progression.heatmap||{};
   if(rangeOn() && J.progression.heatmap_by_day){
@@ -989,9 +1138,9 @@ function renderIntegrity(J, has){
   if(notSent(J,'level_fail')){ $('itiles').innerHTML=''; $('integrity').innerHTML=card('유실 시도', empty(notSentMsg(J,'level_fail')+' — 유실 판정은 실패의 attempt_count 가 있어야 한다')); return; }
   const I = J.integrity; const tot = I.observed+I.lost; const rate = ratio(I.lost, tot);
   $('itiles').innerHTML = [
-    tile('관측 시도(표본)', fmt.n(I.observed), `유저 1/${I.sample_mod}`),
+    tile('관측 시도(표본)', fmt.n(I.observed), '', `유저 1/${I.sample_mod} 표본`),
     tile('유실 시도(하한)', fmt.n(I.lost), rate!=null?`${fmt.p(rate,2)} of 시도`:'–'),
-    tile('판정', rate==null?'–':(rate<0.03?'양호':rate<0.08?'주의':'점검'), '기준선은 배포 2주 뒤 확정'),
+    tile('판정', rate==null?'–':(rate<0.03?'양호':rate<0.08?'주의':'점검'), '', '유실 3% 미만 양호 · 8% 미만 주의 · 그 이상 점검 — 기준선은 배포 2주 뒤 확정'),
   ].join('');
   const out=[];
   const bv = Object.entries(I.by_app_version||{}).sort((a,b)=>(b[1][0]+b[1][1])-(a[1][0]+a[1][1]));
@@ -1007,7 +1156,7 @@ function renderMoney(J){
   $('mtiles').innerHTML = [
     tile('결제자'+(rangeOn()?' ◌':''), fmt.n(M.payers), `유저 ${fmt.n(M.users)} 중 ${fmt.p(ratio(M.payers,M.users),2)}`),
     tile('매출(기간 합)', fmt.usd(rev), rangeOn()?`전체 ${fmt.usd(revAll)}`:`ARPPU ${fmt.usd(ratio(rev,M.payers)||0)}`),
-    tile('재구매자'+(rangeOn()?' ◌':''), fmt.n(Object.entries(M.purchase_count_hist||{}).filter(([k])=>k!=='1').reduce((a,[,v])=>a+v,0)), '결제 2회+'),
+    tile('재구매자'+(rangeOn()?' ◌':''), fmt.n(Object.entries(M.purchase_count_hist||{}).filter(([k])=>k!=='1').reduce((a,[,v])=>a+v,0)), '', '결제 2회+ 유저'),
   ].join('');
   const out=[]; const ord=(o)=>Object.entries(o).sort((a,b)=>(a[0]==='unknown'?1e9:Number(a[0]))-(b[0]==='unknown'?1e9:Number(b[0])));
   const FPB=[0,1,5,10,20,30,50,75,100,150,200,300,500,851];
@@ -1145,6 +1294,7 @@ $('secnav').innerHTML = [['all','전체'],...SECS].map(([id,n])=>`<button type="
 $('secnav').querySelectorAll('button').forEach(b=>b.onclick=()=>{activeSec=b.dataset.sec; $('secnav').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b)); SECS.forEach(([id])=>$(id).hidden=(activeSec!=='all'&&activeSec!==id));});
 GX.wireTheme($('theme'));
 GX.withHash();     // 공유 링크의 비밀번호를 메인·UA 보드 링크로 넘겨 준다
+GX.tips();         // 카드 제목 옆 설명·타일 설명 → 느낌표 툴팁(2026-11-06)
 
 /* ── 데이터: 평문(general-data.js) → 암호문(general-data.enc.js, 공개 URL 배포용) → 없음 ──
    A/B 보드(ab.html)와 같은 형식·같은 비밀번호. #k=비밀번호 가 있으면 입력 없이 열린다. */
@@ -1155,6 +1305,8 @@ async function decryptData(enc, pass){
   const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt:b64(enc.salt), iterations:enc.iter, hash:'SHA-256'}, km,
     {name:'AES-GCM', length:256}, false, ['decrypt']);
   const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64(enc.iv)}, key, b64(enc.ct));
+  // z = 'gzip' — 평문을 gzip 한 뒤 암호화한 산출(2026-11-06, 내려받는 크기 약 1/4). 예전 암호문(z 없음)도 그대로 연다.
+  if(enc.z==='gzip') return JSON.parse(await new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
   return JSON.parse(new TextDecoder().decode(pt));
 }
 function showUnlock(enc, err){

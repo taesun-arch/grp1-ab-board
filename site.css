@@ -90,3 +90,17 @@
   .gx-game{width:68px} .gx-game img{width:52px;height:52px}
 }
 @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+
+/* ── 설명 툴팁(2026-11-06, GX.tips) — 카드 제목 옆 회색 설명·타일 설명을 느낌표 버튼 뒤로 숨긴다.
+   누르면(터치 포함) 상자가 뜨고 다른 곳을 누르면 닫힌다. 글은 DOM 에 숨김으로 남는다(크게 보기 복제·화면 테스트가 읽는다) ── */
+.gx-tip{display:none!important}
+.gx-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin:0 0 0 6px;padding:0;
+  border:1px solid var(--line);border-radius:50%;background:var(--chip);color:var(--ink-3);font:700 10px/1 var(--font);vertical-align:1px;cursor:pointer;flex:none}
+.gx-i::before{content:"!"}
+.gx-i::after{content:"";position:absolute;inset:-9px}                 /* 손가락으로 누르기 쉽게 — 보이는 16px 보다 넓게 받는다 */
+.gx-i:hover,.gx-i[aria-expanded="true"]{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.gx-i:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gx-pop{position:fixed;z-index:70;left:0;top:0;max-width:min(380px,calc(100vw - 32px));padding:9px 12px;background:var(--card);border:1px solid var(--line);
+  border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.4);font:400 12.5px/1.55 var(--font);color:var(--ink-2);text-align:left;white-space:normal;overflow-wrap:anywhere}
+.gx-pop[hidden]{display:none}
+.gx-pop .gx-pop-h{font-weight:600;color:var(--ink);margin-bottom:3px}

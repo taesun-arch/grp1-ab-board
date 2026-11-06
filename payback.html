@@ -130,6 +130,7 @@ GX.prehero(document.getElementById('hero'));
 'use strict';
 const $ = id => document.getElementById(id), esc = GX.esc;
 GX.wireTheme($("theme")); GX.withHash();
+GX.tips();         // 카드 제목 옆 설명·타일 주석 → 느낌표 툴팁(2026-11-06)
 const fmt = {
   n: v => v == null ? "–" : Math.round(v).toLocaleString("en-US"),
   p: (v, d = 0) => v == null || !isFinite(v) ? "–" : (v * 100).toFixed(d) + "%",
@@ -146,9 +147,12 @@ const Q = new URLSearchParams(location.search);
 const st = {os: null, week: null};    // week = 곡선 카드에 그릴 설치 주(w_from) 또는 "total" — 없으면 최근 주
 let D = null, G = null, M = null;
 
-function tile(label, value, sub, hit) {
-  return `<div class="tile"><div class="k">${esc(label)}</div><div class="v${hit ? " hit" : ""}">${value}</div><div class="s">${sub || ""}</div></div>`;
+// sub = 아래 줄(회수일을 읽는 숫자 — D120 예상·구간·관측 ROAS·설치·CPI) · tip = 주석(오차 빌림·미검증·참고 광고 유저만·제외 주) — 라벨 옆 느낌표 툴팁(GX.tips, 2026-11-06)
+function tile(label, value, sub, hit, tip) {
+  return `<div class="tile"><div class="k">${esc(label)}${tip ? ` <span class="muted">${tip}</span>` : ""}</div><div class="v${hit ? " hit" : ""}">${value}</div><div class="s">${sub || ""}</div></div>`;
 }
+// 주석 조각(" · …" 또는 "<br>…" 로 시작)을 툴팁 줄로 — 앞 구분자를 떼고 줄바꿈으로 잇는다
+const tipJoin = (...xs) => xs.map(x => (x || "").replace(/^(\s*·\s*|<br>)/, "")).filter(Boolean).join("<br>");
 const card = (title, body, foot = "") => `<div class="card"><h3>${title}</h3>${body}${foot ? `<div class="foot">${foot}</div>` : ""}</div>`;
 const empty = msg => `<div class="empty">${esc(msg)}</div>`;
 const qsrc = () => M.q_src && M.q_src[st.os];
@@ -249,9 +253,9 @@ function earlyHtml() {
     if (!e) return tile(label, "–", `D${T} 까지 매출이 관측된 UA 설치가 아직 없다`);
     const head = `${e.s_from.slice(5)}~${e.s_to.slice(5)} 광고 설치 ${fmt.n(e.n)}명`;
     if (e.none) return tile(label, "–", `${head} · ${e.none}`);
-    if (e.small || !e.pt) return tile(label, "–", `${head} · 관측 D${T} ROAS ${fmt.p(e.roas_T)} · 표본 적음(${M.min_camp_n}명 미만)${refLine(e, T)}`);
-    return tile(label, day(e.payday[0]), `D120 ${fmt.p(e.d120[0])} (${ivText(e)}) · 관측 D${T} ROAS ${fmt.p(e.roas_T)}<br>${head}(${e.days}일) · CPI ${fmt.usd(e.cpi)}${qNote(e)}${vuNote(e)}${refLine(e, T)}`,
-      goodDay(e.payday[0])); };
+    if (e.small || !e.pt) return tile(label, "–", `${head} · 관측 D${T} ROAS ${fmt.p(e.roas_T)} · 표본 적음(${M.min_camp_n}명 미만)`, false, tipJoin(refLine(e, T)));
+    return tile(label, day(e.payday[0]), `D120 ${fmt.p(e.d120[0])} (${ivText(e)}) · 관측 D${T} ROAS ${fmt.p(e.roas_T)}<br>${head}(${e.days}일) · CPI ${fmt.usd(e.cpi)}`,
+      goodDay(e.payday[0]), tipJoin(qNote(e), vuNote(e), refLine(e, T))); };
   const m = [[3, 28], [3, 60], [7, 28], [7, 60]].map(([T, H]) => medOf(T, H));
   const err = m.every(v => v != null) ? `D3 기반은 D7 기반보다 오차가 크다(이 게임 ${OSN[st.os] || st.os} 채점 중앙 오차 D28 ${fmt.p(m[0], 1)}·D60 ${fmt.p(m[1], 1)}, D7 기반은 ${fmt.p(m[2], 1)}·${fmt.p(m[3], 1)}). `
     : "D3 기반은 D7 기반보다 오차가 크다(이 게임은 아직 채점할 코호트가 없어 구간을 sf 오차 폭으로 만든다). ";
@@ -309,14 +313,13 @@ function renderS1() {
   $("s1sub").textContent = `설치 주(월~일) · 주 마지막 날 + 7일까지 매출 관측된 주만 — 최신 ${wk(ws[0])}`;
   // 타일은 달력상 최신 주·그 전 주 — 표본 적은 주를 건너뛰어 앞 주 숫자로 바꾸지 않는다(Codex 리뷰)
   const wtile = (label, w) => !w ? tile(label, "–", "그 주 없음")
-    : w.small ? tile(label, "–", `${wk(w)} · 표본 적음(설치 ${fmt.n(w.n)}명 < ${M.min_camp_n}) · D7 실측 ${fmt.p(w.roas7)}${refLine(w, 7)}`)
-    : tile(label, day(w.payday[0]), `${wk(w)} · 광고 설치 ${fmt.n(w.n)} · CPI ${fmt.usd(w.cpi)}<br>D120 ${fmt.p(w.d120[0])} (${ivText(w)}) · D7 실측 ${fmt.p(w.roas7)}${vuNote(w)}${refLine(w, 7)}`,
-      goodDay(w.payday[0]));
+    : w.small ? tile(label, "–", `${wk(w)} · 표본 적음(설치 ${fmt.n(w.n)}명 < ${M.min_camp_n}) · D7 실측 ${fmt.p(w.roas7)}`, false, tipJoin(refLine(w, 7)))
+    : tile(label, day(w.payday[0]), `${wk(w)} · 광고 설치 ${fmt.n(w.n)} · CPI ${fmt.usd(w.cpi)}<br>D120 ${fmt.p(w.d120[0])} (${ivText(w)}) · D7 실측 ${fmt.p(w.roas7)}`,
+      goodDay(w.payday[0]), tipJoin(vuNote(w), refLine(w, 7)));
   const skip = t && t.skip_weeks ? ` · 표본 적은 ${t.skip_weeks}주(광고비 ${fmt.usd(t.skip_cost, 0)}) 제외` : "";
   let h = `<div class="tiles">` + wtile("최근 주 예상 회수일", ws[0]) + wtile("그 전 주 예상 회수일", ws[1])
-    + (t ? tile(`예측 가능한 ${t.weeks}주 합산 예상 회수일`, day(t.payday[0]), `${t.w_from.slice(5)}~${t.w_to.slice(5)} 설치 · 광고 설치 ${fmt.n(t.n)} · CPI ${fmt.usd(t.cpi)}${skip}<br>D120 ${fmt.p(t.d120[0])} (${ivText(t)})${vuNote(t)}`
-        + (t.paid ? refLine({paid: Object.assign({roas7: t.obs && t.obs["7"] ? t.obs["7"][1] : null}, t.paid)}, 7) : ""),
-        goodDay(t.payday[0])) : "") + `</div>`;
+    + (t ? tile(`예측 가능한 ${t.weeks}주 합산 예상 회수일`, day(t.payday[0]), `${t.w_from.slice(5)}~${t.w_to.slice(5)} 설치 · 광고 설치 ${fmt.n(t.n)} · CPI ${fmt.usd(t.cpi)}<br>D120 ${fmt.p(t.d120[0])} (${ivText(t)})`,
+        goodDay(t.payday[0]), tipJoin(skip, vuNote(t), t.paid ? refLine({paid: Object.assign({roas7: t.obs && t.obs["7"] ? t.obs["7"][1] : null}, t.paid)}, 7) : "")) : "") + `</div>`;
   const oldest = Math.max(...ws.map(w => w.a));
   h += card(`주별 D120 예상 ROAS 추이 <span class="muted">${OSN[st.os] || st.os} · 오래된 주 → 최신 주</span>`, trendChart(ws.slice().reverse()),
     `오래된 주일수록 실측이 길어(가장 오래된 주는 D${oldest} 까지 실측) 예측에 기대는 구간이 짧다.${qNote()}`);
