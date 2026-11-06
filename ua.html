@@ -293,7 +293,7 @@ function render() {
   {
     const cols = [["CPI", m => `<td>${usd(m.cpi)}</td>`, true], ["D0 매출/설치", m => `<td>${usd(m.arpu[0], 3)}</td>`, true], ["D1 매출/설치", m => `<td>${usd(m.arpu[1], 3)}</td>`],
       ["D1 잔존", m => retCell(m, 1), true], ["D3 잔존", m => retCell(m, 3)], ["D7 잔존", m => retCell(m, 7)],
-      ["D0 평균 레벨", m => `<td>${m.lv0_mean ?? "—"}</td>`, true], ["D0 LV10+", m => `<td>${pct(m.reach10, 0)}</td>`], ["D0 LV30+", m => `<td>${pct(m.reach30, 0)}</td>`]];
+      ["D0 평균 레벨", m => `<td>${m.lv0_mean ?? "—"}</td>`, true], ["D0 LV10+", m => `<td>${pct(m.reach10)}</td>`], ["D0 LV30+", m => `<td>${pct(m.reach30)}</td>`]];
     const head = `<tr><th>캠페인 / 광고</th><th class="sep">설치</th>${cols.map(c => `<th class="${c[2] ? "sep" : ""}">${c[0]}</th>`).join("")}</tr>`;
     const body = treeRows((name, m, cls, attr) => `<tr class="${cls}" ${attr}>${nameCell(name, m)}<td class="sep">${m.n}</td>${cols.map(c => sepd(c[1](m), !!c[2])).join("")}</tr>`, O, tree(cells, "c", "a"));
     table("aux", head, body, cells.length);
@@ -302,7 +302,7 @@ function render() {
   {
     const B = M.lv_buckets;
     const head = `<tr><th>설치일 / 캠페인</th><th class="sep">대상</th><th>명</th>${B.map((b, i) => `<th class="${i ? "" : "sep"}">LV ${b}</th>`).join("")}</tr>`;
-    const cellsOf = (n, dist) => dist.map((x, i) => `<td${i ? "" : ' class="sep"'}>${n ? pct(x / n, 0) : "—"}</td>`).join("");
+    const cellsOf = (n, dist) => dist.map((x, i) => `<td${i ? "" : ' class="sep"'}>${n ? pct(x / n) : "—"}</td>`).join("");
     const pair = (name, m, cls, attr, kid) =>
       `<tr class="${cls}" ${attr}>${nameCell(name, m)}<td class="sep">설치 전원</td><td>${m.n}</td>${cellsOf(m.n, m.lvd)}</tr>`
       + `<tr class="ad churn${m.small ? " small" : ""}" ${kid}><td></td><td class="sep">D1 미복귀</td>`

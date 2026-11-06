@@ -348,7 +348,7 @@ function renderS2() {
     + `</div>`;
   // 잔존 커브(일반) · 목표 레벨 도달(일반) · 세션 일별(새로 계산)
   const ks = Array.from({length: 28}, (_, i) => i + 1), rc = ks.map(k => ret(k));
-  const curve = R.length ? lineChart([{name: "잔존", color: "var(--c1)", points: rc.map(x => x.v), tips: rc.map(x => `코호트 ${fmt.n(x.n)}명`)}], {labels: ks.map(k => "D" + k), yfmt: v => fmt.p(v, 0), title: "잔존 커브"}) : empty("일반 지표 산출이 없음");
+  const curve = R.length ? lineChart([{name: "잔존", color: "var(--c1)", points: rc.map(x => x.v), tips: rc.map(x => `코호트 ${fmt.n(x.n)}명`)}], {labels: ks.map(k => "D" + k), yfmt: v => fmt.p(v), title: "잔존 커브"}) : empty("일반 지표 산출이 없음");
   const marks = (G.gen && G.gen.lv_marks) || [], LK = [0, 1, 3, 7, 14, 28];
   const reach = (m, k) => genK(R, k, (r, k) => at((r.lv || {})[m], k), r => r.n);
   const lvT = marks.length ? table(["도달 레벨", ...LK.map(k => "D" + k)], marks.map(m => [`LV ${m}+`, ...LK.map(k => fmt.p(reach(String(m), k).v))])) : empty("일반 지표 산출이 없음");
@@ -452,10 +452,10 @@ function renderS4() {
   const roasC = lineChart(hasAll() ? [{name: `ROAS (${ALL})`, color: "var(--c1)", points: ac.map(x => x.v), tips: rc.map(x => `광고 설치 ${fmt.n(x.n)}명`)},
       {name: `${PAID} — 참고`, color: "var(--ink-3)", points: rc.map(x => x.v)}]
     : [{name: `ROAS (${PAID})`, color: "var(--c1)", points: rc.map(x => x.v), tips: rc.map(x => `설치 ${fmt.n(x.n)}명`)}],
-    {labels: K.map(k => "D" + k), yfmt: v => fmt.p(v, 0), ref: 1, refLabel: "본전 100%", title: "ROAS 커브", none: "매출 관측이 끝난 설치일 없음"});
+    {labels: K.map(k => "D" + k), yfmt: v => fmt.p(v), ref: 1, refLabel: "본전 100%", title: "ROAS 커브", none: "매출 관측이 끝난 설치일 없음"});
   const skus = Object.entries(sku).sort((a, b) => b[1][1] - a[1][1]), smax = skus.length ? skus[0][1][1] : 0;
   const skuT = skus.length ? table(["상품 분류", "구매", "매출", "매출 비중"], skus.map(([k, x]) => [esc(k) + (/noad/.test(k) ? ' <span class="src ref">광고제거</span>' : ""), fmt.n(x[0]), fmt.usd(x[1], 0) + bar(x[1], smax), fmt.p(ratio(x[1], iapAll))]),
-    ["전체", fmt.n(sum(skus, ([, x]) => x[0])), fmt.usd(iapAll, 0), "100%"]) : empty("선택한 기간에 결제 없음");
+    ["전체", fmt.n(sum(skus, ([, x]) => x[0])), fmt.usd(iapAll, 0), fmt.p(1)]) : empty("선택한 기간에 결제 없음");
   const pl = {}, ds = {}; for (const r of AA) { for (const k in r.pl) { const x = pl[k] || (pl[k] = [0, 0]); x[0] += r.pl[k][0]; x[1] += r.pl[k][1]; } for (const k in r.dsi || {}) { const x = ds[k] || (ds[k] = [0, 0]); x[0] += r.dsi[k][0]; x[1] += r.dsi[k][1]; } }
   const pls = Object.entries(pl).sort((a, b) => b[1][1] - a[1][1]), pmax = pls.length ? pls[0][1][1] : 0;
   const plT = pls.length ? table(["배치(Placement)", "노출", "매출", "eCPM", "매출 비중"], pls.map(([k, x]) => [esc(k === "(빈칸)" ? "(빈칸 — 배너)" : k), fmt.n(x[0]), fmt.usd(x[1], 0) + bar(x[1], pmax), fmt.usd(ratio(x[1] * 1000, x[0])), fmt.p(ratio(x[1], iaaA))])) : empty("선택한 기간에 광고 데이터 없음");
@@ -522,7 +522,7 @@ function renderS5() {
   const top = drop.map((v, i) => [v, i]).filter(([v, i]) => v != null && prev(i) >= TOP_MIN).sort((a, b) => b[0] - a[0]).slice(0, 3);
   const none = `퍼널을 볼 설치일이 없음(설치 후 ${FD}일까지 관측이 끝난 설치일)`;
   const reachC = n0 ? lineChart([{name: "도달률", color: "var(--c1)", points: [1, ...reach.map(x => x / n0)], tips: [`설치 ${fmt.n(n0)}명`, ...reach.map(x => `${fmt.n(x)}명`)]}],
-      {labels: ["설치", ...LVL], yfmt: v => fmt.p(v, 0), ymin: 0, ymax: 1, xshow: i => i % XS === 0, title: "레벨 도달률"}) : empty(none);
+      {labels: ["설치", ...LVL], yfmt: v => fmt.p(v), ymin: 0, ymax: 1, xshow: i => i % XS === 0, title: "레벨 도달률"}) : empty(none);
   const dropC = n0 ? barChart(drop, {labels: LVL, yfmt: v => fmt.p(v, 1), color: "var(--c1)", mark: top.map(([, i]) => i), xshow: i => i === 0 || (i + 1) % XS === 0, title: "레벨별 이탈률",
       tips: reach.map((x, i) => `${i ? "LV" + i + " 도달" : "설치"} ${fmt.n(prev(i))}명 중 ${fmt.n(prev(i) - x)}명이 ${FD}일 안에 못 깸`)}) : empty(none);
   h += `<div class="grid">`

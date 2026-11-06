@@ -132,7 +132,7 @@ function spark(arr, color, h) {
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d} L${last[0]} ${h} L2 ${h} Z" fill="${color}" opacity=".16"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
 }
 const dauDelta = g => { if (!g || g.dau_prev == null || !g.dau_prev) return '7일 전 없음'; const ch = g.dau / g.dau_prev - 1;
-  return `<span class="${ch >= 0 ? 'up' : 'down'}">${ch >= 0 ? '▲' : '▼'}${Math.abs(ch * 100).toFixed(0)}%</span> 7일 전 대비`; };
+  return `<span class="${ch >= 0 ? 'up' : 'down'}">${ch >= 0 ? '▲' : '▼'}${Math.abs(ch * 100).toFixed(1)}%</span> 7일 전 대비`; };
 
 // 보기 전환 — 기본 벤토, 고른 보기는 이 브라우저에 기억(세 화면 공유 테마 저장과 별개)
 let view = 'bento';

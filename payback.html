@@ -133,11 +133,11 @@ GX.wireTheme($("theme")); GX.withHash();
 GX.tips();         // 카드 제목 옆 설명·타일 주석 → 느낌표 툴팁(2026-11-06)
 const fmt = {
   n: v => v == null ? "–" : Math.round(v).toLocaleString("en-US"),
-  p: (v, d = 0) => v == null || !isFinite(v) ? "–" : (v * 100).toFixed(d) + "%",
+  p: (v, d = 1) => v == null || !isFinite(v) ? "–" : (v * 100).toFixed(d) + "%",
   usd: (v, d = 2) => v == null || !isFinite(v) ? "–" : "$" + Number(v).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}),
-  sp: v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "") + (v * 100).toFixed(0) + "%",
+  sp: v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%",
 };
-const pr = (a, b) => a == null || b == null ? null : `${(a * 100).toFixed(0)}~${(b * 100).toFixed(0)}%`;
+const pr = (a, b) => a == null || b == null ? null : `${(a * 100).toFixed(1)}~${(b * 100).toFixed(1)}%`;
 const ur = (a, b) => a == null || b == null ? null : `$${a.toFixed(2)}~${b.toFixed(2)}`;
 const day = k => k == null ? "1년 넘음" : "D" + k;
 const OSN = {ios: "iOS", aos: "Android"};
