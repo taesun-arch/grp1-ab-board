@@ -56,6 +56,7 @@ main section:nth-of-type(5) > h2::before{content:"05"} main section:nth-of-type(
 .grid.wide > .card.span2,.grid.wide > .card.spanfull{flex:1 1 100%}
 /* 레벨 실패율·다음날 이탈률(2026-11-07) — 왼쪽 그래프·오른쪽 표, 그 아래 레벨 추이. 줄 높이는 그래프가 정하고 표는 그 높이 안에서 스크롤한다. 좁으면(<1100px, 표 열이 반 폭에 안 들어간다) 한 장씩 쌓는다.
    모달은 카드를 복제하지만 .grid.wide 밖이라 아래 규칙을 받지 않는다. .lvbrk = 앞 카드 수와 무관하게 그래프가 줄 맨 앞에서 시작하게 하는 빈 줄(줄 간격을 음수 여백으로 상쇄) */
+.grid.wide > .ndfold{flex:0 0 100%;text-align:left;background:transparent;border:1px dashed var(--line);border-radius:8px;padding:8px 12px;color:var(--ink-2);font-size:13px;cursor:pointer} .grid.wide > .ndfold:hover{background:var(--chip)}
 .grid.wide > .lvbrk{flex:0 0 100%;height:0;margin-bottom:-14px}
 .grid.wide > .card.lvhalf{flex:1 1 100%}
 @media (min-width:1100px){
@@ -107,6 +108,10 @@ table.ret td.im{color:var(--ink-3)} table.ret tr.total td{font-weight:600;border
 /* 헤더의 도구 버튼은 float 이라, 헤더가 플로트를 품지 않으면 뒤따르는 표(.tscroll = BFC)가 그 폭을 피해 줄어든다
    — 버튼 아래가 통째로 비어 보였다(2026-09-20). flow-root 로 헤더가 플로트를 품게 해 표가 카드 폭을 다 쓴다. */
 .card h3{display:flow-root} .card h3 .tools{float:right}
+.lvbasis{display:flex;flex-wrap:wrap;align-items:center;gap:6px 4px;margin:-4px 0 12px;font-size:12.5px} .lvbasis:empty{display:none}
+.lvbasis .lbl{font-size:12px;color:var(--ink-3);margin-left:10px} .lvbasis .lbl:first-child{margin-left:0} .lvbasis .seg{margin-left:4px}
+.lvbasis .seg button:disabled{opacity:.4;cursor:default} .lvbasis label{display:inline-flex;align-items:center;gap:4px;margin-left:10px;color:var(--ink-2)}
+.lvbasis .warn{flex-basis:100%;color:var(--ink-3);font-size:12px}
 .cohb{display:inline-block;font-size:10.5px;font-weight:500;color:var(--chip-on-ink);background:var(--chip-on);border-radius:999px;padding:0 7px;margin-right:4px;vertical-align:1px}
 /* 크게 보기 아이콘 — 카드 오른쪽 위. 차트 svg 와 섞이지 않게 CSS 마스크로 그린다 */
 .card{position:relative}
@@ -143,14 +148,14 @@ html.mopen{overflow:hidden} html.mopen.mgut{scrollbar-gutter:stable}   /* 스크
 .mbody .mgrp{flex:1;min-width:0;display:grid;gap:16px 26px}
 .mbody .mgrp > .card{min-width:0;min-height:0;overflow:hidden}
 /* 최소 높이 — 아주 낮은 창에서는 칸을 잘라 숨기지 않고 모달 본문이 세로로 스크롤되게 한다 */
-.mbody .mgrp-fail{grid-template-columns:minmax(0,3fr) minmax(0,2fr);grid-template-rows:minmax(0,1fr);min-height:440px}      /* 그래프 왼쪽 · 표 오른쪽 */
-.mbody .mgrp-nd{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,2fr) minmax(0,3fr);min-height:460px}   /* 왼쪽 = 그래프 위·표 아래 · 오른쪽 = 레벨 추이 */
-.mbody .mgrp-nd > [data-lvtc]{grid-column:2;grid-row:1 / span 2}
+.mbody .mgrp-fail,.mbody .mgrp-nd{grid-template-columns:minmax(0,3fr) minmax(0,2fr);grid-template-rows:minmax(0,1fr);min-height:440px}      /* 그래프 왼쪽 · 표 오른쪽 */
+.mbody .mgrp-lc{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,2fr) minmax(0,3fr);min-height:460px}   /* 왼쪽 = 그래프 위·표 아래 · 오른쪽 = 레벨 추이 */
+.mbody .mgrp-lc > [data-lvtc]{grid-column:2;grid-row:1 / span 2}
 .mbody .lvtg,.mbody .lvtg > div{display:contents}     /* 모달에서는 레벨 추이 그래프를 세로로 — .mchart 가 카드의 flex 자식이 돼 남은 높이를 나눠 갖는다 */
 @media (max-width:1099px){
-  .mbody .mgrp-fail{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,2fr) minmax(0,3fr);min-height:400px}   /* 좁으면 그래프 위 · 표 아래(여전히 한 화면) */
-  .mbody .mgrp-nd{display:flex;flex-direction:column;align-self:flex-start;min-height:0}                       /* 좁으면 세 장을 세로로 — 모달 본문이 스크롤된다 */
-  .mbody .mgrp-nd > .card{flex:none;height:340px} .mbody .mgrp-nd > .card:has(.tscroll){height:60vh} .mbody .mgrp-nd > [data-lvtc]{height:520px;grid-column:auto;grid-row:auto}
+  .mbody .mgrp-fail,.mbody .mgrp-nd{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,2fr) minmax(0,3fr);min-height:400px}   /* 좁으면 그래프 위 · 표 아래(여전히 한 화면) */
+  .mbody .mgrp-lc{display:flex;flex-direction:column;align-self:flex-start;min-height:0}                       /* 좁으면 세 장을 세로로 — 모달 본문이 스크롤된다 */
+  .mbody .mgrp-lc > .card{flex:none;height:340px} .mbody .mgrp-lc > .card:has(.tscroll){height:60vh} .mbody .mgrp-lc > [data-lvtc]{height:520px;grid-column:auto;grid-row:auto}
 }
 /* 차트 마우스오버 — 안내선·강조 표식(.chhov)과 값 상자(#chtip). 상자는 포인터를 가리지도 가로채지도 않는다 */
 svg[data-ch]{cursor:crosshair}
@@ -197,7 +202,7 @@ svg[data-ch]{cursor:crosshair}
     <h3 class="subh">코호트 리텐션 <span class="muted">Dn = 설치+n일 af_login 유저 / 코호트 · 분모는 성숙(설치+n ≤ 마지막 날) 코호트만</span></h3>
     <div class="pair"><div class="tiles" id="rtiles"></div><div class="grid wide" id="ret"></div></div>
   </section>
-  <section id="sec-progress"><h2>진행·난이도 <span class="muted">클리어 = af_level_achieved · 실패 = level_fail</span><span class="seg" id="lvseg"></span><span class="chip" id="lvcustom" style="margin-left:6px;padding:2px 6px"><span class="lbl">직접</span><input type="number" id="lvmin" min="1" placeholder="from" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"> <span class="lbl">~</span> <input type="number" id="lvmax" min="1" placeholder="to" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"></span></h2><div class="pair"><div class="tiles" id="ptiles"></div><div class="grid wide" id="progress"></div></div>
+  <section id="sec-progress"><h2>진행·난이도 <span class="muted">클리어 = af_level_achieved · 실패 = level_fail</span><span class="seg" id="lvseg"></span><span class="chip" id="lvcustom" style="margin-left:6px;padding:2px 6px"><span class="lbl">직접</span><input type="number" id="lvmin" min="1" placeholder="from" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"> <span class="lbl">~</span> <input type="number" id="lvmax" min="1" placeholder="to" style="width:64px;background:var(--chip);border:1px solid transparent;border-radius:5px;padding:2px 6px;font-size:12px;font-family:var(--mono);color:var(--ink)"></span></h2><div class="lvbasis" id="lvbasis"></div><div class="pair"><div class="tiles" id="ptiles"></div><div class="grid wide" id="progress"></div></div>
     <h3 class="subh">도달률 <span class="muted">◉ 설치 후 k일 이내 첫 클리어 ≥ N 인 유저 / 코호트 — 레벨 구간 선택과 무관</span><span id="funnelwin" class="tools"></span></h3>
     <div class="pair"><div class="tiles" id="ftiles"></div><div class="grid wide" id="funnel"></div></div>
     <h3 class="subh">플레이 강도 <span class="muted">◉ 설치 후 n일째 접속한 유저 1명당 레벨 클리어 — 세션·플레이 시간이 없어 클리어 수를 플레이량 대리로 쓴다</span></h3>
@@ -298,8 +303,19 @@ const lvn = lvTab('lvn', 'lvnext', LVN_COLS,
     if(k==='nd') return lvPct(r.nd, r.um<LVF_LOW_N, `다음날 이탈 ${fmt.n(r.ng)} / 플레이 ${fmt.n(r.um)}(다음날을 볼 수 있는 날만 — 마지막 날 제외)`);
     return `<td class="num">${fmt.n(r.np)}</td>`;
   });
+// 레벨 이탈률 전체 표(2026-11-07, ◉ 설치 코호트) — 이탈률 = (도달 − 통과) ÷ 도달, 도달 = R(앞 신호 레벨)(첫 행은 코호트 유저 수), 통과 = R(N).
+//    클리어 신호가 없는 레벨(띄엄띄엄 오는 Level_Completed)은 행이 없고 다음 행이 '(시작–끝)' 범위로 묶는다.
+const LVC_COLS = [['level','레벨',1],['lc','이탈률',-1],['rp','도달',-1],['rn','통과',-1],['gone','이탈',-1]];
+const lvc = lvTab('lvc', 'lvchurn', LVC_COLS,
+  {lc:(r)=>r.rp<LVF_LOW_N},
+  (r)=>r.rp<LVF_LOW_N,
+  (k, r)=>{
+    if(k==='level') return `<td>${esc(r.label)}</td>`;
+    if(k==='lc') return lvPct(r.lc, r.rp<LVF_LOW_N, `이탈 ${fmt.n(r.gone)} / 도달 ${fmt.n(r.rp)}`);
+    return `<td class="num">${fmt.n(r[k])}</td>`;
+  });
 function tabSetRows(T, rows){
-  const scope = [game, coh.os, lvr.min, lvr.max, rng.from, rng.to].join('|');
+  const scope = [game, coh.os, lvr.min, lvr.max, rng.from, rng.to, lvb.basis, lvb.n, lvb.a].join('|');
   if(scope!==T.scope){ T.scope = scope; T.page = 0; }     // 게임·OS·구간·기간이 바뀌면 첫 쪽으로(정렬은 유지)
   T.rows = rows;
 }
@@ -323,8 +339,8 @@ function tabBody(T){
   return `${pager}<div class="tscroll"><table class="ret lvf"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
 }
 document.addEventListener('click', (e)=>{
-  const b = e.target.closest('button[data-lvf-sort],button[data-lvf-page],button[data-lvn-sort],button[data-lvn-page]'); if(!b || b.disabled) return;
-  const T = ('lvfSort' in b.dataset || 'lvfPage' in b.dataset) ? lvf : lvn, k = b.dataset[T.pfx+'Sort'];
+  const b = e.target.closest('button[data-lvf-sort],button[data-lvf-page],button[data-lvn-sort],button[data-lvn-page],button[data-lvc-sort],button[data-lvc-page]'); if(!b || b.disabled) return;
+  const T = [lvf, lvn, lvc].find(t=>(t.pfx+'Sort') in b.dataset || (t.pfx+'Page') in b.dataset), k = b.dataset[T.pfx+'Sort'];
   if(k){
     if(k===T.sort) T.dir = -T.dir; else { T.sort = k; T.dir = T.cols.find(c=>c[0]===k)[2]; }
     T.page = 0;
@@ -346,19 +362,39 @@ function lvtCard(){
                           : empty('이 기간에 값이 있는 날이 없음');
     return `<div><div class="small muted">${esc(name)}</div>${body}</div>`;
   };
-  const parts = [];
-  if(X.hasFail){
-    const f = days.map(d=>{ const x = ((J.plays_daily||{})[d]||{})[l]; const n = x ? pick(x,0) : 0; return n>0 ? {n, f:pick(x,2)} : null; });
-    parts.push(one('실패율 — 그날 시작한 판 중 실패한 판 비율', 'var(--c5)', f.map(v=>v ? v.f/v.n : null), f.map(v=>v ? `판 ${fmt.n(v.n)} · 실패한 판 ${fmt.n(v.f)}` : '그날 판 없음')));
+  const parts = []; let sub;
+  if(X.coh){
+    // 설치 코호트 기준(2026-11-07) — x = 설치일. 값 = 그 설치일 코호트 하나(경과일 0..컷오프)의 판 기준 실패율·레벨 이탈률.
+    // Dn 에서 설치 후 n일이 안 지난 설치일, 판·도달이 0 인 설치일은 빈칸. 레벨 이탈률은 클리어 신호가 있는 레벨만(표와 같은 앞 레벨).
+    const NC = J.progression.new_cohort_by_day||{}, cohLast = (J.retention||{}).last_date, sc = cohLvScope();
+    const cutOf = (d)=>lvb.a ? Math.min(COH_LV_CAP, daysBetween(d, X.coh.T)) : (cohLast && daysBetween(d, cohLast) >= lvb.n ? lvb.n : null);
+    if(X.hasFail){
+      const f = days.map(d=>{ const cut = cutOf(d); if(cut==null) return null; const v = cohLvPlays(J, [[d, cut]])[l]; return v && v[0]>0 ? {n:v[0], f:v[1]} : null; });
+      parts.push(one(`실패율 — 그 설치일 코호트가 ${sc} 시작한 판 중 실패한 판 비율`, 'var(--c5)', f.map(v=>v ? v.f/v.n : null), f.map(v=>v ? `판 ${fmt.n(v.n)} · 실패한 판 ${fmt.n(v.f)}` : '값 없음')));
+    }
+    if(X.sig(l)){
+      const pv = X.prevSig(l);
+      const c = days.map(d=>{ const cut = cutOf(d); if(cut==null) return null;
+        const R = cohLvReach(J, [[d, cut]], pv ? [pv, l] : [l]), rp = pv ? (R[pv]||0) : osPick(NC[d]||[0,0]), rn = R[l]||0;
+        return rp>0 ? {rp, rn} : null; });
+      parts.push(one(`레벨 이탈률 — 그 설치일 코호트에서 ${sc} 앞 레벨까지 깬 유저 중 이 레벨을 못 깬 비율`, 'var(--c4)', c.map(v=>v ? (v.rp-v.rn)/v.rp : null), c.map(v=>v ? `이탈 ${fmt.n(v.rp-v.rn)} / 도달 ${fmt.n(v.rp)}` : '값 없음')));
+    }
+    sub = `LV ${lbl} · 설치일별(그날 설치한 신규 코호트 · ${sc}) · 표에서 레벨을 누르면 바뀐다 · ${days.length}일 · 값이 없는 날은 빈칸(${lvb.a?'':`설치 후 ${lvb.n}일이 안 지난 설치일 · `}판·도달 0)`;
+  } else {
+    if(X.hasFail){
+      const f = days.map(d=>{ const x = ((J.plays_daily||{})[d]||{})[l]; const n = x ? pick(x,0) : 0; return n>0 ? {n, f:pick(x,2)} : null; });
+      parts.push(one('실패율 — 그날 시작한 판 중 실패한 판 비율', 'var(--c5)', f.map(v=>v ? v.f/v.n : null), f.map(v=>v ? `판 ${fmt.n(v.n)} · 실패한 판 ${fmt.n(v.f)}` : '그날 판 없음')));
+    }
+    if(X.hasNd){
+      const c = days.map(d=>{ const x = ((J.nextday_daily||{})[d]||{})[l]; const u = x ? pick(x,0) : 0; return u>0 ? {u, g:pick(x,4), m:d<last} : null; });
+      parts.push(one('다음날 이탈률 — 그날 이 레벨에서 못 깬 채 하루를 끝내고 다음날 안 온 유저 ÷ 플레이', 'var(--c4)', c.map(v=>v && v.m ? v.g/v.u : null),
+        c.map(v=>!v ? '그날 플레이 없음' : (v.m ? `다음날 이탈 ${fmt.n(v.g)} / 플레이 ${fmt.n(v.u)}` : '마지막 날 — 다음날을 아직 모른다'))));
+    }
+    sub = `LV ${lbl} · 표에서 레벨을 누르면 바뀐다 · ${days.length}일 · 값이 없는 날은 빈칸(다음날 이탈률은 데이터 마지막 날도 빈칸 — 하루 뒤에 나온다)`;
   }
-  if(X.hasNd){
-    const c = days.map(d=>{ const x = ((J.nextday_daily||{})[d]||{})[l]; const u = x ? pick(x,0) : 0; return u>0 ? {u, g:pick(x,4), m:d<last} : null; });
-    parts.push(one('다음날 이탈률 — 그날 이 레벨에서 못 깬 채 하루를 끝내고 다음날 안 온 유저 ÷ 플레이', 'var(--c4)', c.map(v=>v && v.m ? v.g/v.u : null),
-      c.map(v=>!v ? '그날 플레이 없음' : (v.m ? `다음날 이탈 ${fmt.n(v.g)} / 플레이 ${fmt.n(v.u)}` : '마지막 날 — 다음날을 아직 모른다'))));
-  }
-  const sub = `LV ${lbl} · 표에서 레벨을 누르면 바뀐다 · ${days.length}일 · 값이 없는 날은 빈칸(다음날 이탈률은 데이터 마지막 날도 빈칸 — 하루 뒤에 나온다)`;
   // 그래프가 둘이면 한 줄 전체에 나란히, 하나(실패 없는 게임)면 반 폭 — 혼자 한 줄을 다 쓰면 그림만 지나치게 커진다
-  return card(`레벨 추이 <span class="muted">${sub}</span>`, parts.length ? `<div class="lvtg">${parts.join('')}</div>` : empty(`LV ${lbl} — 그릴 값이 없음`), parts.length>1 ? 'span2' : 'lvhalf', ' data-lvtc data-grp="nd"');
+  // 크게 보기 묶음 = 'lc'(레벨 이탈률 그래프·표와 함께, 2026-11-07) — 다음날 이탈률은 '참고' 로 접혀 따로 'nd' 묶음
+  return card(`레벨 추이 <span class="muted">${sub}</span>`, parts.length ? `<div class="lvtg">${parts.join('')}</div>` : empty(`LV ${lbl} — 그릴 값이 없음`), parts.length>1 ? 'span2' : 'lvhalf', ' data-lvtc data-grp="lc"');
 }
 // 행 클릭 — 표를 다시 그리지 않고 고른 행 표시(sel)만 옮긴다. 다시 그리면 표 스크롤이 맨 위로 돌아가 'LV 1 부터 다시 보이는' 버그가 났다(2026-11-06 팀장님 제보).
 // 모달(묶음)도 스크롤 자리를 지킨 채 다시 복제한다(keep=true).
@@ -421,6 +457,16 @@ const coh = {os:'all', cols:'key', rev:'total', lvden:'act', win:{funnel:1, pay:
     else if(k.startsWith('mode.') && coh.chart[k.slice(5)]) coh.chart[k.slice(5)].mode = v==='date' ? 'date' : 'curve';
     else if(k.startsWith('k.') && coh.chart[k.slice(2)]) coh.chart[k.slice(2)].k = v;
   } })();
+// ── 진행·난이도 기준(2026-11-07) — 실패율 기준 [활동일 | 설치 코호트] · 코호트 범위 Dn(1·3·7) / 기간 마지막 날까지(A) · 다음날 이탈률 접기.
+//    도달 퍼널·레벨 이탈률은 실패율 기준과 무관하게 항상 코호트 범위를 따른다(퍼널 계단 감소 = 이탈률이라 같은 범위여야 숫자가 맞는다).
+//    URL 초기 상태: ?lvb=act|coh&lvd=1|3|7&lva=1&lvnd=1. 계산 규칙은 general/tests/cohort_ref.py 와 1:1.
+const lvb = {basis:'coh', n:7, a:false, nd:false};
+const COH_LV_DAYS = [1,3,7], COH_LV_CAP = 28;       // 경과일 상한 = 산출 cohort_max_day(config.RETENTION_MAX_DAY)
+(function(){ const q = new URLSearchParams(location.search);
+  if(['act','coh'].includes(q.get('lvb'))) lvb.basis = q.get('lvb');
+  const d = parseInt(q.get('lvd'),10); if(COH_LV_DAYS.includes(d)) lvb.n = d;
+  if(q.get('lva')==='1') lvb.a = true;
+  if(q.get('lvnd')==='1') lvb.nd = true; })();
 const COH = '<span class="cohb" title="설치일 코호트 축 카드 — 기간 칩이 설치일 범위로 걸리고 성숙 판정을 따른다">◉ 코호트</span> ';
 const cohOsLabel = ()=>coh.os==='all'?'전체 OS':coh.os==='ios'?'iOS':'Android';
 const winLabel = (K)=>K==='all' ? '관측 전체' : (K===0 ? '설치 당일' : `설치 후 ${K}일까지`);
@@ -432,6 +478,58 @@ const matureBy = (c,end,k)=>!!end && daysBetween(c.d,end)>=k;
 const cohReady = (R)=>!!(R.rows||[]).length && ('iap' in R.rows[0]);
 const cohEmptyMsg = (R)=>(R.rows||[]).length ? '산출이 옛 형식 — 다음 갱신(python -m general.build) 뒤 표시' : '설치 당일 af_login 을 보낸 코호트가 아직 없음';
 const cohRows = (J)=>((J.retention||{}).rows||[]).filter(r=>(coh.os==='all'||r.os===coh.os)&&(!rng.from||r.d>=rng.from)&&(!rng.to||r.d<=rng.to));
+// 설치 코호트 레벨 분해 — 산출 progression.cohort_plays {설치일: {경과일: {레벨키: 평탄 6칸}}} · cohort_reach {…: [+i, +a, −i, −a]}(metrics._cohort_level).
+// 재집계 전 산출이면 없다 → 기준 줄을 숨기고 지금 화면 그대로(실패율 = 활동일, 퍼널 = reach_new_by_day).
+const hasCohLv = (J)=>!!(J.progression && J.progression.cohort_plays && J.progression.cohort_reach);
+const cohLvScope = ()=>lvb.a ? `기간 마지막 날까지(설치 후 최대 ${COH_LV_CAP}일)` : `설치 후 ${lvb.n}일까지`;
+const cohLvEmpty = ()=>lvb.a ? '선택 기간에 설치한 신규 코호트 없음' : `이 기간에 설치 후 ${lvb.n}일이 지난 설치일이 없음 — D1·D3 이나 '기간 마지막 날까지' 로 보기`;
+// 고른 설치일과 설치일별 컷오프(경과일) — Dn = 기간 안 설치일 중 성숙(설치일 + n ≤ 코호트 마지막 날)한 것, 0..n
+//                                       A  = 기간 안 설치일 전부, 0..min(28, T − 설치일), T = 기간 끝(없으면 데이터 마지막 날)
+function cohLvSel(J){
+  const NC = J.progression.new_cohort_by_day||{}, last = (J.retention||{}).last_date, days = allDays(J), T = rng.to || days[days.length-1];
+  const sel = []; let dropDays = 0, dropUsers = 0, users = 0, capped = false;
+  Object.keys(NC).sort().forEach(d=>{
+    if((rng.from && d<rng.from) || (rng.to && d>rng.to)) return;
+    if(lvb.a){ const k = daysBetween(d, T); if(k>COH_LV_CAP) capped = true; sel.push([d, Math.min(COH_LV_CAP, k)]); users += osPick(NC[d]); }
+    else if(last && daysBetween(d, last) >= lvb.n){ sel.push([d, lvb.n]); users += osPick(NC[d]); }
+    else { dropDays++; dropUsers += osPick(NC[d]); }
+  });
+  return {sel, dropDays, dropUsers, users, T, capped};
+}
+// 레벨키 → [판, 실패한 판, 이어하기 클리어] (고른 OS)
+function cohLvPlays(J, sel){
+  const CP = J.progression.cohort_plays||{}, out = {};
+  for(const [d, cut] of sel){ const byK = CP[d]; if(!byK) continue;
+    for(const k in byK){ if(+k > cut) continue; const row = byK[k];
+      for(const l in row){ const x = row[l], o = out[l] || (out[l] = [0,0,0]);
+        o[0] += osPick([x[0]||0, x[1]||0]); o[1] += osPick([x[2]||0, x[3]||0]); o[2] += osPick([x[4]||0, x[5]||0]); } } }
+  return out;
+}
+// keys(레벨키 숫자) 각각의 R(N) = 범위 안 최고 클리어 ≥ N 인 코호트 유저. 설치일마다 컷오프 이하 칸의 (+ − −) 로 '최고 클리어 키 분포' 를 만들고 큰 키부터 누적.
+function cohLvReach(J, sel, keys){
+  const CR = J.progression.cohort_reach||{}, dist = {};
+  for(const [d, cut] of sel){ const byK = CR[d]; if(!byK) continue;
+    for(const k in byK){ if(+k > cut) continue; const row = byK[k];
+      for(const l in row){ const x = row[l]; dist[l] = (dist[l]||0) + osPick([x[0]||0, x[1]||0]) - osPick([x[2]||0, x[3]||0]); } } }
+  const ks = Object.keys(dist).map(Number).sort((a,b)=>b-a), out = {}; let acc = 0, i = 0;
+  for(const N of [...keys].sort((a,b)=>b-a)){ while(i<ks.length && ks[i]>=N){ acc += dist[ks[i]]; i++; } out[N] = acc; }
+  return out;
+}
+function lvBasisHtml(CL){
+  const segB = [['act','활동일'],['coh','◉ 설치 코호트']].map(([k,nm])=>`<button type="button" data-lvb-basis="${k}" aria-pressed="${lvb.basis===k}">${nm}</button>`).join('');
+  const segN = COH_LV_DAYS.map(d=>`<button type="button" data-lvb-n="${d}" aria-pressed="${!lvb.a && lvb.n===d}"${lvb.a?' disabled':''}>D${d}</button>`).join('');
+  const warn = lvb.a ? '설치일마다 관찰 기간이 달라 최근 설치일일수록 이탈률이 높게 나온다' + (CL.capped ? ` · 이른 설치일은 설치 후 ${COH_LV_CAP}일까지만 센다` : '')
+                     : (CL.dropDays ? `설치 후 ${lvb.n}일이 안 지난 설치일 ${CL.dropDays}일(유저 ${fmt.n(CL.dropUsers)}명) 제외` : '');
+  return `<span class="lbl">실패율 기준</span><span class="seg">${segB}</span><span class="lbl">◉ 코호트 범위</span><span class="seg">${segN}</span>`
+       + `<label><input type="checkbox" id="lvba"${lvb.a?' checked':''}> 기간 마지막 날까지</label>${warn?`<span class="warn">${warn}</span>`:''}`;
+}
+document.addEventListener('click', (e)=>{
+  const b = e.target.closest('#lvbasis button'); if(!b || b.disabled) return;
+  if(b.dataset.lvbBasis) lvb.basis = b.dataset.lvbBasis; else if(b.dataset.lvbN) lvb.n = +b.dataset.lvbN; else return;
+  render();
+});
+document.addEventListener('change', (e)=>{ if(e.target.id==='lvba'){ lvb.a = e.target.checked; render(); } });
+document.addEventListener('click', (e)=>{ if(e.target.closest('[data-ndfold]')){ lvb.nd = !lvb.nd; render(); } });
 // 하루 값: 성숙한 행만 num/den 합산
 function cohAggDay(rows, k, end, numAt, denAt){ let num=0, den=0; for(const c of rows){ if(!matureBy(c,end,k)) continue; num+=numAt(c,k); den+=denAt(c,k); } return {num, den, v: den?num/den:null}; }
 // 창 값: K='all' 이면 행마다 성숙한 만큼 0..m 전부, 숫자면 K 까지 성숙한 행만 0..K 합산
@@ -695,6 +793,7 @@ function render(){
   $('deflist').innerHTML = (J.meta.definitions||[]).map(d=>`<li>${esc(d)}</li>`).join('')
     + '<li>레벨 축(현재 레벨 분포·히트맵)은 고른 구간의 약 1/10 폭(10의 배수)으로 묶는다. 원자료가 10레벨 단위라 구간 경계는 10 에 맞춰 스냅되고, 폭 × 10 지점부터는 한 칸(“N+”)으로 접는다.</li>'
     + '<li>코호트 카드 도구: 차트의 "Dn 커브 | 설치일별" 은 x 축을 경과일에서 설치일로 바꾸고, 표의 "핵심 열 | 전체" 는 모든 코호트 표에 같이 적용된다. 창(설치 후 k일까지) 은 도달률·결제·광고에 각각 있다.</li>'
+    + (hasCohLv(J) ? `<li>진행·난이도 ◉ 설치 코호트 기준 = 기간에 설치한 신규 코호트(설치 당일 af_login)의 기록만 센다. 코호트 범위 Dn = 설치 당일~설치 후 n일(설치일 + n 이 데이터 마지막 날을 넘는 설치일은 뺀다) · '기간 마지막 날까지' = 기간 끝 날까지(설치 후 최대 ${COH_LV_CAP}일, 설치일마다 관찰 길이가 다르다). 도달 퍼널·레벨 이탈률은 늘 이 범위, 실패율은 '실패율 기준' 으로 활동일과 바꿔 본다. 레벨 이탈률(N) = (N 앞 레벨까지 깬 유저 − N 까지 깬 유저) ÷ N 앞 레벨까지 깬 유저 — 아직 그 레벨을 하는 중인 유저도 이탈로 센다.</li>` : '')
     + '<li>상단 OS 칩은 이 보드의 모든 카드에 적용된다. 전체 = iOS + Android 이며, 마일스톤 도달 일수(중앙값)만 합칠 수 없어 OS 별로 따로 계산한 값을 쓴다.</li>'
     + (J.meta.exclude_banner ? `<li>이번 산출에서 제외한 배너 노출: ${fmt.n(J.meta.excluded_banner_imps)}</li>` : '') + `<li>유저 ${fmt.n(J.meta.users)} · KR 제외 ${fmt.n(J.meta.excluded_kr_users)}${J.meta.instrumented_only?` · 비계측(구버전) 제외 ${fmt.n(J.meta.excluded_not_instrumented_users)}`:''} · 유실 판정 표본 1/${J.meta.sample_mod} · 시작일 ${esc(J.meta.start||'-')}</li>`;
   const ec = J.meta.event_counts||{}; const has = (n)=>(ec[n]||0)>0;
@@ -879,6 +978,8 @@ function renderRetention(J, has){
 }
 
 function renderProgress(J, has){
+  const CL = hasCohLv(J) ? cohLvSel(J) : null;              // 설치 코호트 범위 — 없으면(재집계 전 산출) 지금 화면 그대로
+  $('lvbasis').innerHTML = CL ? lvBasisHtml(CL) : '';
   const L = J.levels; const lv = Object.keys(L).map(Number).sort((a,b)=>a-b); const out=[];
   // 레벨 블록이 비어도 다음날 이탈률은 af_login 스냅샷만으로 정해진다(신생 게임 첫날 등) — 그때는 진행 섹션을 지우지 않고 아래로 간다(리뷰 11-06)
   const ndAny = !!J.nextday_daily && Object.keys(J.nextday_daily).length > 0;
@@ -902,7 +1003,11 @@ function renderProgress(J, has){
   // 산출 = 설치일별 코호트 수 + 최고 클리어 칸(누적 아님) → 고른 설치일만 더해 칸 키 내림차순으로 누적한다.
   const funPer = rangeOn() && PR.reach_new_by_day && PR.new_cohort_by_day;
   let fNC = NC, fReach = (l)=>L[l].reach_new;
-  if(funPer){
+  const cR = CL ? cohLvReach(J, CL.sel, lv) : null;           // R(N) — 도달 퍼널과 레벨 이탈률이 같이 쓴다
+  if(CL){
+    // 설치 코호트 범위(2026-11-07, D6) — 레벨 이탈률과 같은 R(N). 기간 칩은 설치일만 고르고 기록 창은 Dn / A 가 정한다.
+    fNC = CL.users; fReach = (l)=>cR[l]||0;
+  } else if(funPer){
     fNC = 0; const cnt = {};
     Object.entries(PR.new_cohort_by_day).forEach(([d,pr])=>{ if(inR(d)) fNC += osPick(pr); });
     Object.entries(PR.reach_new_by_day).forEach(([d,row])=>{ if(inR(d)) for(const k in row) cnt[k] = (cnt[k]||0) + osPick(row[k]); });
@@ -917,12 +1022,14 @@ function renderProgress(J, has){
     const step = Math.max(1, Math.ceil(inRange.length/90));      // 점이 90개를 넘으면 솎아낸다(루프 구간은 수천 레벨)
     const pts = step===1 ? inRange : inRange.filter((l,i)=>i%step===0 || i===inRange.length-1);
     const y = pts.length ? Math.min(1, Math.max(...pts.map(l=>ratio(fReach(l),fNC)))*1.15) : 1;
-    const who = funPer ? `선택 기간 설치 신규 코호트 ${fmt.n(fNC)}명(설치 당일 af_login)의 최고 클리어(데이터 끝까지) ≥ N 비율`
+    const who = CL ? `${rangeOn()?'선택 기간':'전체 기간'} 설치 신규 코호트 ${fmt.n(fNC)}명(설치 당일 af_login)의 ${cohLvScope()} 최고 클리어 ≥ N 비율`
+              : funPer ? `선택 기간 설치 신규 코호트 ${fmt.n(fNC)}명(설치 당일 af_login)의 최고 클리어(데이터 끝까지) ≥ N 비율`
                        : `신규 설치 코호트 ${fmt.n(fNC)}명(시작일 이후 설치·설치 당일 af_login)의 최고 클리어 ≥ N 비율`;
-    out.push(card(`도달 퍼널 <span class="muted">${lvLabel()} · ${who}${lvr.key==='all'?` · LV${cutN} 이후 0.5% 미만 생략`:''}</span>${funPer?'':ALL()}`,
+    out.push(card(`${CL?COH:''}도달 퍼널 <span class="muted">${lvLabel()} · ${who}${lvr.key==='all'?` · LV${cutN} 이후 0.5% 미만 생략`:''}</span>${(funPer||CL)?'':ALL()}`,
       pts.length?lineChart([{name:'도달',color:'var(--c1)',points:pts.map(l=>[l,ratio(fReach(l),fNC)])}],{labels:pts.map(String),ymax:y,yfmt:(v)=>fmt.p(v)}):empty('이 구간에 도달 데이터 없음')));
   } else {
-    out.push(card('도달 퍼널', empty(funPer ? '선택 기간에 설치한 신규 코호트 없음' : '신규 설치 코호트가 아직 없음 — 시작일 이후 설치·당일 로그인 유저가 쌓이면 표시')));
+    out.push(card(`${CL?COH:''}도달 퍼널`, empty(CL ? (CL.sel.length ? '이 범위에 클리어한 신규 코호트 없음' : cohLvEmpty())
+                                                 : funPer ? '선택 기간에 설치한 신규 코호트 없음' : '신규 설치 코호트가 아직 없음 — 시작일 이후 설치·당일 로그인 유저가 쌓이면 표시')));
   }
   // 활성 유저 현재 레벨 분포 — 선택 기간에 **마지막으로 접속한** 유저만(마지막 af_login 일자 기준). 전체 기간이면 전원.
   // 예: 9/11 설치·LV99·이후 미접속 유저는 마지막 접속일 9/11 로 묶여, "최근 7일" 이 9/11 을 벗어나면 빠진다.
@@ -948,7 +1055,12 @@ function renderProgress(J, has){
   const PLAYS_MISSING = '판 단위 집계가 없는 산출 — 다음 재집계(09:30·20:00) 뒤에 표시된다';
   const noFail = new Set(J.meta.no_fail_levels||[]);
   let pp = null, pf = null, pc = null;
-  if(J.plays_daily){
+  // 실패율 기준 = 설치 코호트(2026-11-07, 처음 값) — 같은 식을 코호트 범위 안에서 시작한 판으로. 타일·그래프·전체 표가 이 pp/pf/pc 를 그대로 따른다.
+  const cohBasis = !!CL && lvb.basis==='coh', cohNone = cohBasis && !CL.sel.length;
+  if(cohBasis){
+    const C3 = cohLvPlays(J, CL.sel), Z3 = [0,0,0];
+    pp = (l)=>(C3[l]||Z3)[0]; pf = (l)=>(C3[l]||Z3)[1]; pc = (l)=>(C3[l]||Z3)[2];
+  } else if(J.plays_daily){
     let PP = {}, PF = {}, PC = {};
     const pk = (x, i)=>osPick([x[i]||0, x[i+1]||0]);                                    // 평탄 6칸의 i 번째 쌍(osView 참고)
     if(rangeOn()) daysIn(J).forEach(dd=>Object.entries(J.plays_daily[dd]||{}).forEach(([l,x])=>{PP[l]=(PP[l]||0)+pk(x,0); PF[l]=(PF[l]||0)+pk(x,2); PC[l]=(PC[l]||0)+pk(x,4);}));
@@ -960,7 +1072,7 @@ function renderProgress(J, has){
   // 구간 합계 타일. 클리어한 판 = 실패 없는 판 + 이어하기 후 클리어(판마다 실패나 클리어 중 하나는 있다).
   const SP = fr.reduce((a,l)=>a+pp(l),0), SF = fr.reduce((a,l)=>a+pf(l),0), SC = fr.reduce((a,l)=>a+pc(l),0);
   $('ptiles').innerHTML = has('level_fail') && fr.length ? [
-    tile('실패율 합계', fmt.p(ratio(SF, SP)), `실패한 판 ${fmt.n(SF)} / 판 ${fmt.n(SP)}`, `${lvLabel()} · 판 ${LVF_LOW_N}+ ${fmt.n(fr.length)}개 레벨 · 실패한 판 ÷ 판`),
+    tile('실패율 합계', fmt.p(ratio(SF, SP)), `실패한 판 ${fmt.n(SF)} / 판 ${fmt.n(SP)}`, `${cohBasis?`◉ 설치 코호트 ${cohLvScope()} · `:''}${lvLabel()} · 판 ${LVF_LOW_N}+ ${fmt.n(fr.length)}개 레벨 · 실패한 판 ÷ 판`),
     tile('평균 판/클리어', fmt.f(ratio(SP, SP-SF+SC), 2), '', '판 ÷ 클리어한 판 (시작·재시작마다 1판, 이어하기는 같은 판)'),
   ].join('') : '';
   const loopNote = (ls)=> ls.some(l=>l>AUTHORED_MAX) ? ` · LV ${AUTHORED_MAX+1}+ 는 ${LOOP_BUCKET}레벨 묶음` : '';
@@ -998,8 +1110,31 @@ function renderProgress(J, has){
       : {rate:ratio(pf(l),pp(l)), plays:pp(l), fplays:pf(l), cont:ratio(pc(l),pf(l)), cw:pc(l)})));
   }
   if(hasNd) tabSetRows(lvn, ndLv.filter(l=>inLv(l)).map(l=>Object.assign({level:l}, nv(l))));
-  lvt.ctx = {J, days: daysIn(J), hasFail: has('level_fail') && !!J.plays_daily, hasNd};
-  if(![...lvf.rows, ...lvn.rows].some(r=>r.level===lvt.level)) lvt.level = lvf.rows.length ? tabSorted(lvf)[0].level : (lvn.rows.length ? tabSorted(lvn)[0].level : null);
+  // 레벨 이탈률(2026-11-07, ◉ 설치 코호트) — R(N) 은 도달 퍼널과 같은 cR. 클리어 신호(wins, 두 OS 합 — OS 칩과 무관한 게임 성질) 없는 레벨은
+  // 건너뛰고 다음 신호 레벨이 앞 신호 레벨부터의 감소를 맡는다. 분모(도달) 0 인 레벨은 행 없음.
+  const RAWL = ((D.games[game]||{}).levels)||{};
+  const sig = (l)=>{ const v = RAWL[l]||{}, s2 = (p)=>p ? (p[0]||0)+(p[1]||0) : 0; return s2(v.wins)>0 || s2(v.wins_ach)>0; };
+  const lcRows = [];
+  if(CL){
+    let prev = 0, ip = -1;
+    lv.forEach((l, i)=>{
+      if(!sig(l)) return;
+      const rp = prev ? (cR[prev]||0) : CL.users, rn = cR[l]||0;
+      if(rp>0){
+        const merged = i - ip > 1 ? ` (${lv[ip+1]}–${l>AUTHORED_MAX ? l+LOOP_BUCKET-1 : l})` : '';
+        lcRows.push({level:l, prev, rp, rn, gone:rp-rn, lc:(rp-rn)/rp, label:`LV ${lvKeyLabel(l)}${merged}`});
+      }
+      prev = l; ip = i;
+    });
+  }
+  lvc.rows = [];
+  if(CL) tabSetRows(lvc, lcRows.filter(r=>inLv(r.level)));
+  const sigKeys = lv.filter(sig);
+  const prevSig = (l)=>{ let p = 0; for(const k of sigKeys){ if(k>=l) break; p = k; } return p; };
+  lvt.ctx = {J, days: daysIn(J), hasFail: has('level_fail') && (cohBasis || !!J.plays_daily), hasNd,
+             coh: cohBasis ? {T: CL.T} : null, sig, prevSig};
+  if(![...lvf.rows, ...lvn.rows, ...lvc.rows].some(r=>r.level===lvt.level))
+    lvt.level = lvf.rows.length ? tabSorted(lvf)[0].level : (lvc.rows.length ? tabSorted(lvc)[0].level : (lvn.rows.length ? tabSorted(lvn)[0].level : null));
   // 배치(2026-11-07, 팀장님 지시) — 벽 TOP 10 제거 · 왼쪽 그래프, 오른쪽 같은 지표의 표 · 그 아래 레벨 추이(두 표의 행 클릭과 연동).
   //   ┌ 실패율 그래프 ───┐ ┌ 실패율 전체 표 ───┐
   //   ├ 다음날 이탈 그래프 ┤ ├ 다음날 이탈 전체 표 ┤
@@ -1012,8 +1147,9 @@ function renderProgress(J, has){
     } else {
       const ymax = fr.length ? Math.min(1, Math.max(0.05, ...fr.map(l=>ratio(pf(l),pp(l))))*1.15) : 1;      // 실패율은 낮은 쪽에 몰려 있어 상한을 값에 맞춘다
       const skipped = [...noFail].some(l=>inLv(l) && pp(l)>0) ? ' · 실패 미전송 레벨 제외' : '';
-      out.push(card(`레벨별 실패율 <span class="muted">${lvLabel()} · 판 기준 = 실패한 판 ÷ 판 · 판 ${LVF_LOW_N}+ · ${fmt.n(fr.length)}개 레벨${skipped}</span>`,
-        fr.length ? lineChart([{name:'실패율', color:'var(--c5)', points:fr.map(l=>[l, ratio(pf(l),pp(l))])}],
+      out.push(card(`${cohBasis?COH:''}레벨별 실패율 <span class="muted">${cohBasis?`설치 코호트 ${cohLvScope()} · `:''}${lvLabel()} · 판 기준 = 실패한 판 ÷ 판 · 판 ${LVF_LOW_N}+ · ${fmt.n(fr.length)}개 레벨${skipped}</span>`,
+        cohNone ? empty(cohLvEmpty())
+        : fr.length ? lineChart([{name:'실패율', color:'var(--c5)', points:fr.map(l=>[l, ratio(pf(l),pp(l))])}],
                               {labels:fr.map(lvKeyLabel), ymax, yfmt:(v)=>fmt.p(v), tall:true, tips:fr.map(l=>`실패한 판 ${fmt.n(pf(l))} / 판 ${fmt.n(pp(l))}`)})
                   : empty(`이 구간에 판 ${LVF_LOW_N} 이상 레벨 없음 — 구간·기간을 넓힌다`), 'lvhalf', FAIL_GRP));
     }
@@ -1022,15 +1158,34 @@ function renderProgress(J, has){
       out.push(card('레벨별 실패율 전체 표', empty(PLAYS_MISSING), 'lvhalf', FAIL_GRP));
     } else {
       const lvfNotes = (lvf.rows.some(r=>r.nofail)?' · 미전송 = 실패를 보내지 않는 레벨':'') + loopNote(lvf.rows.map(r=>r.level));
-      out.push(card(`레벨별 실패율 전체 표 <span class="muted">${lvLabel()} · 판 기준 = 실패한 판 ÷ 판(시작·재시작마다 새 판, 이어하기는 같은 판) · 이어하기 후 클리어 = 실패한 판 중 같은 판에서 클리어 · ${fmt.n(lvf.rows.length)}개 레벨 · 판 ${LVF_LOW_N} 미만 행은 흐리게(비율 정렬 땐 뒤로) · 행을 누르면 아래 레벨 추이${lvfNotes}</span>`, `<div id="lvfail" class="mfill">${tabBody(lvf)}</div>`, 'lvhalf', FAIL_GRP));
+      out.push(card(`${cohBasis?COH:''}레벨별 실패율 전체 표 <span class="muted">${cohBasis?`설치 코호트 ${cohLvScope()} · `:''}${lvLabel()} · 판 기준 = 실패한 판 ÷ 판(시작·재시작마다 새 판, 이어하기는 같은 판) · 이어하기 후 클리어 = 실패한 판 중 같은 판에서 클리어 · ${fmt.n(lvf.rows.length)}개 레벨 · 판 ${LVF_LOW_N} 미만 행은 흐리게(비율 정렬 땐 뒤로) · 행을 누르면 아래 레벨 추이${lvfNotes}</span>`,
+        `<div id="lvfail" class="mfill">${cohNone ? empty(cohLvEmpty()) : tabBody(lvf)}</div>`, 'lvhalf', FAIL_GRP));
     }
   } else {
     // 실패 없는 게임 — 사유 문구는 한 줄 전체. 반 폭이면 다음날 이탈률 그래프가 옆으로 밀려 그래프·표 짝이 어긋난다
     out.push(card('레벨별 실패율', empty(notSent(J,'level_fail') ? notSentMsg(J,'level_fail') : 'level_fail 이벤트가 아직 없음 — 계측 빌드 배포 뒤부터'), 'span2'));
   }
-  out.push(ndChart());
-  out.push(ndTable());
+  // ◉ 레벨 이탈률 그래프·전체 표 — 실패율 짝 다음 줄. 그래프 = 도달 20+ · 구간 안 · 전체 구간이면 도달 퍼널과 같은 0.5% 절단.
+  const LC_GRP = ' data-grp="lc"';
+  const LC_DEF = '(N 앞 레벨까지 깬 유저 − N 까지 깬 유저) ÷ N 앞 레벨까지 깬 유저 · 아직 그 레벨을 하는 중인 유저도 이탈로 센다';
+  if(!CL){
+    out.push(card('레벨 이탈률', empty('설치 코호트 집계가 없는 산출 — 다음 재집계(09:30·20:00) 뒤에 표시된다'), 'span2'));
+  } else {
+    const cutC = lv.find(l=>ratio(cR[l]||0, CL.users)<0.005) || lv[lv.length-1];
+    const lp = lcRows.filter(r=>r.rp>=LVF_LOW_N && inLv(r.level) && (lvr.key!=='all' || r.level<=cutC));
+    const ymax = lp.length ? Math.min(1, Math.max(0.05, ...lp.map(r=>r.lc))*1.15) : 1;
+    const none = !CL.sel.length ? cohLvEmpty() : (!CL.users ? '이 범위에 신규 코호트 유저 없음' : `이 구간에 도달 ${LVF_LOW_N} 이상 레벨 없음 — 구간·기간을 넓힌다`);
+    out.push(card(`${COH}레벨 이탈률 <span class="muted">설치 코호트 ${cohLvScope()} · ${lvLabel()} · ${LC_DEF} · 도달 ${LVF_LOW_N}+ · ${fmt.n(lp.length)}개 레벨${loopNote(lp.map(r=>r.level))}</span>`,
+      lp.length ? lineChart([{name:'레벨 이탈률', color:'var(--c4)', points:lp.map(r=>[r.level, r.lc])}],
+                            {labels:lp.map(r=>lvKeyLabel(r.level)), ymax, yfmt:(v)=>fmt.p(v), tall:true, tips:lp.map(r=>`이탈 ${fmt.n(r.gone)} / 도달 ${fmt.n(r.rp)}`)})
+                : empty(none), 'lvhalf', LC_GRP));
+    out.push(card(`${COH}레벨 이탈률 전체 표 <span class="muted">설치 코호트 ${cohLvScope()} · ${lvLabel()} · 이탈률 = ${LC_DEF} · 도달 = 앞 레벨까지 깬 유저(첫 행은 코호트 유저) · 통과 = 이 레벨까지 깬 유저 · ${fmt.n(lvc.rows.length)}개 레벨 · 도달 ${LVF_LOW_N} 미만 행은 흐리게(비율 정렬 땐 뒤로) · '(시작–끝)' = 클리어 기록이 없는 레벨을 묶은 범위 · 행을 누르면 아래 레벨 추이${loopNote(lvc.rows.map(r=>r.level))}</span>`,
+      `<div id="lvchurn" class="mfill">${CL.sel.length ? tabBody(lvc) : empty(cohLvEmpty())}</div>`, 'lvhalf', LC_GRP));
+  }
   out.push(lvtCard());
+  // 다음날 이탈률 = '참고'(2026-11-07, 팀장님 결정) — 처음 접힘. 펼치면 지금 그래프·표 그대로(#progress 직속 자식 — 크게 보기가 직속 자식에서 묶음을 찾는다).
+  out.push(`<button type="button" class="ndfold" data-ndfold aria-expanded="${lvb.nd}">참고: 다음날 이탈률 ${lvb.nd?'▾':'▸'} <span class="muted small">활동일 기준 · 그날 이 레벨을 플레이하고 다음날 안 온 유저 비율</span></button>`);
+  if(lvb.nd){ out.push(ndChart()); out.push(ndTable()); }
   // 도달 일수 — 기간을 고르면 그 기간에 설치한 유저만(설치일별 분포를 합쳐 퍼센타일을 다시 낸다, 2026-11-06)
   const dtlPer = rangeOn() && PR.days_to_level_by_day;
   let dtl = J.progression.days_to_level||{};
