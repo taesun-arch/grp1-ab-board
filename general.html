@@ -751,7 +751,8 @@ function osView(J){
   const P = osPick, M = mapVals;
   return {
     meta: Object.assign({}, J.meta, {users:P(J.meta.users), excluded_kr_users:P(J.meta.excluded_kr_users),
-      excluded_not_instrumented_users:P(J.meta.excluded_not_instrumented_users), event_counts:M(J.meta.event_counts||{}, P)}),
+      excluded_not_instrumented_users:P(J.meta.excluded_not_instrumented_users), event_counts:M(J.meta.event_counts||{}, P),
+      reinstall_merged:J.meta.reinstall_merged ? P(J.meta.reinstall_merged) : null}),     // 재설치로 합친 AF ID(2026-11-08) — 옛 산출엔 없음
     daily: M(J.daily||{}, (d)=>M(d, P)),
     retention: J.retention,                        // 코호트 행은 os 필드로 이미 나뉘어 있다(cohRows 가 거른다)
     // 실패 후 다음날 미복귀(wall_churn·churn_sampled)·벽 TOP 10 재료(stuck3_sampled·fail_reasons)는 화면에서 쓰지 않는다(2026-11-06~07) — 쌍의 쌍·객체라 OS 펼치기 전에 뺀다
@@ -801,7 +802,7 @@ function render(){
     + '<li>코호트 카드 도구: 차트의 "Dn 커브 | 설치일별" 은 x 축을 경과일에서 설치일로 바꾸고, 표의 "핵심 열 | 전체" 는 모든 코호트 표에 같이 적용된다. 창(설치 후 k일까지) 은 도달률·결제·광고에 각각 있다.</li>'
     + (hasCohLv(J) ? `<li>진행·난이도 ◉ 설치 코호트 기준 = 기간에 설치한 신규 코호트(설치 당일 af_login)의 기록만 센다. 코호트 범위 Dn = 설치 당일~설치 후 n일(설치일 + n 이 데이터 마지막 날을 넘는 설치일은 뺀다) · '기간 마지막 날까지' = 기간 끝 날까지(${isFinite(cohCap(J)) ? `설치 후 최대 ${cohCap(J)}일, ` : ''}설치일마다 관찰 길이가 다르다). 도달 퍼널·레벨 이탈률은 늘 이 범위, 실패율은 '실패율 기준' 으로 활동일과 바꿔 본다. 레벨 이탈률(N) = (N 앞 레벨까지 깬 유저 − N 까지 깬 유저) ÷ N 앞 레벨까지 깬 유저 — 아직 그 레벨을 하는 중인 유저도 이탈로 센다.</li>` : '')
     + '<li>상단 OS 칩은 이 보드의 모든 카드에 적용된다. 전체 = iOS + Android 이며, 마일스톤 도달 일수(중앙값)만 합칠 수 없어 OS 별로 따로 계산한 값을 쓴다.</li>'
-    + (J.meta.exclude_banner ? `<li>이번 산출에서 제외한 배너 노출: ${fmt.n(J.meta.excluded_banner_imps)}</li>` : '') + `<li>유저 ${fmt.n(J.meta.users)} · KR 제외 ${fmt.n(J.meta.excluded_kr_users)}${J.meta.instrumented_only?` · 비계측(구버전) 제외 ${fmt.n(J.meta.excluded_not_instrumented_users)}`:''} · 유실 판정 표본 1/${J.meta.sample_mod} · 시작일 ${esc(J.meta.start||'-')}</li>`;
+    + (J.meta.exclude_banner ? `<li>이번 산출에서 제외한 배너 노출: ${fmt.n(J.meta.excluded_banner_imps)}</li>` : '') + `<li>유저 ${fmt.n(J.meta.users)} · KR 제외 ${fmt.n(J.meta.excluded_kr_users)}${J.meta.instrumented_only?` · 비계측(구버전) 제외 ${fmt.n(J.meta.excluded_not_instrumented_users)}`:''}${J.meta.reinstall_merged!=null?` · 재설치로 합친 ID ${fmt.n(J.meta.reinstall_merged)}`:''} · 유실 판정 표본 1/${J.meta.sample_mod} · 시작일 ${esc(J.meta.start||'-')}</li>`;
   const ec = J.meta.event_counts||{}; const has = (n)=>(ec[n]||0)>0;
   renderFilters(J); renderLevelSeg(J);
   // 롤아웃 커버리지: 선택 기간 마지막 날 af_login 유저 ÷ 그날 인앱 이벤트가 있는 유저. 계측 유저 한정 빌드에서는 정의상 100% 에 가깝다.
