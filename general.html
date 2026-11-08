@@ -460,7 +460,7 @@ const coh = {os:'all', cols:'key', rev:'total', lvden:'act', win:{funnel:1, pay:
 // ── 진행·난이도 기준(2026-11-07) — 실패율 기준 [활동일 | 설치 코호트] · 코호트 범위 Dn(1·3·7) / 기간 마지막 날까지(A) · 다음날 이탈률 접기.
 //    도달 퍼널·레벨 이탈률은 실패율 기준과 무관하게 항상 코호트 범위를 따른다(퍼널 계단 감소 = 이탈률이라 같은 범위여야 숫자가 맞는다).
 //    URL 초기 상태: ?lvb=act|coh&lvd=1|3|7&lva=1&lvnd=1. 계산 규칙은 general/tests/cohort_ref.py 와 1:1.
-const lvb = {basis:'coh', n:7, a:false, nd:false};
+const lvb = {basis:'coh', n:1, a:false, nd:false};                  // 처음 = 설치 코호트 · D1(11-08 결정 — D7 은 최근 7일 설치일이 빠져 보기 힘듦)
 const COH_LV_DAYS = [1,3,7];
 // A 모드 경과일 상한 = 산출 progression.cohort_max_day(metrics, 기본 config.RETENTION_MAX_DAY=28) — 옛 산출(필드 없음)은 28, null(검증 빌드)은 상한 없음
 const cohCap = (J)=>{ const c = (J.progression||{}).cohort_max_day; return c===undefined ? 28 : (c===null ? Infinity : c); };
@@ -485,8 +485,9 @@ const cohRows = (J)=>((J.retention||{}).rows||[]).filter(r=>(coh.os==='all'||r.o
 const hasCohLv = (J)=>!!(J.progression && J.progression.cohort_plays && J.progression.cohort_reach);
 const cohLvScope = (cap)=>lvb.a ? (isFinite(cap) ? `기간 마지막 날까지(설치 후 최대 ${cap}일)` : '기간 마지막 날까지(상한 없음)') : `설치 후 ${lvb.n}일까지`;
 // 코호트 범위가 비었을 때 사유 — 퍼널·실패율·이탈률 카드가 같은 문구를 쓴다(11-08). 값이 있으면 null.
-//   설치일 후보 0 = 기간에 설치한 신규 코호트 없음(D1·D3 으로 바꿔도 안 나온다) · Dn 에서 전부 미성숙 = D1·D3·A 안내 · 고른 OS 의 유저 0
-const cohLvNone = (CL)=>!CL.sel.length ? (CL.dropDays ? `이 기간에 설치 후 ${lvb.n}일이 지난 설치일이 없음 — D1·D3 이나 '기간 마지막 날까지' 로 보기` : '선택 기간에 설치한 신규 코호트 없음')
+//   설치일 후보 0 = 기간에 설치한 신규 코호트 없음(D1·D3 으로 바꿔도 안 나온다) · Dn 에서 전부 미성숙 = 지금보다 짧은 Dn·A 안내 · 고른 OS 의 유저 0
+const cohLvShorter = ()=>{ const s = COH_LV_DAYS.filter(d=>d<lvb.n).map(d=>'D'+d).join('·'); return s ? `${s} 이나 ` : ''; };
+const cohLvNone = (CL)=>!CL.sel.length ? (CL.dropDays ? `이 기간에 설치 후 ${lvb.n}일이 지난 설치일이 없음 — ${cohLvShorter()}'기간 마지막 날까지' 로 보기` : '선택 기간에 설치한 신규 코호트 없음')
                                        : (!CL.users ? '이 범위에 신규 코호트 유저 없음 — OS·기간을 바꿔 본다' : null);
 // 고른 설치일과 설치일별 컷오프(경과일) — Dn = 기간 안 설치일 중 성숙(설치일 + n ≤ 코호트 마지막 날)한 것, 0..n
 //                                       A  = 기간 안 설치일 전부, 0..min(28, T − 설치일), T = 기간 끝(없으면 데이터 마지막 날)
