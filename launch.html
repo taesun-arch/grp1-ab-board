@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마케팅 보고서 · GRP1 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="site.css">
+<script src="site.js"></script>
+<style>
+/* 마케팅 보고서(2026-11-19) — 새 게임 UA 시작 후 D1·D3·D7 시점의 고정 스냅숏 + Claude 무인 해석.
+   숫자는 launch.publish 산출을 그대로 그린다(다시 계산하지 않음, 비율만 [분자, 분모] 로 나눈다). 설계 docs/superpowers/specs/2026-11-19-launch-report-design.md */
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--gc,var(--accent));outline-offset:2px}
+.wrap{padding:6px var(--gutter) 40px;max-width:calc(var(--maxw) + 2 * var(--gutter));margin:0 auto}
+.muted{color:var(--ink-3)}
+.toolbar{position:sticky;top:57px;z-index:15;margin:0 0 16px;padding:10px 0;background:color-mix(in srgb,var(--bg) 90%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line-soft)}
+@media (max-width:720px){ .toolbar{position:static} }
+.filters{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 14px}
+.chip .lbl{font-size:12px;color:var(--ink-3)}
+.osb,.nb{border:1px solid transparent;background:transparent;color:var(--ink-2);font-size:12.5px;padding:4px 11px;border-radius:999px}
+.osb:hover,.nb:hover{color:var(--ink);border-color:var(--line)} .osb.on,.nb.on{background:var(--ink);color:var(--bg);font-weight:600}
+.nb:disabled{opacity:.45;cursor:not-allowed;border-color:transparent}
+.pstat{font-size:12px;color:var(--ink-3)}
+.notice{margin:0 0 14px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;font-size:12.5px;color:var(--ink-2);background:var(--card)}
+.warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.rhead{margin:0 0 16px;font-size:15px;font-weight:600}
+.rhead .sub{display:block;margin-top:4px;font-size:12.5px;font-weight:400;color:var(--ink-3)}
+main section{margin:0 0 22px;padding:18px 20px 22px;border:1px solid var(--line-soft);border-radius:18px;background:color-mix(in srgb,var(--card) 40%,var(--bg))}
+main section > h2{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;font-size:19px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid var(--line)}
+main section > h2 .muted{font-weight:400;font-size:12.5px}
+main section > h2::before{content:attr(data-no);align-self:center;font:600 11.5px/1 var(--mono);padding:5px 8px;border-radius:999px;color:var(--gc,var(--accent));background:color-mix(in srgb,var(--gc,var(--accent)) 16%,transparent)}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:0 0 12px}
+.tile{position:relative;background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:11px 14px 12px;overflow:hidden;min-width:0}
+.tile .k{font-size:12px;color:var(--ink-3);font-weight:500}
+.tile .v{margin-top:4px;font:600 22px/1.1 var(--font);letter-spacing:-.01em}
+.tile .s{margin-top:4px;font-size:11.5px;color:var(--ink-3)}
+.grid2{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+.card{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px;min-width:0;margin:0 0 12px}
+.card h3{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin:0 0 8px;font-size:13px;font-weight:600;color:var(--ink-2)} .card h3 .muted{font-weight:400}
+.card .foot{margin-top:6px;font-size:11.5px;color:var(--ink-3)}
+.tscroll{overflow:auto;max-width:100%}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+th{color:var(--ink-3);font-weight:500;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left;white-space:normal;min-width:120px}
+tr.me td{font-weight:600;background:color-mix(in srgb,var(--gc,var(--accent)) 10%,var(--card))}
+tr.dim td{color:var(--ink-3);opacity:.7}
+td.na{color:var(--ink-3)}
+.tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--ink-2);margin-left:4px;vertical-align:1px;white-space:nowrap}
+svg{display:block;width:100%;height:auto;max-height:260px} svg text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
+svg .axis{stroke:var(--line);stroke-width:1} svg .gridl{stroke:var(--line-soft);stroke-width:1}
+.empty{padding:22px;text-align:center;color:var(--ink-3);border:1px dashed var(--line);border-radius:10px;font-size:13px}
+.nstat{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin:0 0 12px;font-size:12.5px;color:var(--ink-2)}
+.nstat .ok{color:var(--good);font-weight:600} .nstat .bad{color:var(--crit);font-weight:600} .nstat .wait{color:var(--warn);font-weight:600}
+.note h3{font-size:15px;margin:18px 0 8px;color:var(--ink)} .note h3:first-child{margin-top:0} .note h4{font-size:13.5px;margin:14px 0 6px}
+.note p{margin:6px 0;line-height:1.6} .note ul{margin:6px 0;padding-left:20px} .note li{margin:3px 0;line-height:1.55}
+.note table{margin:8px 0} .note td,.note th{white-space:normal;text-align:left}
+details.defs,details.more{margin-top:8px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:12px 16px;color:var(--ink-2);font-size:12.5px}
+details.defs summary,details.more summary{cursor:pointer;font-weight:600;color:var(--ink)} details.defs li{margin:4px 0}
+.lock{max-width:420px;margin:48px auto;padding:26px;background:var(--card);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
+.lock b{font:700 20px var(--game)} .lock form{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.lock input{background:var(--card-2);border:1px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--ink);min-width:0}
+.lock button{border:0;border-radius:999px;padding:8px 18px;background:var(--ink);color:var(--bg);font-weight:600}
+.err{color:var(--crit)}
+@media (max-width:720px){
+  .tile .v{font-size:19px} main section{padding:14px 12px 16px} .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chip{flex-wrap:wrap;border-radius:14px} th:first-child,td:first-child{min-width:96px}
+}
+</style>
+</head>
+<body>
+<header class="gx-bar">
+  <a class="gx-brand" href="index.html" data-keep-hash title="메인으로"><b>GRP1</b><span>대시보드</span></a>
+  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a><a href="kpi.html" data-keep-hash>KPI</a><a href="payback.html" data-keep-hash>ROAS 예측<span style="font-size:10.5px;opacity:.8">(작업 중)</span></a><a href="launch.html" data-keep-hash aria-current="page">마케팅 보고서</a></nav>
+  <div class="gx-right"><span id="gen" class="gx-gen"></span><button class="gx-btn" id="theme" type="button">라이트</button></div>
+</header>
+<section class="gx-hero" id="hero">
+  <div class="gx-wash"></div><img class="gx-art" alt="" hidden><div class="gx-shade"></div>
+  <div class="gx-copy">
+    <div class="gx-when"><span class="gx-pill">마케팅 보고서</span><span>출시 초기 D1 · D3 · D7 — 그 시점 숫자를 고정한 보고서 + 해석</span></div>
+    <h1 class="gx-name">마케팅 보고서</h1>
+    <div class="gx-doc" id="hdoc"></div>
+  </div>
+  <nav class="gx-games" id="games" role="tablist" aria-label="게임"></nav>
+</section>
+<main class="wrap">
+  <div id="lock" hidden></div>
+  <div id="board" hidden>
+    <div class="toolbar"><div class="filters" id="filters"></div></div>
+    <div id="notice"></div>
+    <div id="head" class="rhead"></div>
+    <div id="nobody" hidden></div>
+    <div id="body">
+      <section id="s1"><h2 data-no="Ⅰ">요약 · 다른 게임 비교 <span class="muted">같은 OS · 같은 시점 · 같은 표본 규칙</span></h2><div id="b1"></div></section>
+      <section id="s2"><h2 data-no="Ⅱ">리텐션 · 진행 <span class="muted">레벨 지표 = 설치 후 n일 관측 창</span></h2><div id="b2"></div></section>
+      <section id="s3"><h2 data-no="Ⅲ">매출</h2><div id="b3"></div></section>
+      <section id="s4"><h2 data-no="Ⅳ">소재 <span class="muted">AppsFlyer 광고(Ad) · 매출은 유료만</span></h2><div id="b4"></div></section>
+      <section id="s5"><h2 data-no="Ⅴ">국가 · 권역 <span class="muted">광고비 = Master 국가별 · 매출은 유료만</span></h2><div id="b5"></div></section>
+      <section id="s6"><h2 data-no="Ⅵ">해석 · 의견 <span class="muted">Claude 무인 작성 — 읽고 수정 요청하면 고친다</span></h2><div id="b6"></div></section>
+    </div>
+    <details class="defs"><summary>정의 · 한계</summary><ul id="defs"></ul></details>
+  </div>
+</main>
+
+<script>
+GX.prehero(document.getElementById('hero'));
+// 평문은 로컬(file:·localhost)이나 ?data= 명시일 때만 — 공개 사이트엔 암호문만 있다(다른 보드와 같은 규칙). ?data=test → launch-data.test.js
+(function(){ var k = new URLSearchParams(location.search).get('data'); var f = k && /^[a-z0-9_-]{1,20}$/.test(k) && k!=='real' ? 'launch-data.'+k+'.js' : 'launch-data.js';
+  if (GX.wantsPlain()) document.write('<script src="'+f+'"><\/script>'); })();
+</script>
+<script src="launch-data.enc.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id), esc = GX.esc;
+GX.wireTheme($("theme")); GX.withHash();
+const CELL_MIN = 20;              // launch/config.py CELL_MIN — 칸 표본이 이보다 작으면 흐리게(해석 근거 금지)
+const NS = [1, 3, 7];
+const OSN = {ios: "iOS", aos: "Android"};
+const Q = new URLSearchParams(location.search);
+const fmt = {
+  n: v => v == null ? "–" : Math.round(v).toLocaleString("en-US"),
+  usd: (v, d = 2) => v == null || !isFinite(v) ? "–" : "$" + Number(v).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}),
+  p: (v, d = 1) => v == null || !isFinite(v) ? "–" : (v * 100).toFixed(d) + "%",
+};
+const rt = (a, b) => b ? a / b : null;                            // [분자, 분모] → 비율
+const pr = x => x ? fmt.p(rt(x[0], x[1])) : "–";
+const prn = x => x ? `${fmt.p(rt(x[0], x[1]))} <span class="muted">(${fmt.n(x[0])}/${fmt.n(x[1])})</span>` : "–";
+let D = null, G = null, KEY = null, notTarget = null;
+const st = {plat: null, n: 1};
+
+const tile = (label, value, sub) => `<div class="tile"><div class="k">${esc(label)}</div><div class="v">${value}</div><div class="s">${sub || ""}</div></div>`;
+const card = (title, body, foot = "") => `<div class="card"><h3>${title}</h3>${body}${foot ? `<div class="foot">${foot}</div>` : ""}</div>`;
+const empty = msg => `<div class="empty">${esc(msg)}</div>`;
+const table = (id, head, rows) => `<div class="tscroll"><table${id ? ` id="${id}"` : ""}><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+const band = b => b[1] == null ? `L${b[0]}+` : (b[0] === b[1] ? `L${b[0]}` : `L${b[0]}–${b[1]}`);
+
+function pendText(p) {
+  if (!p) return "아직 대기 상태 없음";
+  if (p.state === "collecting") return `표본 모으는 중 ${fmt.n(p.have)}/${fmt.n(p.need)}`;
+  if (p.state === "wait_data") return `데이터 도착 대기 (마감 ${p.T})`;
+  if (p.state === "wait_revenue") return `광고 매출 도착 대기 (마감 ${p.T})`;
+  if (p.state === "expired") return `표본 ${fmt.n(p.need)} 미달로 종료`;
+  return "생성 대기";
+}
+const rep = (plat, n) => ((G.reports || {})[plat] || {})[String(n)] || null;
+const pend = (plat, n) => ((G.pending || {})[plat] || {})[String(n)] || null;
+
+function drawFilters() {
+  const plats = G.plats.length ? G.plats : Object.keys(G.reports);
+  let h = `<span class="chip"><span class="lbl">시점</span>${NS.map(n => { const r = rep(st.plat, n), t = r ? `D${n} 보고서` : pendText(pend(st.plat, n));
+    return `<button class="nb${st.n === n && r ? " on" : ""}" type="button" data-n="${n}" title="${esc(t)}"${r ? "" : " disabled"}>D${n}</button>`; }).join("")}</span>`;
+  if (plats.length > 1) h += `<span class="chip"><span class="lbl">OS</span>${plats.map(p => `<button class="osb${st.plat === p ? " on" : ""}" type="button" data-p="${p}">${OSN[p] || p}</button>`).join("")}</span>`;
+  const waits = NS.filter(n => !rep(st.plat, n)).map(n => `D${n} ${pendText(pend(st.plat, n))}`);
+  if (waits.length) h += `<span class="pstat">${esc(waits.join(" · "))}</span>`;
+  $("filters").innerHTML = h;
+  $("filters").querySelectorAll(".nb").forEach(b => b.addEventListener("click", () => { if (!b.disabled) { st.n = +b.dataset.n; render(); } }));
+  $("filters").querySelectorAll(".osb").forEach(b => b.addEventListener("click", () => { st.plat = b.dataset.p; pickN(); render(); }));
+}
+function pickN() { if (!rep(st.plat, st.n)) st.n = NS.find(n => rep(st.plat, n)) || st.n; }
+
+function render() {
+  drawFilters();
+  $("notice").innerHTML = notTarget ? `<div class="notice">${esc(notTarget)}은(는) 보고서 대상이 아닙니다 — 대상: ${esc(D.report_keys.map(k => D.games[k].name).join(" · "))} (출시 후 D1·D3·D7 보고서는 새로 추가되는 게임부터)</div>` : "";
+  const R = rep(st.plat, st.n);
+  if (!R) {
+    $("head").innerHTML = `${esc(G.name)} · ${OSN[st.plat] || st.plat} <span class="sub">${esc(NS.map(n => `D${n} ${pendText(pend(st.plat, n))}`).join(" · "))}</span>`;
+    $("nobody").innerHTML = empty(`아직 보고서가 없습니다 — ${pendText(pend(st.plat, 1))}. 보고서는 Dn 이 끝난 유료 설치가 200명 이상 모인 날을 마감으로 만듭니다.`);
+    $("nobody").hidden = false; $("body").hidden = true;
+    return;
+  }
+  $("nobody").hidden = true; $("body").hidden = false;
+  const S = R.snap, n = S.n;
+  const warn = [];
+  if (S.norev) warn.push("광고 매출 원시가 마감일까지 도착하지 않은 채 만든 보고서 — ROAS 가 낮게 잡혀 있다");
+  if (!S.organic_from) warn.push("이 OS 는 오가닉 원시가 없어 '오가닉 포함' ROAS 가 실제로는 유료 설치자 매출만이다");
+  else if (S.organic_from > S.S) warn.push(`설치일 ${S.organic_from} 전은 오가닉 원시가 온전하지 않아 '오가닉 포함' ROAS 가 그 날들만 유료 설치자 매출이다`);
+  (S.rebuilt || []).forEach(r => warn.push(`재산출 ${r.at} — ${r.reason}`));
+  $("head").innerHTML = `${esc(G.name)} · D${n} · 마케팅 ${S.mday}일차 작성 · 마감 ${esc(S.T)} · 관측 창 유료 ${fmt.n(S.base.n)}명`
+    + `<span class="sub">${OSN[S.plat] || S.plat} · 첫 유료 설치 ${esc(S.S)} · 관측 창 = 설치일 ${esc(S.base.days[0])}~${esc(S.base.days[S.base.days.length - 1])} 유저를 각자 설치 후 ${n}일까지 · 생성 ${esc(S.created_at)}</span>`
+    + warn.map(w => `<div class="notice warn" style="margin-top:8px">${esc(w)}</div>`).join("");
+  renderS1(R); renderS2(S); renderS3(S); renderS4(S); renderS5(S); renderS6(R);
+}
+
+function sumCells(s, n) {
+  const m = s.summary, nk = String(n);
+  return [fmt.n(m.n), fmt.usd(m.cost), fmt.usd(m.cpi), pr(m.ret["1"]), ...(n > 1 ? [pr(m.ret[nk])] : []),
+          pr(m.roas_all["1"]), ...(n > 1 ? [pr(m.roas_all[nk])] : []), pr(m.reach["5"]), pr(m.reach["10"]), fmt.p(m.top10_share)];
+}
+// Dk 합산 범위 — D3·D7 보고서의 D1 은 D1 이 끝난 설치일 전부라 관측 창보다 넓은 다른 코호트다(최종 리뷰 11-19). 타일마다 범위·인원을 붙인다
+const coh = (m, k) => { const c = (m.cohorts || {})[String(k)]; return c ? `설치일 ${esc(c.from)}~${esc(c.to)} · ${fmt.n(c.n)}명` : ""; };
+function renderS1(R) {
+  const S = R.snap, m = S.summary, n = S.n, nk = String(n);
+  let h = `<div class="tiles">` + tile("유료 설치", fmt.n(m.n), "관측 창") + tile("광고비", fmt.usd(m.cost)) + tile("CPI", fmt.usd(m.cpi))
+    + tile("D1 잔존", pr(m.ret["1"]), coh(m, 1))
+    + (n > 1 ? tile(`D${n} 잔존`, pr(m.ret[nk]), coh(m, n)) : "")
+    + tile("D1 ROAS", pr(m.roas_all["1"]), `${coh(m, 1)} · 유료만 ${pr(m.roas_paid["1"])}`)
+    + (n > 1 ? tile(`D${n} ROAS`, pr(m.roas_all[nk]), `${coh(m, n)} · 유료만 ${pr(m.roas_paid[nk])}`) : "")
+    + tile("L5+ 도달", pr(m.reach["5"]), `설치 후 ${n}일`) + tile("L10+ 도달", pr(m.reach["10"]), `설치 후 ${n}일`)
+    + tile("상위 10명 매출 비중", fmt.p(m.top10_share), "높으면 ROAS 차이를 단정하지 않는다") + `</div>`;
+  const head = ["게임", "구분", "첫 유료 설치", "마감", "설치", "광고비", "CPI", "D1 잔존", ...(n > 1 ? [`D${n} 잔존`] : []), "D1 ROAS", ...(n > 1 ? [`D${n} ROAS`] : []), "L5+", "L10+", "상위 10명"];
+  const rows = [`<tr class="me"><td>${esc(G.name)}</td><td>보고서</td><td>${esc(S.S)}</td><td>${esc(S.T)}</td>${sumCells(S, n).map(v => `<td>${v}</td>`).join("")}</tr>`]
+    .concat(R.compare.slice().sort((a, b) => a.S < b.S ? 1 : -1).map(c => `<tr${c.summary.n < CELL_MIN ? ' class="dim"' : ""}><td>${esc(c.name)}${c.after_note ? '<span class="tag">해석 뒤 추가</span>' : ""}</td><td>${c.kind === "report" ? "보고서" : "소급 계산"}</td><td>${esc(c.S)}</td><td>${esc(c.T)}</td>${sumCells(c, n).map(v => `<td>${v}</td>`).join("")}</tr>`));
+  const W = S.window || {}, wk = Object.keys(W.ret || {}).map(Number).sort((a, b) => a - b);
+  if (wk.length) h += card(`관측 창 코호트 추이 <span class="muted">설치일 ${esc(S.base.days[0])}~${esc(S.base.days[S.base.days.length - 1])} · ${fmt.n(S.base.n)}명 — 같은 코호트라 D0→D${n} 변화는 이 표로 읽는다</span>`,
+    table("win", ["Dk", "잔존", "ROAS(오가닉 포함)", "ROAS(유료만)"], wk.map(k => `<tr><td>D${k}</td><td>${prn(W.ret[k])}</td><td>${pr(W.roas_all[k])}</td><td>${pr(W.roas_paid[k])}</td></tr>`)));
+  h += card(`같은 D${n} · ${OSN[S.plat] || S.plat} 다른 게임 <span class="muted">ROAS = 오가닉 포함 · 도달 = 설치 후 ${n}일 · 소급 계산 = 지난 출시를 같은 규칙(표본 200·관측 창)으로 계산한 숫자</span>`,
+    table("cmp", head, rows),
+    `설치·광고비·CPI·도달·${n > 1 ? `D${n}` : "D1"} 열 = 관측 창(같은 표본 규칙).${n > 1 ? ` D1 열 = D1 이 끝난 설치일 전부(관측 창보다 넓고 게임마다 인원이 다르다).` : ""}`
+    + (R.compare.length ? "" : " 비교할 같은 시점 게임이 아직 없습니다."));
+  $("b1").innerHTML = h;
+}
+
+function reachSvg(reach, base) {
+  const W = 560, H = 200, L = 34, B = 22, T = 8, Rr = 8, xs = reach.map(r => r[0]), maxN = Math.max(...xs, 1);
+  const X = N => L + (N - 1) / Math.max(maxN - 1, 1) * (W - L - Rr), Y = v => T + (1 - v) * (H - T - B);
+  let g = "";
+  [0, .25, .5, .75, 1].forEach(v => { g += `<line class="gridl" x1="${L}" x2="${W - Rr}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 4}" y="${Y(v) + 3}" text-anchor="end">${v * 100}%</text>`; });
+  xs.filter(N => N === 1 || N % 10 === 0).forEach(N => { g += `<text x="${X(N)}" y="${H - 6}" text-anchor="middle">L${N}</text>`; });
+  const pts = reach.map(r => `${X(r[0]).toFixed(1)},${Y(base ? r[1] / base : 0).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="도달 곡선">${g}<line class="axis" x1="${L}" x2="${W - Rr}" y1="${Y(0)}" y2="${Y(0)}"/><polyline points="${pts}" fill="none" stroke="var(--gc,var(--accent))" stroke-width="2"/></svg>`;
+}
+function renderS2(S) {
+  const n = S.n, start = S.entry_signal === "start";
+  const ret = Object.keys(S.retention).map(Number).sort((a, b) => a - b).map(k => `<tr><td>D${k}</td><td>${fmt.n(S.retention[k][0])}</td><td>${fmt.n(S.retention[k][1])}</td><td>${pr(S.retention[k])}</td></tr>`);
+  const nextLbl = start ? "다음 레벨 시작" : (S.entry_signal === "fail" ? "다음 레벨 진입" : "다음 레벨 클리어");
+  const stops = S.stops.filter(x => x.cleared > 0 || (x.started || 0) > 0).map(x => `<tr${x.cleared < CELL_MIN ? ' class="dim"' : ""}><td>L${x.lv}</td><td>${fmt.n(x.cleared)}</td><td>${fmt.n(x.entered_next)}</td><td>${x.cleared ? fmt.p(1 - x.entered_next / x.cleared) : "–"}</td>`
+    + `<td${start ? "" : ' class="na"'}>${start ? (x.gap_med_sec == null ? "–" : Math.round(x.gap_med_sec) + "초") : "해당 없음"}</td>`
+    + (start ? `<td>${fmt.n(x.started)}</td><td>${x.started ? fmt.p(x.start_noclear / x.started) + ` <span class="muted">(${fmt.n(x.start_noclear)})</span>` : "–"}</td>` : "") + `</tr>`);
+  const d0 = S.d0lv_d1.map(x => `<tr${x.n < CELL_MIN ? ' class="dim"' : ""}><td>${band(x.band)}</td><td>${fmt.n(x.n)}</td><td>${x.n ? fmt.p(x.d1 / x.n) : "–"}</td></tr>`);
+  $("b2").innerHTML = `<div class="grid2">`
+    + card(`잔존 <span class="muted">Dk = 설치일 ~마감−k 설치자 중 k일째 접속(인앱 이벤트)</span>`, table(null, ["Dk", "접속", "설치", "잔존"], ret))
+    + card(`도달 곡선 <span class="muted">관측 창 설치 ${fmt.n(S.base.n)}명 중 설치 후 ${n}일까지 최고 클리어 ≥ N</span>`, reachSvg(S.reach, S.base.n))
+    + `</div>`
+    + card(`레벨 사이 이탈 <span class="muted">L 클리어 → ${nextLbl} 없음 = 정지 · 설치 후 ${n}일 안${start ? " · 시간 = L 클리어 → L+1 시작 중앙값" : ""}</span>`,
+      table(null, ["레벨", "클리어", nextLbl, "정지율", "다음 시작까지", ...(start ? ["시작", "시작 후 미클리어"] : [])], stops),
+      `클리어 ${CELL_MIN}명 미만 레벨은 흐리게. ${start ? "" : "이 게임은 level_start 를 AppsFlyer 로 보내지 않아 시간 열은 해당 없음."}`)
+    + card(`D0 최고 레벨별 D1 잔존 <span class="muted">설치일 ~마감−1 설치자</span>`, table(null, ["D0 최고 클리어", "설치", "D1 잔존"], d0));
+}
+
+function renderS3(S) {
+  const n = S.n;
+  const rows = S.by_day.map(x => `<tr><td>${esc(x.d)}</td><td>${fmt.n(x.n)}</td><td>${fmt.usd(x.cost)}</td><td>${fmt.usd(x.n ? x.cost / x.n : null)}</td>`
+    + x.rev_all.map((v, k) => v == null ? '<td class="na">—</td>' : `<td>${x.cost ? fmt.p(v / x.cost) : "–"}</td>`).join("")
+    + x.ret.map((v, k) => k === 0 ? "" : (v == null ? '<td class="na">—</td>' : `<td>${x.n ? fmt.p(v / x.n) : "–"}</td>`)).join("") + `</tr>`);
+  const head = ["설치일", "설치", "광고비", "CPI", ...Array.from({length: n + 1}, (_, k) => `D${k} ROAS`), ...Array.from({length: n}, (_, k) => `D${k + 1} 잔존`)];
+  const tot = S.rev_total || 0, bn = S.base.n || 0;
+  const lv = S.rev_by_level.map(x => `<tr${x.users < CELL_MIN ? ' class="dim"' : ""}><td>${band(x.band)}</td><td>${fmt.n(x.users)}</td><td>${bn ? fmt.p(x.users / bn) : "–"}</td><td>${fmt.usd(x.rev)}</td><td>${tot ? fmt.p(x.rev / tot) : "–"}</td><td>${fmt.usd(x.users ? x.rev / x.users : null, 3)}</td></tr>`);
+  $("b3").innerHTML = card(`설치일별 <span class="muted">ROAS = 오가닉 포함 누적 매출 ÷ 그날 광고비 · — = 아직 그 Dk 가 끝나지 않음</span>`, table(null, head, rows))
+    + card(`설치 후 ${n}일 최고 레벨 구간별 매출 <span class="muted">유료 설치자 매출(D0~D${n}) · 관측 창</span>`,
+      table(null, ["최고 클리어", "유저", "유저 비중", "매출", "매출 비중", "1인당"], lv), `상위 10명 비중 ${fmt.p(S.summary.top10_share)} — 초반 광고 매출은 몇 명이 좌우한다.`);
+}
+
+function grpRows(list, nameKey, n) {
+  return list.map(x => `<tr${x.n < CELL_MIN ? ' class="dim"' : ""}><td>${esc(x[nameKey])}</td><td>${fmt.n(x.n)}</td><td>${fmt.usd(x.cost)}</td><td>${fmt.usd(x.n ? x.cost / x.n : null)}</td>`
+    + `<td>${x.cost ? fmt.p(x.rev1 / x.cost) : "–"}</td>${n > 1 ? `<td>${x.cost ? fmt.p(x.revn / x.cost) : "–"}</td>` : ""}`
+    + `<td>${x.n ? fmt.p(x.ret1 / x.n) : "–"}</td>${n > 1 ? `<td>${x.n ? fmt.p(x.retn / x.n) : "–"}</td>` : ""}`
+    + (nameKey === "a" ? `<td>${x.lv0_med == null ? "–" : x.lv0_med}</td>` : "") + `</tr>`);
+}
+const grpHead = (first, n, lv) => [first, "설치", "광고비", "CPI", "D1 ROAS(유료만)", ...(n > 1 ? [`D${n} ROAS(유료만)`] : []), "D1 잔존", ...(n > 1 ? [`D${n} 잔존`] : []), ...(lv ? ["D0 최고 레벨 중간값"] : [])];
+function renderS4(S) {
+  $("b4").innerHTML = S.creatives.length ? card(`소재별 <span class="muted">광고비 순 · 설치 ${CELL_MIN}명 미만 흐리게</span>`, table(null, grpHead("소재", S.n, true), grpRows(S.creatives, "a", S.n))) : empty("소재 데이터 없음");
+}
+function renderS5(S) {
+  $("b5").innerHTML = `<div class="grid2">` + card(`권역 <span class="muted">Tier1 = UK·CA·AU·DE·FR·NL</span>`, table(null, grpHead("권역", S.n, false), grpRows(S.regions, "r", S.n)))
+    + card(`국가 <span class="muted">광고비 순</span>`, table(null, grpHead("국가", S.n, false), grpRows(S.countries, "cc", S.n))) + `</div>`;
+}
+
+function renderS6(R) {
+  const N = R.note, m = (N && N.meta) || {};
+  let s = "";
+  if (!N) s = `<span class="wait">작성 대기</span><span class="muted">다음 갱신 회차(09:30·20:00)에 Claude 가 쓴다</span>`;
+  else if (m.status === "written") s = `<span class="ok">작성됨</span><span>${esc(m.model || "")}</span><span class="muted">${esc(m.generated_at || "")}</span>`
+    + (m.revised || []).map(r => `<span class="tag">수정 ${esc(r.at)}</span>`).join("");
+  else s = `<span class="bad">작성 실패</span><span>${esc(m.reason || "")}</span><span class="muted">시도 ${esc(m.attempts || 0)}회 · ${esc(m.generated_at || "")}</span>`;
+  let h = `<div class="nstat">${s}</div>`;
+  if (N && m.status === "written") {
+    h += `<div class="note">${N.html}</div>`;
+    const u = m.unverified || [];
+    if (u.length) h += `<details class="more"><summary>스냅숏에서 확인 안 된 숫자 ${u.length}개</summary><div style="margin-top:6px">${esc(u.join(" · "))} — 스냅숏 숫자(또는 그 비율)와 맞지 않는 인용. 읽을 때 주의.</div></details>`;
+  }
+  $("b6").innerHTML = h;
+}
+
+function useGame(key, remember) {
+  KEY = key; G = D.games[key];
+  const plats = G.plats.length ? G.plats : Object.keys(G.reports);
+  st.plat = plats.includes(Q.get("os")) ? Q.get("os") : (plats.find(p => G.reports[p]) || plats[0]);
+  const qn = +Q.get("n"); st.n = NS.includes(qn) && rep(st.plat, qn) ? qn : (NS.find(n => rep(st.plat, n)) || 1);
+  if (remember) GX.rememberGame(key);
+  GX.hero($("hero"), key, G.name);
+  $("games").querySelectorAll(".gx-game").forEach(b => b.setAttribute("aria-selected", b.dataset.g === key));
+  $("hdoc").textContent = `${plats.map(p => OSN[p] || p).join(" · ")} · Dn 보고서 = Dn 이 끝난 유료 설치 200명 이상 모인 날 마감 · 숫자 고정 · ROAS = 오가닉 포함(유료만 병기)`;
+  $("defs").innerHTML = [
+    "표본 하한 200 — Dn 보고서는 설치일 S(첫 유료 설치일)~T−n 의 유료 설치 합이 처음 200명 이상이 되는 날 T 를 마감으로 만든다. 모자라면 기다리고, 출시 후 45일이 지나도 안 모이면 만들지 않는다.",
+    "관측 창 — 레벨·도달·정지·레벨 구간별 매출·소재·국가·요약의 설치·광고비·CPI 는 설치일 S..T−n 유저를 각자 설치 후 n일까지로 끊어 센다(오래 지켜본 유저가 섞여 게임 간 비교가 깨지지 않게).",
+    "잔존 Dk = 설치일 S..T−k 유저 중 k일째 인앱 이벤트가 있는 유저(UA 보드와 같은 정의, 광고 유저). 재설치로 새로 생긴 AppsFlyer ID 는 원래 설치 유저로 합쳐 센다.",
+    "ROAS 기본 = 오가닉 포함(그 설치일 유저 전체의 광고 매출 + IAP 순매출 ÷ 광고비, UA 보드와 같은 계산). 유료만 = 원시 설치 리포트의 논오가닉 유저 매출만 — 마케팅팀 문서(AF Cohort API)는 유료만이라 숫자가 다를 수 있다. 소재·국가는 유료만(오가닉을 나눌 수 없다).",
+    "숫자는 그 시점에 고정 — 나중에 원시가 늦게 들어와도 바뀌지 않는다. 버그로 다시 만들면 머리 줄에 '재산출' 과 사유가 붙는다.",
+    "비교 행 = 같은 OS · 같은 Dn · 같은 표본 규칙. '소급 계산' 은 지난 출시를 같은 규칙으로 원시를 잘라 계산한 숫자(해석 없음).",
+    "KR 설치 제외. 칸 표본 20명 미만은 흐리게(해석 근거로 쓰지 않는다).",
+    "해석 · 의견은 Claude(Opus)가 스냅숏·비교·게임 공통 관측만 보고 무인으로 쓴다. 읽고 수정을 요청하면 세션에서 고친다(숫자는 그대로, 수정 날짜 표시).",
+  ].map(s => `<li>${esc(s)}</li>`).join("");
+  render();
+}
+
+function boot(data) {
+  D = data; const keys = D.report_keys || [];
+  if (!keys.length) { $("lock").hidden = false; $("lock").innerHTML = empty("보고서 대상 게임이 아직 없음 — python -m launch.publish"); return; }
+  $("lock").hidden = true; $("board").hidden = false;
+  $("gen").textContent = `산출 ${D.generated_at || ""}`;
+  $("games").innerHTML = keys.map(k => GX.posterBtn(k, D.games[k].name, false)).join("");
+  $("games").querySelectorAll(".gx-game").forEach(b => b.addEventListener("click", () => { notTarget = null; useGame(b.dataset.g, true); }));
+  const want = Q.get("game") || GX.lastGame();
+  if (want && keys.includes(want)) return useGame(want, !!Q.get("game"));
+  // 이어진 게임이 보고서 대상이 아니면 가장 최근 출시 게임을 연다(마지막 게임 기억은 그대로 둔다 — 다른 보드로 돌아가면 원래 게임)
+  if (want) notTarget = (GX.GAMES[want] || {}).name || want;
+  const S0 = k => { const g = D.games[k], ss = []; Object.values(g.reports).forEach(o => Object.values(o).forEach(r => ss.push(r.snap.S)));
+    Object.values(g.pending || {}).forEach(o => Object.values(o).forEach(p => p.S && ss.push(p.S))); return ss.sort()[0] || ""; };
+  useGame(keys.slice().sort((a, b) => S0(a) < S0(b) ? 1 : -1)[0], false);
+}
+
+/* ── 데이터: 평문(launch-data.js, 로컬) → 암호문(launch-data.enc.js, 공개 URL) — 다른 보드와 같은 형식·비밀번호·저장 키 ── */
+const PWKEY = "genboard:pass", b64 = GX.b64;
+async function decryptData(enc, pass) {
+  const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({name: "PBKDF2", salt: b64(enc.salt), iterations: enc.iter, hash: "SHA-256"}, km, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name: "AES-GCM", iv: b64(enc.iv)}, key, b64(enc.ct))));
+}
+function showUnlock(enc, err) {
+  $("lock").hidden = false;
+  $("lock").innerHTML = `<div class="lock"><b>마케팅 보고서</b><div class="${err ? "err" : ""}" style="margin:8px 0 0;font-size:13px;color:${err ? "" : "var(--ink-3)"}">${err || "집계 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다."}</div>
+    <form id="pwform"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password"><button type="submit">열기</button></form></div>`;
+  $("pwform").onsubmit = async ev => { ev.preventDefault();
+    try { const pass = $("pw").value; const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} boot(data); }
+    catch (e) { showUnlock(enc, "비밀번호가 맞지 않습니다."); } };
+  $("pw").focus();
+}
+(async function init() {
+  const plain = window.LAUNCH_DATA;
+  if (plain && plain.games) return boot(plain);
+  const enc = window.LAUNCH_DATA_ENC;
+  if (!enc) { $("lock").hidden = false; $("lock").innerHTML = empty("launch-data.js 가 없거나 비어 있음 — python -m launch.publish 실행"); return; }
+  if (!(window.crypto && crypto.subtle)) { $("lock").hidden = false; $("lock").innerHTML = empty("이 환경에서는 암호를 풀 수 없습니다. https 주소 또는 로컬 파일로 열어야 합니다."); return; }
+  const m = /(?:^#|[#&])k=([^&]+)/.exec(location.hash);
+  if (m) { try { const pass = decodeURIComponent(m[1]); const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} return boot(data); } catch (e) {} }
+  let saved = null; try { saved = localStorage.getItem(PWKEY); } catch (e) {}
+  if (saved) { try { return boot(await decryptData(enc, saved)); } catch (e) {} }
+  showUnlock(enc, null);
+})();
+})();
+</script>
+</body>
+</html>
