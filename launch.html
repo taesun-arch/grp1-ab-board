@@ -182,9 +182,13 @@ function render() {
   if (S.norev) warn.push("광고 매출 원시가 마감일까지 도착하지 않은 채 만든 보고서 — ROAS 가 낮게 잡혀 있다");
   if (!S.organic_from) warn.push("이 OS 는 오가닉 원시가 없어 '오가닉 포함' ROAS 가 실제로는 유료 설치자 매출만이다");
   else if (S.organic_from > S.S) warn.push(`설치일 ${S.organic_from} 전은 오가닉 원시가 온전하지 않아 '오가닉 포함' ROAS 가 그 날들만 유료 설치자 매출이다`);
+  // 매출 출처(설계 4.1) — Cohort API 면 ROAS·설치일별·소재·국가 매출이 그것, 레벨 구간별 매출·상위 10명은 원시 유저 매출(도착한 날까지)
+  const fromCohort = S.rev_source === "cohort_api";
+  if (fromCohort && S.user_rev_until && S.user_rev_until < S.T) warn.push(`레벨 구간별 매출·상위 10명 비중은 원시 매출 ${S.user_rev_until} 까지만 — 그 뒤 날 매출이 빠져 있다(ROAS 는 Cohort API 라 온전)`);
   (S.rebuilt || []).forEach(r => warn.push(`재산출 ${r.at} — ${r.reason}`));
+  const src = fromCohort ? `매출 = AF Cohort API(완료된 날만, 받은 시각 ${esc(S.cohort_fetched_at || "?")}) · 설치·잔존·레벨 = 원시` : "매출 = 원시";
   $("head").innerHTML = `${esc(G.name)} · D${n} · 마케팅 ${S.mday}일차 작성 · 마감 ${esc(S.T)} · 관측 창 유료 ${fmt.n(S.base.n)}명`
-    + `<span class="sub">${OSN[S.plat] || S.plat} · 첫 유료 설치 ${esc(S.S)} · 관측 창 = 설치일 ${esc(S.base.days[0])}~${esc(S.base.days[S.base.days.length - 1])} 유저를 각자 설치 후 ${n}일까지 · 생성 ${esc(S.created_at)}</span>`
+    + `<span class="sub">${OSN[S.plat] || S.plat} · 첫 유료 설치 ${esc(S.S)} · 관측 창 = 설치일 ${esc(S.base.days[0])}~${esc(S.base.days[S.base.days.length - 1])} 유저를 각자 설치 후 ${n}일까지 · 생성 ${esc(S.created_at)} · ${src}</span>`
     + warn.map(w => `<div class="notice warn" style="margin-top:8px">${esc(w)}</div>`).join("");
   renderS1(R); renderS2(S); renderS3(S); renderS4(S); renderS5(S); renderS6(R);
 }
@@ -254,7 +258,7 @@ function renderS3(S) {
   const tot = S.rev_total || 0, bn = S.base.n || 0;
   const lv = S.rev_by_level.map(x => `<tr${x.users < CELL_MIN ? ' class="dim"' : ""}><td>${band(x.band)}</td><td>${fmt.n(x.users)}</td><td>${bn ? fmt.p(x.users / bn) : "–"}</td><td>${fmt.usd(x.rev)}</td><td>${tot ? fmt.p(x.rev / tot) : "–"}</td><td>${fmt.usd(x.users ? x.rev / x.users : null, 3)}</td></tr>`);
   $("b3").innerHTML = card(`설치일별 <span class="muted">ROAS = 오가닉 포함 누적 매출 ÷ 그날 광고비 · — = 아직 그 Dk 가 끝나지 않음</span>`, table(null, head, rows))
-    + card(`설치 후 ${n}일 최고 레벨 구간별 매출 <span class="muted">유료 설치자 매출(D0~D${n}) · 관측 창</span>`,
+    + card(`설치 후 ${n}일 최고 레벨 구간별 매출 <span class="muted">유료 설치자 매출(D0~D${n}) · 관측 창 · 원시${S.rev_source === "cohort_api" && S.user_rev_until && S.user_rev_until < S.T ? ` ${esc(S.user_rev_until)} 까지만` : ""}</span>`,
       table(null, ["최고 클리어", "유저", "유저 비중", "매출", "매출 비중", "1인당"], lv), `상위 10명 비중 ${fmt.p(S.summary.top10_share)} — 초반 광고 매출은 몇 명이 좌우한다.`);
 }
 
@@ -302,7 +306,8 @@ function useGame(key, remember) {
     "표본 하한 200 — Dn 보고서는 설치일 S(첫 유료 설치일)~T−n 의 유료 설치 합이 처음 200명 이상이 되는 날 T 를 마감으로 만든다. 모자라면 기다리고, 출시 후 45일이 지나도 안 모이면 만들지 않는다.",
     "관측 창 — 레벨·도달·정지·레벨 구간별 매출·소재·국가·요약의 설치·광고비·CPI 는 설치일 S..T−n 유저를 각자 설치 후 n일까지로 끊어 센다(오래 지켜본 유저가 섞여 게임 간 비교가 깨지지 않게).",
     "잔존 Dk = 설치일 S..T−k 유저 중 k일째 인앱 이벤트가 있는 유저(UA 보드와 같은 정의, 광고 유저). 재설치로 새로 생긴 AppsFlyer ID 는 원래 설치 유저로 합쳐 센다.",
-    "ROAS 기본 = 오가닉 포함(그 설치일 유저 전체의 광고 매출 + IAP 순매출 ÷ 광고비, UA 보드와 같은 계산). 유료만 = 원시 설치 리포트의 논오가닉 유저 매출만 — 마케팅팀 문서(AF Cohort API)는 유료만이라 숫자가 다를 수 있다. 소재·국가는 유료만(오가닉을 나눌 수 없다).",
+    "ROAS 기본 = 오가닉 포함(그 설치일 유저 전체의 광고 매출 + IAP 순매출 ÷ 광고비, UA 보드와 같은 계산). 유료만 = 논오가닉 유저 매출만(KR 제외) — 마케팅팀 문서는 유료만이라 숫자가 다를 수 있다. 소재·국가는 유료만(오가닉을 나눌 수 없다).",
+    "매출 출처 — 보고서 머리 줄에 적는다. AF Cohort API(완료된 날만)는 원시보다 하루 빨리 온다(11-19 pc D0 529건 $99.46 = 원시와 같음): ROAS·설치일별·소재·국가 매출을 여기서 받고, IAP 는 우리처럼 순매출(× 0.7)로 맞춘다. 레벨 구간별 매출·상위 10명 비중은 유저 단위라 원시 — 마감일까지 원시 매출이 안 왔으면 그만큼 빠진 값이다. 소급 계산 행(지난 출시)은 원시.",
     "숫자는 그 시점에 고정 — 나중에 원시가 늦게 들어와도 바뀌지 않는다. 버그로 다시 만들면 머리 줄에 '재산출' 과 사유가 붙는다.",
     "비교 행 = 같은 OS · 같은 Dn · 같은 표본 규칙. '소급 계산' 은 지난 출시를 같은 규칙으로 원시를 잘라 계산한 숫자(해석 없음).",
     "KR 설치 제외. 칸 표본 20명 미만은 흐리게(해석 근거로 쓰지 않는다).",
