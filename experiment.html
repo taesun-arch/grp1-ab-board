@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A/B 테스트 · GRP1 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="site.css">
+<script src="site.js"></script>
+<style>
+/* A/B 테스트(2026-11-24) — 실험별 A/B 유저의 잔존·매출·전면·레벨 비교. 숫자·검정은 experiment.build 산출을 그대로 그린다(다시 계산하지 않음).
+   설계 docs/superpowers/specs/2026-11-24-ab-test-board-design.md */
+*{box-sizing:border-box}
+:root{--ga:#4c8dff;--gb:#e0559a}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--gc,var(--accent));outline-offset:2px}
+.wrap{padding:6px var(--gutter) 40px;max-width:calc(var(--maxw) + 2 * var(--gutter));margin:0 auto}
+.muted{color:var(--ink-3)}
+.toolbar{position:sticky;top:57px;z-index:15;margin:0 0 16px;padding:10px 0;background:color-mix(in srgb,var(--bg) 90%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line-soft)}
+@media (max-width:720px){ .toolbar{position:static} }
+.filters{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 14px}
+.chip .lbl{font-size:12px;color:var(--ink-3)}
+.fb{border:1px solid transparent;background:transparent;color:var(--ink-2);font-size:12.5px;padding:4px 11px;border-radius:999px}
+.fb:hover{color:var(--ink);border-color:var(--line)} .fb.on{background:var(--ink);color:var(--bg);font-weight:600}
+.notice{margin:0 0 14px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;font-size:12.5px;color:var(--ink-2);background:var(--card)}
+.warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.rhead{margin:0 0 16px;font-size:15px;font-weight:600}
+.rhead .sub{display:block;margin-top:4px;font-size:12.5px;font-weight:400;color:var(--ink-3)}
+.arm{display:inline-flex;align-items:center;gap:5px;font-weight:600} .arm::before{content:"";width:9px;height:9px;border-radius:3px;background:var(--c)}
+.arm.a{--c:var(--ga)} .arm.b{--c:var(--gb)}
+main section{margin:0 0 22px;padding:18px 20px 22px;border:1px solid var(--line-soft);border-radius:18px;background:color-mix(in srgb,var(--card) 40%,var(--bg))}
+main section > h2{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;font-size:19px;font-weight:600;margin:0 0 16px;padding:0 0 12px;border-bottom:1px solid var(--line)}
+main section > h2 .muted{font-weight:400;font-size:12.5px}
+main section > h2::before{content:attr(data-no);align-self:center;font:600 11.5px/1 var(--mono);padding:5px 8px;border-radius:999px;color:var(--gc,var(--accent));background:color-mix(in srgb,var(--gc,var(--accent)) 16%,transparent)}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:0 0 12px}
+.tile{position:relative;background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:11px 14px 12px;overflow:hidden;min-width:0}
+.tile .k{font-size:12px;color:var(--ink-3);font-weight:500}
+.tile .v{margin-top:6px;display:flex;flex-wrap:wrap;gap:2px 12px;font:600 19px/1.15 var(--font);letter-spacing:-.01em}
+.tile .v .va{color:var(--ga)} .tile .v .vb{color:var(--gb)} .tile .v small{font:500 10.5px var(--mono);color:var(--ink-3);margin-right:3px}
+.tile .s{margin-top:6px;font-size:11.5px;color:var(--ink-3)}
+.tile.na .v{color:var(--ink-3)}
+.sig{color:var(--ink);font-weight:600}
+.grid2{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+.card{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px;min-width:0;margin:0 0 12px}
+.card h3{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin:0 0 8px;font-size:13px;font-weight:600;color:var(--ink-2)} .card h3 .muted{font-weight:400}
+.card .foot{margin-top:6px;font-size:11.5px;color:var(--ink-3)}
+.legend{display:flex;gap:14px;font-size:12px;margin:0 0 6px}
+.seg{display:inline-flex;gap:2px;margin:0 0 6px;flex-wrap:wrap}
+.tscroll{overflow:auto;max-width:100%}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+th{color:var(--ink-3);font-weight:500;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th.ca{color:var(--ga)} th.cb{color:var(--gb)}
+tr.hl td{font-weight:600;background:color-mix(in srgb,var(--gc,var(--accent)) 10%,var(--card))}
+tr.dim td{color:var(--ink-3)}
+td.na{color:var(--ink-3)} td.hot{color:var(--crit);font-weight:600}
+.tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--ink-2);margin-left:4px;vertical-align:1px;white-space:nowrap}
+svg{display:block;width:100%;height:auto;max-height:240px} svg text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
+svg .axis{stroke:var(--line);stroke-width:1} svg .gridl{stroke:var(--line-soft);stroke-width:1}
+.empty{padding:22px;text-align:center;color:var(--ink-3);border:1px dashed var(--line);border-radius:10px;font-size:13px}
+details.defs,details.more{margin:0 0 12px;background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:12px 16px;color:var(--ink-2);font-size:12.5px}
+details.defs summary,details.more summary{cursor:pointer;font-weight:600;color:var(--ink)} details.defs li{margin:4px 0}
+.lock{max-width:420px;margin:48px auto;padding:26px;background:var(--card);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
+.lock b{font:700 20px var(--game)} .lock form{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.lock input{background:var(--card-2);border:1px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--ink);min-width:0}
+.lock button{border:0;border-radius:999px;padding:8px 18px;background:var(--ink);color:var(--bg);font-weight:600}
+.err{color:var(--crit)}
+@media (max-width:720px){
+  main section{padding:14px 12px 16px} .tiles{grid-template-columns:repeat(2,minmax(0,1fr))} .tile .v{font-size:16px}
+  .chip{flex-wrap:wrap;border-radius:14px}
+}
+</style>
+</head>
+<body>
+<header class="gx-bar">
+  <a class="gx-brand" href="index.html" data-keep-hash title="메인으로"><b>GRP1</b><span>대시보드</span></a>
+  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a><a href="kpi.html" data-keep-hash>KPI</a><a href="payback.html" data-keep-hash>ROAS 예측<span style="font-size:10.5px;opacity:.8">(작업 중)</span></a><a href="launch.html" data-keep-hash>마케팅 보고서</a><a href="experiment.html" data-keep-hash aria-current="page">A/B 테스트</a></nav>
+  <div class="gx-right"><span id="gen" class="gx-gen"></span><button class="gx-btn" id="theme" type="button">라이트</button></div>
+</header>
+<section class="gx-hero" id="hero">
+  <div class="gx-wash"></div><img class="gx-art" alt="" hidden><div class="gx-shade"></div>
+  <div class="gx-copy">
+    <div class="gx-when"><span class="gx-pill">A/B 테스트</span><span>실험별 A/B 그룹 — 잔존 · 매출 · 전면 · 레벨 비교</span></div>
+    <h1 class="gx-name">A/B 테스트</h1>
+    <div class="gx-doc" id="hdoc"></div>
+  </div>
+  <nav class="gx-games" id="games" role="tablist" aria-label="게임"></nav>
+</section>
+<main class="wrap">
+  <div id="lock" hidden></div>
+  <div id="board" hidden>
+    <div class="toolbar"><div class="filters" id="filters"></div></div>
+    <div id="notice"></div>
+    <div id="head" class="rhead"></div>
+    <div id="nobody" hidden></div>
+    <div id="body">
+      <section id="s1"><h2 data-no="Ⅰ">핵심 비교 <span class="muted">A · B · 차이(B−A) · p</span></h2><div id="b1"></div></section>
+      <section id="s2"><h2 data-no="Ⅱ">잔존 · 매출 곡선 <span class="muted">D0~D14 · 그 Dk 가 끝난 유저만</span></h2><div id="b2"></div></section>
+      <section id="s3"><h2 data-no="Ⅲ">레벨 도달 · 멈춤 <span class="muted">설치 후 7일 관측 창 · L5·L10 강조</span></h2><div id="b3"></div></section>
+      <section id="s4"><h2 data-no="Ⅳ">설치일별</h2><div id="b4"></div></section>
+    </div>
+    <div id="checks"></div>
+    <details class="defs"><summary>정의 · 한계</summary><ul id="defs"></ul></details>
+  </div>
+</main>
+
+<script>
+GX.prehero(document.getElementById('hero'));
+// 평문은 로컬(file:·localhost)이나 ?data= 명시일 때만 — 공개 사이트엔 암호문만 있다. ?data=test → experiment-data.test.js
+(function(){ var k = new URLSearchParams(location.search).get('data'); var f = k && /^[a-z0-9_-]{1,20}$/.test(k) && k!=='real' ? 'experiment-data.'+k+'.js' : 'experiment-data.js';
+  if (GX.wantsPlain()) document.write('<script src="'+f+'"><\/script>'); })();
+</script>
+<script src="experiment-data.enc.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id), esc = GX.esc;
+GX.wireTheme($("theme")); GX.withHash(); GX.tips();
+const Q = new URLSearchParams(location.search);
+const ARMS = ["A", "B"];
+const SEGS = [["all", "전체"], ["paid", "유료"], ["organic", "오가닉"]];
+const RNGS = [["all", "전체 기간"], ["last14", "최근 14일 설치"], ["last7", "최근 7일 설치"]];
+const RFMT = [["total", "전체"], ["interstitial", "전면"], ["rewarded", "리워드"], ["banner", "배너"], ["iap", "IAP"]];
+const fmt = {
+  n: v => v == null ? "–" : Math.round(v).toLocaleString("en-US"),
+  usd: (v, d = 3) => v == null || !isFinite(v) ? "–" : "$" + Number(v).toFixed(d),
+  pct: (v, d = 1) => v == null || !isFinite(v) ? "–" : (v * 100).toFixed(d) + "%",
+  pp: v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%p",
+  dusd: v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(3),
+  dnum: v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "") + v.toFixed(2),
+  p: v => v == null ? "p –" : (v < 0.001 ? "p<0.001" : "p " + v.toFixed(3)),
+};
+let D = null, E = null;
+const st = {exp: null, seg: "all", rng: "all", rf: "total"};
+
+const card = (title, body, foot = "") => `<div class="card"><h3>${title}</h3>${body}${foot ? `<div class="foot">${foot}</div>` : ""}</div>`;
+const empty = msg => `<div class="empty">${esc(msg)}</div>`;
+const table = (id, head, rows) => `<div class="tscroll"><table${id ? ` id="${id}"` : ""}><thead><tr>${head.join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+const th = (t, c = "") => `<th${c ? ` class="${c}"` : ""}>${t}</th>`;
+const armTag = a => `<span class="arm ${a === "A" ? "a" : "b"}">${a}</span>`;
+
+function statusText(s) {
+  if (s === "bq_wait") return "BigQuery 첫 테이블 대기 — 1.0.5 로 배정된 유저는 BigQuery(Firebase)로만 그룹을 알 수 있어, 첫 테이블이 생기기 전까지 집계를 미룹니다.";
+  if (s === "no_assign") return "아직 그룹이 정해진 유저가 없습니다 — AppsFlyer ftc_interstitial_assigned 와 BigQuery 둘 다 0명.";
+  return "";
+}
+const sigCls = r => r && r.enough && r.p != null && r.p < 0.05 ? "sig" : "";
+
+/* 타일 — 비율(prop_test)과 평균(mean_test)이 같은 모양: {a, b, diff, p, enough, na, nb} */
+function tile(label, desc, r, kind) {
+  const val = v => kind === "rate" ? fmt.pct(v) : kind === "usd" ? fmt.usd(v) : (v == null ? "–" : v.toFixed(2));
+  const dif = kind === "rate" ? fmt.pp : kind === "usd" ? fmt.dusd : fmt.dnum;
+  if (!r) return `<div class="tile na"><div class="k">${esc(label)} <span class="muted">${esc(desc)}</span></div><div class="v">—</div><div class="s">아직 그 날짜까지 지난 유저가 없음</div></div>`;
+  const s = r.enough ? `B−A <span class="${sigCls(r)}">${dif(r.diff)}</span> · ${fmt.p(r.p)} · A ${fmt.n(r.na)} · B ${fmt.n(r.nb)}`
+                     : `표본 모자람 (그룹당 100명 미만) · B−A ${dif(r.diff)} · ${fmt.p(r.p)} · A ${fmt.n(r.na)} · B ${fmt.n(r.nb)}`;
+  return `<div class="tile"><div class="k">${esc(label)} <span class="muted">${esc(desc)}</span></div>`
+    + `<div class="v"><span class="va"><small>A</small>${val(r.a)}</span><span class="vb"><small>B</small>${val(r.b)}</span></div><div class="s">${s}</div></div>`;
+}
+
+function drawFilters() {
+  const exps = D.experiments.filter(e => e.game === E.game);
+  let h = "";
+  if (exps.length > 1) h += `<span class="chip"><span class="lbl">실험</span>${exps.map(e => `<button class="fb${e.key === E.key ? " on" : ""}" type="button" data-x="${esc(e.key)}">${esc(e.label)}</button>`).join("")}</span>`;
+  h += `<span class="chip"><span class="lbl">설치일</span>${RNGS.map(([k, t]) => `<button class="fb${st.rng === k ? " on" : ""}" type="button" data-r="${k}">${t}</button>`).join("")}</span>`;
+  h += `<span class="chip"><span class="lbl">구분</span>${SEGS.map(([k, t]) => `<button class="fb${st.seg === k ? " on" : ""}" type="button" data-s="${k}">${t}</button>`).join("")}</span>`;
+  $("filters").innerHTML = h;
+  $("filters").querySelectorAll("[data-x]").forEach(b => b.addEventListener("click", () => { E = D.experiments.find(e => e.key === b.dataset.x); render(); }));
+  $("filters").querySelectorAll("[data-r]").forEach(b => b.addEventListener("click", () => { st.rng = b.dataset.r; render(); }));
+  $("filters").querySelectorAll("[data-s]").forEach(b => b.addEventListener("click", () => { st.seg = b.dataset.s; render(); }));
+}
+
+function render() {
+  drawFilters();
+  const S = E.sources || {}, C = S.counts || {}, M = E.meta || {};
+  const warn = [];
+  if (String(E.status).startsWith("bq_failed")) warn.push(`BigQuery 그룹 갱신 실패 — 마지막 성공 ${E.status.split(":")[1] || "없음"}. 그 뒤 1.0.5 배정 유저는 그룹을 모르는 채로 남습니다.${M.bq_error ? " (" + M.bq_error + ")" : ""}`);
+  if (S.alert) warn.push(`BigQuery 그룹의 AppsFlyer 매칭률이 A·B 에서 다릅니다 (A ${fmt.pct(S.match.A)} · B ${fmt.pct(S.match.B)} · ${fmt.p(S.match.p)}) — 빠진 유저가 한쪽에 몰렸을 수 있어 결과를 단정하지 않습니다.`);
+  const V = E.views && E.views[st.seg] && E.views[st.seg][st.rng];
+  if (V && V.checks && V.checks.same_treatment_alert) warn.push("같은 처치 구간(L1~L5)에서 A·B 가 유의하게 다릅니다 (p<0.01) — 배정이나 데이터 이상을 먼저 의심합니다. 아래 '점검' 참고.");
+  $("notice").innerHTML = warn.map(w => `<div class="notice warn">${esc(w)}</div>`).join("");
+  const pendN = (E.pending_days || []).reduce((s, x) => s + x[1].A + x[1].B, 0);
+  const n = V ? V.n : {A: 0, B: 0};
+  $("head").innerHTML = `${esc(E.name)} · ${esc(E.label)} <span class="muted" style="font-weight:400">${esc(E.experiment_id)}</span>`
+    + `<span class="sub">${ARMS.map(a => `${armTag(a)} ${esc(E.arms[a])}`).join(" &nbsp; ")}</span>`
+    + `<span class="sub">시작 ${esc(E.start || "?")} · 배정(이 보기) A ${fmt.n(n.A)} · B ${fmt.n(n.B)}${V && V.split_p != null ? ` (반반 ${fmt.p(V.split_p)})` : ""}`
+    + ` · 출처 AppsFlyer ${fmt.n((C.af_assign || {}).all)} · BigQuery ${fmt.n((C.bq_only || {}).all)} · 불일치 ${fmt.n((C.mismatch || {}).all)} · 충돌 ${fmt.n((C.conflict || {}).all)}`
+    + ` · 그룹 대기 ${(E.pending_days || []).length}일 ${fmt.n(pendN)}명 · 인앱 ${esc(M.obs_ev || "–")} · 광고 매출 ${esc(M.obs_rev || "–")}${M.bq_enabled ? ` · BigQuery ${esc(M.bq_last || "없음")}` : ""}</span>`;
+  renderChecks(V);
+  if (!V) {
+    $("nobody").innerHTML = empty(statusText(E.status) || "이 보기에는 그룹이 확정된 유저가 없습니다.");
+    $("nobody").hidden = false; $("body").hidden = true; return;
+  }
+  $("nobody").hidden = true; $("body").hidden = false;
+  const T = V.tiles;
+  $("b1").innerHTML = `<div class="tiles">` + tile("D1 잔존", "설치 다음 날 인앱 이벤트", T.d1, "rate") + tile("D3 잔존", "", T.d3, "rate")
+    + tile("D7 잔존", "", T.d7, "rate") + tile("D7 누적 매출/유저", "광고 + IAP×0.7, 설치일~+7", T.rev_d7, "usd")
+    + tile("유저당 전면 (D7)", "설치일~+7 전면 노출 수", T.inter_d7, "num") + `</div>`
+    + `<div class="foot muted" style="font-size:11.5px">굵은 차이 = 그룹당 100명 이상이고 p<0.05. 숫자가 굵지 않으면 지금 표본으로는 차이를 판단할 수 없습니다.</div>`;
+  renderCurves(V); renderLevels(V); renderDays(V);
+}
+
+function lineSvg(series, yMax, yFmt, label) {
+  const W = 560, H = 200, L = 46, B = 22, T = 8, R = 8, K = 14;
+  const X = k => L + k / K * (W - L - R), Y = v => T + (1 - v / (yMax || 1)) * (H - T - B);
+  let g = "";
+  [0, .25, .5, .75, 1].forEach(f => { const v = f * yMax; g += `<line class="gridl" x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 4}" y="${Y(v) + 3}" text-anchor="end">${yFmt(v)}</text>`; });
+  [0, 1, 3, 7, 14].forEach(k => { g += `<text x="${X(k)}" y="${H - 6}" text-anchor="middle">D${k}</text>`; });
+  const line = (pts, c) => { const p = pts.map((v, k) => v == null ? null : `${X(k).toFixed(1)},${Y(v).toFixed(1)}`).filter(Boolean);
+    return p.length ? `<polyline points="${p.join(" ")}" fill="none" stroke="${c}" stroke-width="2"/>` : ""; };
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">${g}<line class="axis" x1="${L}" x2="${W - R}" y1="${Y(0)}" y2="${Y(0)}"/>${line(series.A, "var(--ga)")}${line(series.B, "var(--gb)")}</svg>`;
+}
+function renderCurves(V) {
+  const ret = {}; ARMS.forEach(a => { ret[a] = V.curves.ret[a].map(x => x[1] ? x[0] / x[1] : null); });
+  const rv = {}; ARMS.forEach(a => { rv[a] = V.curves.rev[a].map(x => x ? x[st.rf] : null); });
+  const rmax = Math.max(0.0001, ...ARMS.flatMap(a => rv[a].filter(v => v != null)));
+  const leg = `<div class="legend">${ARMS.map(a => `${armTag(a)} <span class="muted">${esc(E.arms[a])}</span>`).join("")}</div>`;
+  const rows = [0, 1, 3, 7, 14].map(k => `<tr><td>D${k}</td>${ARMS.map(a => { const x = V.curves.ret[a][k]; return `<td>${x[1] ? fmt.pct(x[0] / x[1]) + ` <span class="muted">(${fmt.n(x[0])}/${fmt.n(x[1])})</span>` : "—"}</td>`; }).join("")}`
+    + ARMS.map(a => { const x = V.curves.rev[a][k]; return `<td>${x ? fmt.usd(x[st.rf]) : "—"}</td>`; }).join("") + `</tr>`);
+  $("b2").innerHTML = `<div class="grid2">`
+    + card(`잔존 곡선 <span class="muted">Dk = 설치 후 k일째 인앱 이벤트가 있는 유저 비율, 그 날이 지난 유저만</span>`, leg + lineSvg(ret, 1, v => (v * 100).toFixed(1) + "%", "잔존 곡선"))
+    + card(`누적 매출/유저 곡선 <span class="muted">설치일~+k 누적, 광고 매출 원시가 온 날까지</span>`,
+      `<div class="seg">${RFMT.map(([k, t]) => `<button class="fb${st.rf === k ? " on" : ""}" type="button" data-rf="${k}">${t}</button>`).join("")}</div>` + leg + lineSvg(rv, rmax, v => "$" + v.toFixed(3), "누적 매출 곡선"))
+    + `</div>` + card(`곡선 숫자 <span class="muted">매출 = 위에서 고른 항목</span>`,
+      table(null, [th("Dk"), th("잔존 A", "ca"), th("잔존 B", "cb"), th("매출/유저 A", "ca"), th("매출/유저 B", "cb")], rows));
+  $("b2").querySelectorAll("[data-rf]").forEach(b => b.addEventListener("click", () => { st.rf = b.dataset.rf; renderCurves(V); }));
+}
+
+function cellPair(r, f) { return r ? `<td>${f(r.a)}</td><td>${f(r.b)}</td>` : `<td class="na">–</td><td class="na">–</td>`; }
+const pcell = r => `<td class="${sigCls(r)}">${r && r.p != null ? (r.p < 0.001 ? "<0.001" : r.p.toFixed(3)) : "–"}</td>`;
+function renderLevels(V) {
+  const rows = V.levels.filter(r => (r.reach && (r.reach.xa + r.reach.xb) > 0) || r.highlight).map(r =>
+    `<tr${r.highlight ? ' class="hl"' : ""}><td>L${r.lv}${r.same_treatment ? '<span class="tag">같은 처치</span>' : ""}</td>`
+    + cellPair(r.reach, fmt.pct) + pcell(r.reach)
+    + cellPair(r.stop_after, fmt.pct) + `<td>${r.stop_after ? fmt.pp(r.stop_after.diff) : "–"}</td>` + pcell(r.stop_after)
+    + cellPair(r.stop_during, fmt.pct) + pcell(r.stop_during) + `</tr>`);
+  $("b3").innerHTML = card(`레벨별 <span class="muted">도달 = 설치 후 7일 안 클리어 · 클리어 후 멈춤 = 클리어 뒤 더 높은 레벨에 들어가지 않음 · 도중 멈춤 = 시작했지만 클리어 없음</span>`,
+    table("levels", [th("레벨"), th("도달 A", "ca"), th("도달 B", "cb"), th("p"), th("클리어 후 멈춤 A", "ca"), th("B", "cb"), th("B−A"), th("p"),
+      th("도중 멈춤 A", "ca"), th("B", "cb"), th("p")], rows),
+    "A 는 L5 클리어 뒤, B 는 L10 클리어 뒤 첫 전면 — L5·L10 행이 실험이 겨냥한 지점입니다. L1~L5 는 두 그룹 처치가 같아 차이가 없어야 정상입니다. 레벨이 많아 우연히 p<0.05 가 몇 개 나올 수 있으니 한 행만 보고 단정하지 않습니다.");
+}
+
+function renderDays(V) {
+  const c = (x, k) => x == null ? `<td class="na">—</td>` : `<td>${k === "rev" ? fmt.usd(x) : fmt.pct(x)}</td>`;
+  const rows = V.by_day.map(r => `<tr><td>${esc(r.d)}${r.partial ? '<span class="tag">첫날 일부</span>' : ""}</td><td>${fmt.n(r.A.n)}</td><td>${fmt.n(r.B.n)}</td>`
+    + ["d1", "d3", "d7"].map(k => c(r.A[k]) + c(r.B[k])).join("") + c(r.A.rev_d7, "rev") + c(r.B.rev_d7, "rev") + `</tr>`);
+  $("b4").innerHTML = card(`설치일 × 그룹 <span class="muted">— = 아직 그 Dk 가 끝나지 않음 · 첫날 일부 = 실험 시작 시각 뒤 설치만</span>`,
+    table(null, [th("설치일"), th("A", "ca"), th("B", "cb"), th("D1 A", "ca"), th("D1 B", "cb"), th("D3 A", "ca"), th("D3 B", "cb"), th("D7 A", "ca"), th("D7 B", "cb"), th("D7 매출 A", "ca"), th("D7 매출 B", "cb")], rows));
+}
+
+function renderChecks(V) {
+  const S = E.sources || {}, C = S.counts || {}, dr = S.dropped || {}, bq = S.bq || {};
+  const g = (k, a) => fmt.n(((C[k] || {})[a]));
+  const src = [["AppsFlyer assign", "af_assign"], ["BigQuery 만", "bq_only"], ["둘 다 · 일치", "both_agree"], ["backfill · BigQuery 와 일치(대조)", "backfill_agree"],
+               ["backfill · 불일치(제외)", "backfill_mismatch"], ["backfill 만(판정 안 함)", "backfill_only"]]
+    .map(([t, k]) => `<tr><td>${t}</td><td>${g(k, "A")}</td><td>${g(k, "B")}</td><td>${g(k, "all")}</td></tr>`);
+  src.push(`<tr><td>출처 간 불일치(제외)</td><td colspan="2" class="na">—</td><td>${fmt.n((C.mismatch || {}).all)}</td></tr>`);
+  src.push(`<tr><td>한 출처 안 충돌(제외)</td><td colspan="2" class="na">—</td><td class="${S.conflict_alert ? "hot" : ""}">${fmt.n((C.conflict || {}).all)}</td></tr>`);
+  const lv = V ? V.levels.filter(r => r.same_treatment).map(r => `<tr><td>L${r.lv}</td>${cellPair(r.reach, fmt.pct)}${pcell(r.reach)}${cellPair(r.stop_during, fmt.pct)}${pcell(r.stop_during)}</tr>`) : [];
+  const t3 = V && V.tiles.rev_d7 ? `상위 3명 매출 비중(D7) — A ${fmt.pct(V.tiles.rev_d7.top3_a)} · B ${fmt.pct(V.tiles.rev_d7.top3_b)}. 높으면 몇 명의 고가 광고 행이 평균을 좌우합니다.` : "상위 3명 매출 비중 — D7 매출이 끝난 유저가 아직 없음.";
+  $("checks").innerHTML = `<details class="more"${S.alert || S.conflict_alert || (V && V.checks.same_treatment_alert) ? " open" : ""}><summary>점검 — 그룹 출처 · 같은 처치 구간 · 매출 쏠림</summary>`
+    + card(`그룹 출처 <span class="muted">AppsFlyer assign 우선, 없으면 BigQuery. backfill 은 업데이트까지 남은 유저만 보내 판정에 쓰지 않는다</span>`,
+      table(null, [th("출처"), th("A", "ca"), th("B", "cb"), th("합")], src),
+      `BigQuery → AppsFlyer 매칭: 사용자 속성 ${fmt.n(bq.by_af_prop)} · Customer User ID ${fmt.n(bq.by_cuid)} · 안 됨 A ${fmt.n((bq.unmatched || {}).A)} · B ${fmt.n((bq.unmatched || {}).B)}`
+      + ` · 매칭률 A ${fmt.pct((S.match || {}).A)} · B ${fmt.pct((S.match || {}).B)} · 깨진 AppsFlyer 이벤트 ${fmt.n(S.bad_af_rows)}행`
+      + ` · 제외: KR ${fmt.n(dr.kr)} · 설치일이 시작 전 ${fmt.n(dr.pre_start)} · 원시에 없음 ${fmt.n(dr.no_rows)}`)
+    + (lv.length ? card(`같은 처치 구간 L1~L5 <span class="muted">두 그룹 다 아직 전면이 없는 구간 — 차이가 없어야 정상</span>`,
+      table(null, [th("레벨"), th("도달 A", "ca"), th("도달 B", "cb"), th("p"), th("도중 멈춤 A", "ca"), th("B", "cb"), th("p")], lv),
+      V.checks.same_treatment_alert ? "p<0.01 인 행이 있습니다 — 배정이나 데이터 이상을 먼저 의심하세요." : "") : "")
+    + `<div class="card"><h3>매출 쏠림</h3><div>${esc(t3)}</div></div>`
+    + ((E.pending_days || []).length ? `<div class="card"><h3>그룹 대기 설치일 <span class="muted">BigQuery 테이블이 아직 안 온 날 — 다음 회차에 들어온다</span></h3><div>${E.pending_days.map(x => `${esc(x[0])} (A ${x[1].A} · B ${x[1].B})`).join(" · ")}</div></div>` : "")
+    + `</details>`;
+}
+
+function useGame(game, remember) {
+  E = D.experiments.find(e => e.key === Q.get("exp") && e.game === game) || D.experiments.find(e => e.game === game);
+  if (remember) GX.rememberGame(game);
+  GX.hero($("hero"), game, E.name);
+  $("games").querySelectorAll(".gx-game").forEach(b => b.setAttribute("aria-selected", b.dataset.g === game));
+  $("hdoc").textContent = "그룹 = AppsFlyer 배정 이벤트(assign) 우선, 없으면 BigQuery(Firebase) · 잔존·매출 정의는 UA 보드·마케팅 보고서와 같음 · KR 제외";
+  $("defs").innerHTML = [
+    "대상 — 실험이 A/B 로 배정한 유저만. outside(기존 유저·L6 이상에서 처음 켠 유저 등)와 그룹을 모르는 유저(분석 동의 거부 + AppsFlyer 이벤트 없는 1.0.5 배정 등)는 뺀다. 둘 다 처치 전에 정해지는 조건이라 A·B 에서 같은 비율로 빠진다.",
+    "그룹 출처 — AppsFlyer ftc_interstitial_assigned 의 assign(새 빌드에서 배정된 순간)이 있으면 그것, 없으면 BigQuery(Firebase 배정 이벤트). backfill(1.0.5 배정 유저가 업데이트 후 보냄)은 남은 유저만 보내므로 판정에 쓰지 않고 대조만 한다.",
+    "그룹 대기 — BigQuery 매일 테이블은 하루 늦게 온다. 그 날의 테이블이 오기 전 설치일은 그룹이 다 정해지지 않아 집계에서 빼고 수만 보인다.",
+    "잔존 Dk = 설치일+k(UTC)에 인앱 이벤트가 하나라도 있는 유저 비율(UA 보드·마케팅 보고서와 같은 정의). 재설치로 새로 생긴 AppsFlyer ID 는 원래 설치 유저로 합친다.",
+    "매출 = 광고 매출 원시 USD + IAP × 0.7(순매출), .dev. 상품 제외. 광고 매출 원시는 1~2일 늦게 와 매출 Dk 는 잔존보다 늦게 채워진다. 광고비·ROAS 는 그룹으로 나눌 수 없어 넣지 않는다.",
+    "레벨 — 설치 후 7일 관측 창. 정의는 마케팅 보고서 '레벨 사이 이탈' 과 같다.",
+    "검정 — 비율은 두 비율 z, 평균은 Welch(정규 근사). 그룹당 100명 미만이면 '표본 모자람'. 굵은 차이 = 100명 이상 + p<0.05. 레벨처럼 여러 번 비교하면 우연히 유의가 나올 수 있다.",
+    "KR 설치 제외(이 게임 다른 보드와 같음).",
+  ].map(s => `<li>${esc(s)}</li>`).join("");
+  render();
+}
+
+function boot(data) {
+  D = data; const exps = D.experiments || [];
+  if (!exps.length) { $("lock").hidden = false; $("lock").innerHTML = empty("진행 중인 실험이 없음 — experiment/config.py EXPERIMENTS"); return; }
+  $("lock").hidden = true; $("board").hidden = false;
+  $("gen").textContent = `산출 ${D.generated_at || ""}`;
+  const games = [...new Set(exps.map(e => e.game))];
+  $("games").innerHTML = games.map(g => GX.posterBtn(g, exps.find(e => e.game === g).name, false)).join("");
+  $("games").querySelectorAll(".gx-game").forEach(b => b.addEventListener("click", () => useGame(b.dataset.g, true)));
+  const want = Q.get("game") || GX.lastGame();
+  useGame(games.includes(want) ? want : games[0], !!Q.get("game"));
+}
+
+/* ── 데이터: 평문(experiment-data.js, 로컬) → 암호문(experiment-data.enc.js, 공개 URL) — 다른 보드와 같은 형식·비밀번호·저장 키 ── */
+const PWKEY = "genboard:pass", b64 = GX.b64;
+async function decryptData(enc, pass) {
+  const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({name: "PBKDF2", salt: b64(enc.salt), iterations: enc.iter, hash: "SHA-256"}, km, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name: "AES-GCM", iv: b64(enc.iv)}, key, b64(enc.ct))));
+}
+function showUnlock(enc, err) {
+  $("lock").hidden = false;
+  $("lock").innerHTML = `<div class="lock"><b>A/B 테스트</b><div class="${err ? "err" : ""}" style="margin:8px 0 0;font-size:13px;color:${err ? "" : "var(--ink-3)"}">${err || "집계 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다."}</div>
+    <form id="pwform"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password"><button type="submit">열기</button></form></div>`;
+  $("pwform").onsubmit = async ev => { ev.preventDefault();
+    try { const pass = $("pw").value; const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} boot(data); }
+    catch (e) { showUnlock(enc, "비밀번호가 맞지 않습니다."); } };
+  $("pw").focus();
+}
+(async function init() {
+  const plain = window.EXPERIMENT_DATA;
+  if (plain && plain.experiments) return boot(plain);
+  const enc = window.EXPERIMENT_DATA_ENC;
+  if (!enc) { $("lock").hidden = false; $("lock").innerHTML = empty("experiment-data.js 가 없거나 비어 있음 — python -m experiment.build 후 experiment.publish"); return; }
+  if (!(window.crypto && crypto.subtle)) { $("lock").hidden = false; $("lock").innerHTML = empty("이 환경에서는 암호를 풀 수 없습니다. https 주소 또는 로컬 파일로 열어야 합니다."); return; }
+  const m = /(?:^#|[#&])k=([^&]+)/.exec(location.hash);
+  if (m) { try { const pass = decodeURIComponent(m[1]); const data = await decryptData(enc, pass); try { localStorage.setItem(PWKEY, pass); } catch (e) {} return boot(data); } catch (e) {} }
+  let saved = null; try { saved = localStorage.getItem(PWKEY); } catch (e) {}
+  if (saved) { try { return boot(await decryptData(enc, saved)); } catch (e) {} }
+  showUnlock(enc, null);
+})();
+})();
+</script>
+</body>
+</html>

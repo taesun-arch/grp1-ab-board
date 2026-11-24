@@ -102,7 +102,7 @@ a.t:hover{transform:translateY(-2px);border-color:var(--line)}
 <body>
 <header class="gx-bar">
   <a class="gx-brand" href="index.html" data-keep-hash><b>GRP1</b><span>대시보드</span></a>
-  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a><a href="kpi.html" data-keep-hash>KPI</a><a href="payback.html" data-keep-hash>ROAS 예측<span style="font-size:10.5px;opacity:.8">(작업 중)</span></a><a href="launch.html" data-keep-hash>마케팅 보고서</a></nav>
+  <nav class="gx-switch" aria-label="보드"><a href="general.html" data-keep-hash>일반 지표</a><a href="ua.html" data-keep-hash>UA · 마케팅</a><a href="kpi.html" data-keep-hash>KPI</a><a href="payback.html" data-keep-hash>ROAS 예측<span style="font-size:10.5px;opacity:.8">(작업 중)</span></a><a href="launch.html" data-keep-hash>마케팅 보고서</a><a href="experiment.html" data-keep-hash>A/B 테스트</a></nav>
   <div class="gx-right"><span class="gx-gen" id="gen"></span><button class="gx-btn" id="theme" type="button">라이트</button></div>
 </header>
 <main class="page">
@@ -117,6 +117,7 @@ a.t:hover{transform:translateY(-2px);border-color:var(--line)}
 
 <script src="boards.js"></script>
 <script src="launch-keys.js"></script>
+<script src="experiment-keys.js"></script>
 <script src="summary-data.js"></script>
 <script src="summary-data.enc.js"></script>
 <script>
@@ -157,7 +158,7 @@ function render(S) {
   const uaKeys = order.filter(k => G[k].ua), genKeys = order.filter(k => G[k].general);
   const any = (G[uaKeys[0]] || G[genKeys[0]] || {}), last = (any.ua || any.general || {}).last;
   $('when').textContent = `${last || ''} (UTC) 기준 · 갱신 ${S.generated_at || ''}`;
-  $('gen').textContent = [B.general ? '일반 ' + B.general : '', B.ua ? 'UA ' + B.ua : '', B.kpi ? 'KPI ' + B.kpi : '', B.payback ? 'ROAS 예측 ' + B.payback : '', B.launch ? '마케팅 보고서 ' + B.launch : ''].filter(Boolean).join(' · ');
+  $('gen').textContent = [B.general ? '일반 ' + B.general : '', B.ua ? 'UA ' + B.ua : '', B.kpi ? 'KPI ' + B.kpi : '', B.payback ? 'ROAS 예측 ' + B.payback : '', B.launch ? '마케팅 보고서 ' + B.launch : '', B.experiment ? 'A/B 테스트 ' + B.experiment : ''].filter(Boolean).join(' · ');
   const icons = ks => ks.map(k => GX.GAMES[k] ? `<img src="${GX.GAMES[k].icon}" alt="" title="${esc(GX.GAMES[k].name)}">` : '').join('');
   const C = k => (GX.GAMES[k] || {}).color || 'var(--accent)';
   const I = k => (GX.GAMES[k] || {}).icon || '';
@@ -198,12 +199,13 @@ function render(S) {
       <div><div class="k">D1 잔존</div><div class="mid">${pct(g.d1)}</div><div class="s">최근 7코호트</div></div></div>
       <div class="spark">${spark(g.dau_spark, C(k), 56)}<div class="s">DAU 14일</div></div></a>`; });
   if (genKeys.length) out += grp('DAU', 'DAU = 마지막 날 · 7일 전 대비 · D1 잔존 = 최근 7개 성숙 코호트(af_login · 오가닉 포함)', h);
-  // 보드 바로가기 다섯(일반·UA·KPI·ROAS 예측·마케팅 보고서, 2026-11-19) — 자기 묶음에서 한 줄(.boards: 넓으면 다섯 장, 좁으면 줄바꿈)
+  // 보드 바로가기 여섯(일반·UA·KPI·ROAS 예측·마케팅 보고서 2026-11-19·A/B 테스트 2026-11-24) — 자기 묶음에서 한 줄(.boards: 넓으면 다섯 장, 좁으면 줄바꿈)
   out += grp('보드', '', `<div class="boards"><a class="t board" href="general.html${hash}" style="--bc:#6f93ff"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><div class="icons">${icons(genKeys)}</div><span class="go">→</span></a>`
     + `<a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`
     + `<a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`
     + `<a class="t board" href="payback.html${hash}" style="--bc:#f0a040"><div class="k">ROAS FORECAST · 120일 회수 · 작업 중</div><div class="name">ROAS 예측</div><div class="icons">${icons(uaKeys)}</div><span class="go">→</span></a>`
-    + `<a class="t board" href="launch.html${hash}" style="--bc:#ffb547"><div class="k">MARKETING REPORT · D1·D3·D7</div><div class="name">마케팅 보고서</div><div class="icons">${icons(window.LAUNCH_KEYS || [])}</div><span class="go">→</span></a></div>`);
+    + `<a class="t board" href="launch.html${hash}" style="--bc:#ffb547"><div class="k">MARKETING REPORT · D1·D3·D7</div><div class="name">마케팅 보고서</div><div class="icons">${icons(window.LAUNCH_KEYS || [])}</div><span class="go">→</span></a>`
+    + `<a class="t board" href="experiment.html${hash}" style="--bc:#4c8dff"><div class="k">A/B TEST · 실험별 그룹 비교</div><div class="name">A/B 테스트</div><div class="icons">${icons(window.EXPERIMENT_KEYS || [])}</div><span class="go">→</span></a></div>`);
   $('bento').innerHTML = out;
 
   // ── 브리핑 ──
@@ -228,14 +230,15 @@ function render(S) {
 
 // 잠금 — 숫자가 없을 때도 보드 바로가기는 보인다
 function locked(enc, err) {
-  $('gen').textContent = [B.general ? '일반 ' + B.general : '', B.ua ? 'UA ' + B.ua : '', B.kpi ? 'KPI ' + B.kpi : '', B.payback ? 'ROAS 예측 ' + B.payback : '', B.launch ? '마케팅 보고서 ' + B.launch : ''].filter(Boolean).join(' · ');
+  $('gen').textContent = [B.general ? '일반 ' + B.general : '', B.ua ? 'UA ' + B.ua : '', B.kpi ? 'KPI ' + B.kpi : '', B.payback ? 'ROAS 예측 ' + B.payback : '', B.launch ? '마케팅 보고서 ' + B.launch : '', B.experiment ? 'A/B 테스트 ' + B.experiment : ''].filter(Boolean).join(' · ');
   $('bento').innerHTML = `<div class="bento"><div class="t lockt"><b>GRP1 대시보드</b><div class="s" style="margin-top:6px;font-size:13px;${err ? 'color:var(--crit)' : ''}">${err || '요약 숫자는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풉니다.'}</div>
     ${enc ? `<form id="pwform"><input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password"><button type="submit">열기</button></form>` : ''}</div>
     <div class="boards"><a class="t board" href="general.html${hash}" style="--bc:#6f93ff"><div class="k">GAME METRICS</div><div class="name">일반 지표 보드</div><span class="go">→</span></a>
     <a class="t board" href="ua.html${hash}" style="--bc:#ff6fb5"><div class="k">MARKETING · UA</div><div class="name">UA · 마케팅 보드</div><span class="go">→</span></a>
     <a class="t board" href="kpi.html${hash}" style="--bc:#2fc79a"><div class="k">KPI · 획득~수익화</div><div class="name">KPI 보드</div><span class="go">→</span></a>
     <a class="t board" href="payback.html${hash}" style="--bc:#f0a040"><div class="k">ROAS FORECAST · 120일 회수 · 작업 중</div><div class="name">ROAS 예측</div><span class="go">→</span></a>
-    <a class="t board" href="launch.html${hash}" style="--bc:#ffb547"><div class="k">MARKETING REPORT · D1·D3·D7</div><div class="name">마케팅 보고서</div><span class="go">→</span></a></div></div>`;
+    <a class="t board" href="launch.html${hash}" style="--bc:#ffb547"><div class="k">MARKETING REPORT · D1·D3·D7</div><div class="name">마케팅 보고서</div><span class="go">→</span></a>
+    <a class="t board" href="experiment.html${hash}" style="--bc:#4c8dff"><div class="k">A/B TEST · 실험별 그룹 비교</div><div class="name">A/B 테스트</div><span class="go">→</span></a></div></div>`;
   $('bento').hidden = false; $('brief').hidden = true;
   if (enc) { $('pwform').onsubmit = async ev => { ev.preventDefault();
     try { const p = $('pw').value; const d = await decrypt(enc, p); try { localStorage.setItem(PWKEY, p); } catch (e) {} render(d); } catch (e) { locked(enc, '비밀번호가 맞지 않습니다.'); } }; }
