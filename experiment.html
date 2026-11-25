@@ -150,7 +150,8 @@ function statusText(s) {
   if (s === "no_assign") return "아직 그룹이 정해진 유저가 없습니다 — AppsFlyer ftc_interstitial_assigned 와 BigQuery 둘 다 0명.";
   return "";
 }
-const sigCls = r => r && r.enough && r.p != null && r.p < 0.05 ? "sig" : "";
+// 참고 화면(provisional — BigQuery 전 AppsFlyer assign 만)에서는 유의 강조를 끈다: 1.0.5 배정 유저가 빠진 집단이라 판정에 쓰지 않는다(11-25)
+const sigCls = r => !(E && E.provisional) && r && r.enough && r.p != null && r.p < 0.05 ? "sig" : "";
 
 /* 타일 — 비율(prop_test)과 평균(mean_test)이 같은 모양: {a, b, diff, p, enough, na, nb} */
 function tile(label, desc, r, kind) {
@@ -179,6 +180,7 @@ function render() {
   drawFilters();
   const S = E.sources || {}, C = S.counts || {}, M = E.meta || {};
   const warn = [];
+  if (E.provisional && E.views) warn.push("참고용 — BigQuery 합류 전이라 AppsFlyer assign(새 빌드에서 배정된 유저)만으로 나눴습니다. 1.0.5 로 배정된 유저는 빠져 있고, BigQuery 가 붙으면 같은 설치일의 인원·지표가 바뀝니다. 판정에 쓰지 않으며 유의 강조(굵게)도 끕니다.");
   if (String(E.status).startsWith("bq_failed")) warn.push(`BigQuery 그룹 갱신 실패 — 마지막 성공 ${E.status.split(":")[1] || "없음"}. 그 뒤 1.0.5 배정 유저는 그룹을 모르는 채로 남습니다.${M.bq_error ? " (" + M.bq_error + ")" : ""}`);
   if (S.alert) warn.push(`BigQuery 그룹의 AppsFlyer 매칭률이 A·B 에서 다릅니다 (A ${fmt.pct(S.match.A)} · B ${fmt.pct(S.match.B)} · ${fmt.p(S.match.p)}) — 빠진 유저가 한쪽에 몰렸을 수 있어 결과를 단정하지 않습니다.`);
   const V = E.views && E.views[st.seg] && E.views[st.seg][st.rng];
@@ -201,7 +203,7 @@ function render() {
   $("b1").innerHTML = `<div class="tiles">` + tile("D1 잔존", "설치 다음 날 인앱 이벤트", T.d1, "rate") + tile("D3 잔존", "", T.d3, "rate")
     + tile("D7 잔존", "", T.d7, "rate") + tile("D7 누적 매출/유저", "광고 + IAP×0.7, 설치일~+7", T.rev_d7, "usd")
     + tile("유저당 전면 (D7)", "설치일~+7 전면 노출 수", T.inter_d7, "num") + `</div>`
-    + `<div class="foot muted" style="font-size:11.5px">굵은 차이 = 그룹당 100명 이상이고 p<0.05. 숫자가 굵지 않으면 지금 표본으로는 차이를 판단할 수 없습니다.</div>`;
+    + `<div class="foot muted" style="font-size:11.5px">${E.provisional ? "참고 화면 — 유의 강조를 끈 상태입니다. p 는 참고로만 보입니다." : "굵은 차이 = 그룹당 100명 이상이고 p<0.05. 숫자가 굵지 않으면 지금 표본으로는 차이를 판단할 수 없습니다."}</div>`;
   renderCurves(V); renderLevels(V); renderDays(V);
 }
 
