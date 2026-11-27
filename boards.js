@@ -1,1 +1,1 @@
-﻿window.BOARDS = {"general":"11-26 20:10","ua":"11-26 20:11","kpi":"11-26 20:14","payback":"11-26 20:15","launch":"11-26 20:15","experiment":"11-26 20:16"};
+﻿window.BOARDS = {"general":"11-27 09:40","ua":"11-27 09:41","kpi":"11-27 09:42","payback":"11-27 09:44","launch":"11-27 09:44","experiment":"11-27 09:44"};
