@@ -330,7 +330,7 @@ function useGame(key) {
   if (Q.get("to")) st.to = Q.get("to") > HI ? HI : Q.get("to");
   GX.rememberGame(key);
   GX.hero($("hero"), key, M.game);
-  $("hdoc").textContent = `${PLATS.map(p => OSN[p] || p).join(" · ")} · ${M.media.join(" · ")} · 설치일 ${LO} ~ ${HI} · 게임 이벤트 관측 끝 ${M.obs_ev} · 매출 관측 끝 ${M.obs_rev}`;
+  $("hdoc").textContent = `${PLATS.map(p => OSN[p] || p).join(" · ")} · ${M.media.join(" · ")} · 설치일 ${LO} ~ ${HI} · 게임 이벤트 관측 끝 ${M.obs_ev} · 매출 관측 끝 ${M.obs_rev || "없음"}`;
   $("defs").innerHTML = [
     "기간(설치일) = 위 칩. 모든 표·타일이 그 설치일 범위의 코호트만 합산한다(일반 보드의 코호트 카드와 같은 방식).",
     "ROAS Dk = 설치일 코호트가 설치 당일(D0)부터 k일째까지 낸 매출(IAP 순매출 = af_purchase × 0.7 — 스토어 수수료 30% 제외, .dev. 제외 + 광고 매출 리포트, 배너 포함) ÷ 그 설치일들의 광고비. 매출 관측이 k일째까지 끝난 설치일만 포함. IAP 를 순매출로 센 것은 2026-11-01 부터(AppsFlyer 대시보드와 같은 기준).",

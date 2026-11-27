@@ -145,7 +145,9 @@ const fmt = {
   f: (v, d = 2) => v == null || !isFinite(v) ? "–" : Number(v).toFixed(d),
 };
 const ratio = (a, b) => b ? a / b : null;
-const shift = (d, k) => { const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + k); return t.toISOString().slice(0, 10); };
+// 관측 끝이 빈 값이면(광고 매출 원시 파일이 아직 하나도 없는 막 추가한 게임 — 2026-11-27 cw, obs_rev '') '' 를 돌려준다.
+// 쓰는 곳이 모두 `날짜 <= cut` 이라 '성숙한 설치일 없음' 이 되고 칸은 '–'. 예전엔 Invalid Date 로 toISOString 이 던져 화면이 중간에 멈췄다.
+const shift = (d, k) => { if (!d) return ""; const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + k); return t.toISOString().slice(0, 10); };
 const OSN = {ios: "iOS", aos: "Android"};
 const SRC = {ua: ["ua", "UA 보드 정의"], gen: ["gen", "일반 보드 정의"], new: ["new", "KPI 탭 계산"], ref: ["ref", "참고용"]};
 const src = k => `<span class="src ${SRC[k][0]}">${SRC[k][1]}</span>`;
@@ -588,7 +590,7 @@ function useGame(key, first) {
   GX.rememberGame(key);
   GX.hero($("hero"), key, M.game);
   $("games").querySelectorAll(".gx-game").forEach(b => b.setAttribute("aria-selected", b.dataset.g === key));
-  $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · UA 설치일 ${M.ua_start}~ · 활동 지표 ${M.act_from}~ · 이벤트 관측 끝 ${M.obs_ev} · 매출 관측 끝 ${M.obs_rev}`;
+  $("hdoc").textContent = `${M.plats.map(p => OSN[p] || p).join(" · ")} · UA 설치일 ${M.ua_start}~ · 활동 지표 ${M.act_from}~ · 이벤트 관측 끝 ${M.obs_ev} · 매출 관측 끝 ${M.obs_rev || "없음"}`;
   const ks = kpiState(), n = s => ks.filter(k => k.st && k.st[0] === s).length;
   $("cover").innerHTML = `<span><b>${ks.filter(k => !k.st).length}</b>/ ${ks.length} KPI 를 이 탭에 표시</span>`
     + (n("na") ? `<span><b>${n("na")}</b>이 게임엔 해당 없음</span>` : "")

@@ -1,1 +1,1 @@
-window.LAUNCH_KEYS = ["pc","cd"];
+window.LAUNCH_KEYS = ["pc","cd","cw"];
